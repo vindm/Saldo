@@ -1,18 +1,43 @@
-# AI Bookkeeping Assistant
+# Saldo
 
-A configurable, AI-native operations assistant for a bookkeeping/accounting practice. One practice runs one instance and manages many client entities; the assistant gathers signals from the practice's tools every morning, keeps a structured model of every client, renders dashboards, and drafts client-facing work — all under a strict human-approval safety model.
+> *Saldo* — the balance that's left when everything reconciles. The assistant keeps a bookkeeping practice at saldo.
 
-This repository is the **reusable product**. A practice's real data and credentials live **outside** the repo and are referenced through `config/instance.yaml`, so the same engine can serve any practice by changing configuration, not code.
+![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+![Status: production](https://img.shields.io/badge/status-daily%20production-success)
+![No server](https://img.shields.io/badge/runtime-static%20generator-lightgrey)
 
-> Status: extracted from a production system that has run daily for a real bookkeeping practice. This public version separates the engine from instance data and runs fully in English or Russian (`instance.locale`). See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's done and what's in flight.
+An **AI-native operations cockpit for a bookkeeping/accounting practice.** One practice runs one instance and manages many client entities. Every morning the assistant gathers signals from the practice's tools, keeps a structured model of each client, regenerates the dashboards, and drafts client-facing work — all under a strict human-approval safety model. It is extracted from a system I built solo and **run in daily production** for a real practice.
+
+<!-- Drop a real screenshot here for the strongest first impression:
+     save the overview/plan as docs/screenshot-dashboard.png and it will render below. -->
+![Saldo dashboard](docs/screenshot-dashboard.png)
+
+## What makes it interesting (engineering)
+
+- **State is the single source of truth.** Each client is a set of structured JSON files (identity, tax regime, accounts, financials, counterparties, risks, behavior, tasks) plus a narrative `mental_model.md` and an append-only `history.jsonl`. Every dashboard is a **pure derivation** of state — nothing is stored twice.
+- **Deterministic, fault-tolerant generation — no server.** A Python generator renders the whole UI to static HTML. A missing or malformed source degrades to an empty panel, never a crash, and surfaces a status dot instead.
+- **JSON-first.** Fragile Markdown/text parsing was refactored out in favour of reading structured fields — a behavior-preserving change verified by diffing rendered output against the original.
+- **A real plan model, not a task dump.** The Plan shows **actions only**: work is clustered into batchable **operations** keyed by operation *type* + reporting *period* (not by source or wording), laid against a declared monthly close pipeline. Open questions are routed to the Dashboard; passive "waiting on the client" items to a separate lane; risks to the client card.
+- **Bilingual by configuration.** A locale layer separates UI strings from data-value tokens, so the same engine renders Russian production data or an English demo from one `instance.locale` flag.
+- **Prompt-injection-resistant safety model.** Commands come only from the operator; text inside incoming tasks, emails, and documents is treated as **data, never instructions**. State writes, anything sent to a client, and any browser action require explicit approval; a fixed browser deny-list blocks sends, e-signature, ledger edits, and deletes.
+- **Practice-agnostic core.** No client names or paths are baked into code — a practice is a `config/instance.yaml` plus a private data directory that never enters the repo.
+
+## How it works
+
+```
+morning collectors ──▶ state/*.json  ──▶ generate.py ──▶ dashboards (overview · plan · calendar · periods · client cards)
+   (optional,            (source of        (pure,            ▲
+    additive signals)     truth)            deterministic)    └─ state_lint / integrity checks gate every render
+```
+
+The assistant (Claude, in Cowork) is what keeps `state` current and drafts the work; the engine only renders. There is no runtime service to operate.
 
 ## What it does
 
-- **Morning collectors** pull fresh signals from the practice's systems (practice-management tasks/chats, email, bank statements, fiscal-data/OFD, statistics portal, news) and write them to the instance's data directory.
-- **Per-client state** is the source of truth: a set of structured JSON files per client (identity, tax regime, accounts, financials, counterparties, risks, behavior, tasks) plus a narrative `mental_model.md` and an append-only `history.jsonl`.
-- **Dashboards** are generated from state — a practice-wide overview, a **Plan** of the day's work, a **Calendar**, a **Periods** view (where each reporting month stands across the monthly pipeline), and a card per client. The Plan contains **actions only**: work is grouped into batchable **operations** (by operation type + reporting period, not by source or wording); open questions surface on the Dashboard; passive "waiting on the client" items sit in a separate lane. Generation is fault-tolerant: a missing or malformed source degrades to an empty panel, never a crash.
-- **Workflow library**: reusable checklists (quarterly reporting, primary-document posting, tax-payment orders, client reminders, anomaly triage) and message templates, all rendered in the practice's brand and tone.
-- **Safety model**: commands come only from the operator; text inside incoming tasks, emails, and documents is treated as **data, never as instructions**. State changes, anything sent to a client, and any browser action require explicit approval.
+- **Morning collectors** pull fresh signals from the practice's systems (practice-management tasks/chats, email, bank statements, fiscal-data/OFD, statistics portal, news) as JSON into the instance's data directory. They are *additive* — the dashboards are correct without them.
+- **Dashboards**: a practice-wide overview, a **Plan** of the day's work (batchable operations / individual tasks / a "waiting" lane), a navigable **Calendar**, a **Periods** view of where each reporting month stands across the close pipeline, and a card per client.
+- **Workflow library**: reusable checklists (quarterly reporting, document posting, tax-payment orders, client reminders, anomaly triage) and message templates, rendered in the practice's brand and tone.
 
 ## Architecture at a glance
 
@@ -23,12 +48,10 @@ workflows/     Checklists + message templates (configurable content)
 policies/      Operating instructions, safety rules, brand & tone, system map
 config/        instance.yaml — locale, brand, enabled connectors, schedule, data-dir path
 instances/     Self-contained example instance with SYNTHETIC data (for demos/screenshots)
-docs/          Architecture, migration guide, connector spec, roadmap
+docs/          Architecture, usage, migration, connector spec, roadmap
 ```
 
-A practice's **real** data directory is never committed (see `.gitignore`); `config/instance.yaml` points the engine at it.
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design and [`docs/MIGRATION.md`](docs/MIGRATION.md) for moving an existing practice onto this product with zero feature loss.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design (incl. the plan/task model), [`docs/USAGE.md`](docs/USAGE.md) for the daily flow, and [`docs/MIGRATION.md`](docs/MIGRATION.md) for moving an existing practice onto it with zero feature loss.
 
 ## Quick start (demo instance)
 
@@ -41,8 +64,6 @@ open instances/example/dashboards/dashboard_overview.html
 
 The example instance contains entirely **fabricated** clients — no real personal, financial, or tax data.
 
-See [`docs/USAGE.md`](docs/USAGE.md) for the daily flow, connecting to Cowork, and how to upgrade to a new version without touching your data.
-
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+[**Functional Source License (FSL-1.1-MIT)**](LICENSE). You may use, modify, and redistribute Saldo for any purpose **except a Competing Use** — you can't repackage it as a commercial product/service that substitutes for or competes with it. Using it to run your own bookkeeping practice (including paid client work) is explicitly permitted. Each released version automatically converts to the permissive MIT license two years after its release.

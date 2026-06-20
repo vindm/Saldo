@@ -67,8 +67,8 @@ locale: ru                      # Russian UI + Russian data tokens
 data:
   dir: /Users/<you>/ABA-data    # the migrated data dir (private, outside repo)
 brand:
-  name: "Ирина Винокурова · бухгалтерское сопровождение"
-  monogram: "ИВ"
+  name: "Example Practice"
+  monogram: "EP"
   primary: "#1F4E79"
   accent:  "#B79257"
 connectors: { ... }             # enable later, in Step 4
