@@ -81,10 +81,11 @@ Key engine modules: `generate.py` (orchestrator), `_loaders.py` (state → rende
 
 Fixed 2026-06-20: `.gitignore` now ships the synthetic `instances/example` data (generated `*.html`/`*.bak_*` stay ignored) and ignores `config/instance.yaml`; `docs/ROADMAP.md` reconciled to reality; `policies/INSTRUCTIONS.md` legacy path/schedule references scrubbed to the `instances/<id>/data/` layout.
 
-Still open:
+Still open (re-audited 2026-06-20):
 
-- **README images** (`docs/demo.gif`, `docs/screenshot-*.png`) are present on disk and not ignored, but **untracked** — `git add` and commit them or GitHub shows broken images.
-- Engine working tree has uncommitted changes and a few stray `engine/*.bak_*` files (git-ignored) to clean up before the next commit.
+- **Demo config points at a dead path** — `config/instance.yaml` (git-ignored, local) currently sets `data.dir` to a stale ephemeral session path (`/sessions/.../Saldo-data-clean`). The repo's own demo won't render until `data.dir` is repointed at `../instances/example/data` (as in `instance.example.yaml`). Re-copy the example config on a fresh checkout.
+- **`engine/_LINT.json` is tracked** — it's generated `state_lint.py` output and shouldn't be version-controlled; add it to `.gitignore` and `git rm --cached` it.
+- **README images** (`docs/demo.gif`, `docs/screenshot-*.png`) are tracked but have uncommitted modifications — commit them so GitHub renders the README; otherwise the working tree stays dirty.
 - `policies/roadmap.md` (the internal operational roadmap, distinct from `docs/ROADMAP.md`) still carries the ported client list and collector notes — left as-is.
 
 ## Relationship to the `accountant` repo
