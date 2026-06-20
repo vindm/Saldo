@@ -45,6 +45,24 @@ UI = {
         'Clients': 'Клиенты',
         'How to use': 'Как пользоваться',
 
+        # ── _changelog.py / state-change audit ───────────────────────────
+        'Changelog': 'Изменения',
+        'Field-level log of every change to client state, newest first. '
+        'Shows which fields moved, not their values.':
+            'Пожурнальный лог всех изменений state клиентов, новые сверху. '
+            'Показывает, какие поля менялись, без значений.',
+        'No state changes recorded yet.': 'Изменений state пока нет.',
+        'Week': 'Неделя',
+        'Undated': 'Без даты',
+        'changes': 'изменений',
+        'added': 'добавлено',
+        'removed': 'удалено',
+        'changed': 'изменено',
+        'State changes (7d)': 'Изменения state (7д)',
+        'state changes': 'изменений state',
+        'No state changes this week': 'За неделю изменений state нет',
+        'View all state logs': 'посмотреть все логи',
+
         # ── _overview_shared.py — header & morning digest ─────────────────
         'Mail': 'Почта',
         'Anomalies': 'Аномалии',

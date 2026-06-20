@@ -112,6 +112,89 @@ def _backup(path, ctx):
     return bak
 
 
+# ---------- change audit (journal/state_audit.jsonl) ----------
+# Every state write records WHICH top-level fields changed (not their values),
+# so the operator can review "what moved in the internal state this week" from
+# the dashboard changelog. The audit is best-effort: a failure here must never
+# break or roll back a successful state write.
+
+def _audit_path():
+    return _PLAN_DIR / 'journal' / 'state_audit.jsonl'
+
+
+def _diff_keys(old, new):
+    """Top-level keys added / removed / changed between two state dicts.
+
+    Compares values by canonical JSON so nested dict/list changes are detected.
+    Returns (added, removed, changed) as sorted lists of key names. Robust to
+    non-dict inputs (treats them as {})."""
+    old = old if isinstance(old, dict) else {}
+    new = new if isinstance(new, dict) else {}
+    ok, nk = set(old), set(new)
+    added = sorted(nk - ok)
+    removed = sorted(ok - nk)
+    changed = []
+    for k in sorted(ok & nk):
+        try:
+            a = json.dumps(old[k], sort_keys=True, ensure_ascii=False)
+            b = json.dumps(new[k], sort_keys=True, ensure_ascii=False)
+            same = (a == b)
+        except (TypeError, ValueError):
+            same = (old[k] == new[k])
+        if not same:
+            changed.append(k)
+    return added, removed, changed
+
+
+def audit_read():
+    """Read journal/state_audit.jsonl into a list of dicts (chronological).
+
+    Never raises: missing file -> []; malformed lines skipped. Each record:
+    {ts, client, file, ctx, added[], removed[], changed[], backup}."""
+    p = _audit_path()
+    if not p.exists():
+        return []
+    out = []
+    try:
+        text = p.read_text(encoding='utf-8')
+    except OSError:
+        return []
+    for ln in text.splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            rec = json.loads(ln)
+        except ValueError:
+            continue
+        if isinstance(rec, dict):
+            out.append(rec)
+    return out
+
+
+def _audit_append(client_id, file_name, ctx, added, removed, changed, backup):
+    """Append one change record to journal/state_audit.jsonl. Never raises."""
+    try:
+        if not (added or removed or changed):
+            return  # nothing actually changed -> no noise in the log
+        rec = {
+            'ts': datetime.now().astimezone().isoformat(timespec='seconds'),
+            'client': client_id,
+            'file': file_name,
+            'ctx': ctx,
+            'added': added,
+            'removed': removed,
+            'changed': changed,
+            'backup': backup.name if backup else None,
+        }
+        p = _audit_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + '\n')
+    except Exception:
+        pass  # audit is best-effort; a write must never fail because of it
+
+
 # ---------- state/*.json ----------
 
 def state_read(client_id, file_name):
@@ -131,16 +214,28 @@ def state_write(client_id, file_name, data, ctx='manual'):
     """Atomically write state/<file_name>.
 
     Sequence:
-    1. Backup (if the file exists)
-    2. Serialize -> parse back -> validate correctness
-    3. Atomic write via .tmp + rename
-    4. UTF-8 validation on write
+    1. Read prior version (for the change audit)
+    2. Backup (if the file exists)
+    3. Serialize -> parse back -> validate correctness
+    4. Atomic write via .tmp + rename
+    5. UTF-8 validation on write
+    6. Append a change record to <DATA_DIR>/journal/state_audit.jsonl
 
     Returns: Path to written file.
     Raises: ValueError on invalid JSON or UTF-8 problems.
     """
     p = _state_dir(client_id) / file_name
-    _backup(p, ctx)
+
+    # prior version, for the field-level audit (best-effort; never fatal)
+    old = None
+    if p.exists():
+        try:
+            with open(p, 'r', encoding='utf-8') as f:
+                old = json.load(f)
+        except (ValueError, OSError):
+            old = None
+
+    bak = _backup(p, ctx)
 
     text = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=False)
     # roundtrip validation: what we write is valid JSON
@@ -152,6 +247,9 @@ def state_write(client_id, file_name, data, ctx='manual'):
     with open(tmp, 'wb') as f:
         f.write(payload)
     os.replace(str(tmp), str(p))
+
+    added, removed, changed = _diff_keys(old, data)
+    _audit_append(client_id, file_name, ctx, added, removed, changed, bak)
     return p
 
 
@@ -168,16 +266,28 @@ def mental_model_read(client_id):
 def mental_model_write(client_id, new_content, ctx='manual'):
     """Atomically overwrite mental_model.md.
 
-    Backup + UTF-8 validation + atomic write.
+    Backup + UTF-8 validation + atomic write. Records a change in the audit log
+    when the narrative actually changes (best-effort).
     """
     p = _client_dir(client_id) / 'mental_model.md'
-    _backup(p, ctx)
+
+    old_txt = None
+    if p.exists():
+        try:
+            old_txt = p.read_text(encoding='utf-8')
+        except OSError:
+            old_txt = None
+
+    bak = _backup(p, ctx)
 
     payload = new_content.encode('utf-8')
     tmp = p.with_name(p.name + '.tmp')
     with open(tmp, 'wb') as f:
         f.write(payload)
     os.replace(str(tmp), str(p))
+
+    if old_txt != new_content:
+        _audit_append(client_id, 'mental_model.md', ctx, [], [], ['content'], bak)
     return p
 
 

@@ -312,6 +312,13 @@ if __name__ == '__main__':
         f.write(render_periods())
     print(f"OK: periods \u2192 {per_path}")
 
+    # Changelog \u2014 field-level review of state changes (journal/state_audit.jsonl)
+    from _changelog import render_changelog
+    cl_path = os.path.join(OUT_DIR, "changelog.html")
+    with open(cl_path, 'w', encoding='utf-8') as f:
+        f.write(render_changelog())
+    print(f"OK: changelog \u2192 {cl_path}")
+
     # "How to use" section
     from _guide import render_guide
     g_path = os.path.join(OUT_DIR, "guide.html")

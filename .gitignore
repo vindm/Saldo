@@ -42,6 +42,7 @@ config/instance.yaml
 *.before_rerun_*
 __pycache__/
 *.pyc
+.idea/
 .DS_Store
 .obsidian/
 
@@ -52,3 +53,5 @@ __pycache__/
 *.pdf
 *.zip
 *.doc
+
+engine/_LINT.json

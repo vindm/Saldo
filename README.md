@@ -2,6 +2,7 @@
 
 **An AI-native operating system for a multi-client bookkeeping practice.** You *read* the dashboards to see the state of the whole practice; you *change* everything by talking to an AI assistant in plain language. Behind it, a Python engine deterministically renders that assistant's structured memory into the screens you read — so **`dashboards = render(state)`**, and the assistant's only job is to keep the state correct.
 
+[![Live demo](https://img.shields.io/badge/▶_live_demo-1F4E79)](https://vindm.github.io/Saldo/)
 ![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Status: production](https://img.shields.io/badge/status-daily%20production-success)
@@ -12,6 +13,8 @@
 ![Saldo walkthrough — overview, plan, an expanded operation, a task with its hypothesis, and the prompt hand-off to Cowork](docs/demo.gif)
 
 <sub>From the overview to the Plan, expand a batchable operation to see it fan out across clients, open a task for its hypothesis and history, then hand the generated prompt to Cowork — and back to the updated dashboard. Recorded against a fully **synthetic** example instance (Aurora, Cobalt, Harbor…). No real data.</sub>
+
+**▶ [Click through the live demo](https://vindm.github.io/Saldo/)** — the same synthetic instance, rendered by the engine and published to GitHub Pages.
 
 ## What it is, in one mental model
 

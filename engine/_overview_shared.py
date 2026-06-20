@@ -109,6 +109,30 @@ def render_morning_digest(daemon_news, daemon_mail, daemon_updates):
     if not updates_rows:
         updates_rows = '<div class="muted">' + t('Nothing was updated') + '</div>'
 
+    # Tie the internal state-change log to the updates block: a small link under
+    # it that opens the full Changelog page. Includes a 7-day count when there is
+    # recent activity. Best-effort — never breaks the digest.
+    try:
+        import state_ops
+        import datetime as _dt
+        _recs = state_ops.audit_read()
+        _cut = _dt.datetime.now().astimezone() - _dt.timedelta(days=7)
+
+        def _recent(r):
+            try:
+                return _dt.datetime.fromisoformat(r.get('ts', '')) >= _cut
+            except (TypeError, ValueError):
+                return False
+        _nrecent = len([r for r in _recs if _recent(r)])
+    except Exception:
+        _nrecent = 0
+    _cnt = (' (' + str(_nrecent) + ')') if _nrecent else ''
+    updates_rows += (
+        '<div class="digest-more" style="margin-top:8px;padding-top:6px;'
+        'border-top:1px solid var(--border);font-size:13px">'
+        '<a href="changelog.html">' + t('View all state logs') + _cnt + ' →</a></div>'
+    )
+
     return (
         '<details class="digest" open>'
         '<summary>' + t('Morning digest') + '</summary>'
