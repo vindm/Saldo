@@ -27,6 +27,23 @@ from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _strings import t
 _t = t  # alias: several functions use a local var named `t` (loop/dict comp)
 
+# Internal enum tokens (accounting_system / filing.submission / signature_holder
+# and a few access values) → clean English keys that flow through _t() for ru.
+# Unknown tokens fall back to a humanized snake_case form.
+_ENUM_MAP = {
+    'excel': 'Excel', '1c': '1C', '1c_fresh': '1C Fresh', '1c_cloud': '1C (cloud)',
+    '1c_on_executor_server': '1C on our server',
+    'team_lead_via_finkoper': 'team lead via Finkoper', 'client_lk_fns': 'client via FNS portal',
+    'finkoper': 'Finkoper', 'accountant': 'accountant', 'team_lead': 'team lead', 'client': 'client',
+    'client_provides_export_or_credentials': 'client provides export/credentials',
+}
+
+def _enum_ru(v):
+    v = (str(v) if v is not None else '').strip()
+    if not v:
+        return ''
+    return _t(_ENUM_MAP.get(v, v.replace('_', ' ')))
+
 
 def _md_bold(text):
     """Light markdown: **bold** -> <b>bold</b>. _esc first, then expansion."""
@@ -229,9 +246,9 @@ def render_client_requisites(c):
         row('WhatsApp', wa) +
         row(_t('Bank'), bank) +
         row(_t('BIK'), bik, mono=True) +
-        row(_t('Accounting'), acc_sys) +
-        row(_t('Filing'), submission) +
-        row(_t('Signature'), sig)
+        row(_t('Accounting'), _enum_ru(acc_sys)) +
+        row(_t('Filing'), _enum_ru(submission)) +
+        row(_t('Signature'), _enum_ru(sig))
     )
 
     if not left.strip() and not right.strip():
@@ -330,7 +347,7 @@ def render_client_risks(risks_data, tasks_lookup=None):
         if r.get('category'):
             meta_bits.append(_CATEGORY_RU.get(r['category'], r['category']))
         if r.get('since'):
-            meta_bits.append('since ' + r['since'])
+            meta_bits.append(_t('since') + ' ' + r['since'])
         meta = ' · '.join(meta_bits)
 
         summ_next = ('<span class="risk-next-inline">→ ' + _esc(next_action) + '</span>') if next_action else ''
@@ -377,7 +394,7 @@ def render_client_risks(risks_data, tasks_lookup=None):
 
     foot_bits = []
     if questions:
-        foot_bits.append(str(len(questions)) + (' open question' if len(questions) == 1 else ' open questions'))
+        foot_bits.append(str(len(questions)) + ' ' + (_t('open question') if len(questions) == 1 else _t('open questions')))
     if blockers:
         foot_bits.append(str(len(blockers)) + (' blocker' if len(blockers) == 1 else ' blockers'))
     footer = ''
@@ -388,16 +405,10 @@ def render_client_risks(risks_data, tasks_lookup=None):
     if not cards and not footer:
         return ''
 
-    sev_counts = {'red': 0, 'yellow': 0}
-    for r in real_risks:
-        s = r.get('severity', 'grey')
-        if s in sev_counts:
-            sev_counts[s] += 1
-    counter = ''
-    if sev_counts['red']:
-        counter += ' 🔴' + str(sev_counts['red'])
-    if sev_counts['yellow']:
-        counter += ' 🟡' + str(sev_counts['yellow'])
+    # Plain total count, like the other sections. The old per-severity counter
+    # used red/yellow emoji, which the global sanitizer strips — leaving a
+    # confusing bare "1 2". Severity already shows via each card's coloured edge.
+    counter = str(len(real_risks))
 
     grid = ('<section class="risks-grid">' + ''.join(cards) + '</section>') if cards else ''
     return (
@@ -488,14 +499,14 @@ def render_client_financials(fin, tasks_lookup=None):
             taxes = p.get('taxes') or {}
             tbits = []
             if taxes.get('usn_advance') is not None:
-                tbits.append('USN advance ' + str(taxes['usn_advance']))
+                tbits.append(_t('USN advance') + ' ' + str(taxes['usn_advance']))
             if taxes.get('one_pct_overage'):
                 tbits.append('1%=' + str(taxes['one_pct_overage']))
             if taxes.get('fixed_insurance_paid'):
                 tbits.append('fixed ' + _fmt_money(taxes['fixed_insurance_paid']))
             tax_s = ' · '.join(tbits) if tbits else '—'
             status_raw = p.get('status', '')
-            status_ru = _PERIOD_STATUS_RU.get(status_raw, status_raw)
+            status_ru = _t(_PERIOD_STATUS_RU.get(status_raw, status_raw))
             rows.append(
                 '<tr><td class="fin-period">' + _esc(per) + '</td>'
                 '<td class="fin-income">' + _esc(inc + ' ₽' + est) + '</td>'
@@ -526,7 +537,7 @@ def render_client_financials(fin, tasks_lookup=None):
             else:
                 amt_s = '—'
             st_raw = ev.get('status', '')
-            st_ru = _CAL_STATUS_RU.get(st_raw, st_raw)
+            st_ru = _t(_CAL_STATUS_RU.get(st_raw, st_raw))
             st_class = 'cal-st-' + ('past' if d < today_iso else 'future')
             lt = ev.get('linked_task') or ''
             if lt:
@@ -559,7 +570,7 @@ def render_client_financials(fin, tasks_lookup=None):
         past_block = ''
         if past_rows:
             past_block = (
-                '<details class="cal-past"><summary>Past in 2026 ('
+                '<details class="cal-past"><summary>' + _t('Past in') + ' 2026 ('
                 + str(len(past_rows)) + ')</summary>'
                 '<table class="fin-table fin-cal-table">' + _cal_head
                 + '<tbody>' + ''.join(past_rows) + '</tbody></table></details>'
@@ -590,7 +601,7 @@ def render_client_counterparties(cp_data):
         name = cp.get('name', '')
         inn = cp.get('inn') or '—'
         rel = cp.get('relation_type', '')
-        rel_ru = {
+        rel_ru = _t({
             'b2b_customer_main': 'B2B (main)',
             'b2b_customer': 'B2B',
             'b2b_supplier': 'Supplier',
@@ -598,22 +609,22 @@ def render_client_counterparties(cp_data):
             'payment_aggregator': 'Acquiring',
             'sz_executor': 'Self-employed contractor',
             'self_employed_contractor': 'Self-employed contractor',
-        }.get(rel, rel or '—')
+        }.get(rel, rel or '—'))
         cat = cp.get('category') or ''
-        cat_ru = {
-            'gov_order': '🏛 gov orders',
-            'marketplace': '🛒 marketplace',
-            'rental': '🏠 rental',
+        cat_ru = _t({
+            'gov_order': 'gov orders',
+            'marketplace': 'marketplace',
+            'rental': 'rental',
             'it_consulting': 'IT consulting',
             'labor': 'labor/individual contractors',
             'monthly_recurring': 'monthly',
             'payment_processor': 'payment processing',
             'production_client': 'client (production)',
             'production_executor': 'executor (production)',
-            'rental_aggregator': '🏠 rental (via aggregator)',
-            'rental_tenant': '🏠 tenant',
+            'rental_aggregator': 'rental (via aggregator)',
+            'rental_tenant': 'tenant',
             'subcontractor_ip': 'subcontractor SP',
-        }.get(cat, cat)
+        }.get(cat, cat))
         since = cp.get('since') or ''
         tags = cp.get('tags') or []
         notes = cp.get('notes') or ''
@@ -636,13 +647,13 @@ def render_client_counterparties(cp_data):
         if cat_ru:
             meta_bits.append(cat_ru)
         if since:
-            meta_bits.append('since ' + since)
+            meta_bits.append(_t('since') + ' ' + since)
         meta = ' · '.join(meta_bits)
 
         tags_html = ''
         if tags:
             tags_html = '<div class="cp-tags">' + ''.join(
-                '<span class="cp-tag">' + _esc(t) + '</span>' for t in tags
+                '<span class="cp-tag">' + _esc(str(t).replace('_',' ')) + '</span>' for t in tags
             ) + '</div>'
 
         notes_html = ('<div class="cp-notes">' + _esc(notes) + '</div>') if notes else ''
@@ -650,14 +661,14 @@ def render_client_counterparties(cp_data):
         lq_html = ''
         if linked_q:
             lq_html = (
-                '<div class="cp-linked">❓ open questions: '
+                '<div class="cp-linked">' + _t('open questions:') + ' '
                 + ', '.join('<code>' + _esc(q) + '</code>' for q in linked_q)
                 + '</div>'
             )
         lt_html = ''
         if linked_t:
             lt_html = (
-                '<div class="cp-linked">🎯 tasks: '
+                '<div class="cp-linked">' + _t('tasks:') + ' '
                 + ', '.join('<code>' + _esc(t) + '</code>' for t in linked_t)
                 + '</div>'
             )
@@ -666,7 +677,7 @@ def render_client_counterparties(cp_data):
             '<div class="cp-card">'
             '<div class="cp-name">' + _esc(name) + '</div>'
             '<div class="cp-meta">' + _esc(meta) + '</div>'
-            '<div class="cp-inn">INN: <code>' + _esc(inn) + '</code></div>'
+            '<div class="cp-inn">' + _t('INN:') + ' <code>' + _esc(inn) + '</code></div>'
             + req_html + tags_html + notes_html + lq_html + lt_html
             + '</div>'
         )
@@ -720,10 +731,10 @@ def render_client_accounts(acc):
             closed_at = b.get('closed_at')
             status_label = ''
             if closed_at:
-                status_label = ' <span class="acc-status" style="color:#9ca3af;">closed ' + _esc(str(closed_at)) + '</span>'
+                status_label = ' <span class="acc-status" style="color:#9ca3af;">' + _t('closed') + ' ' + _esc(str(closed_at)) + '</span>'
             elif b.get('bik_change_pending'):
                 _at = b.get('bik_change_at', '')
-                status_label = ' <span class="acc-status" style="color:#dc2626;">⚠ BIK changing ' + _esc(str(_at)) + '</span>'
+                status_label = ' <span class="acc-status" style="color:#dc2626;">' + _t('BIK changing') + ' ' + _esc(str(_at)) + '</span>'
             rows.append(
                 '<div class="acc-row">'
                 + ' · '.join(bits)
@@ -731,7 +742,7 @@ def render_client_accounts(acc):
                 + status_label
                 + '</div>'
             )
-        blocks.append('<div class="acc-block-title">💳 Bank accounts (' + str(len(banks)) + ')</div>' + ''.join(rows))
+        blocks.append('<div class="acc-block-title">' + _t('Bank accounts') + ' (' + str(len(banks)) + ')</div>' + ''.join(rows))
 
     # 🌍 Foreign accounts
     if foreign:
@@ -749,14 +760,14 @@ def render_client_accounts(acc):
                 bits.append('<span class="acc-num">' + _esc(str(curr)) + '</span>')
             if owner:
                 owner_ru = {'ip': 'SP account', 'individual': 'individual account', 'related_entity': 'related entity'}.get(owner, owner)
-                bits.append('<span class="acc-purpose">' + _esc(str(owner_ru)) + '</span>')
+                bits.append('<span class="acc-purpose">' + _esc(_t(str(owner_ru))) + '</span>')
             note = f.get('notes') or ''
             rows.append(
                 '<div class="acc-row">' + ' · '.join(bits)
                 + ('<div class="acc-note">' + _esc(str(note)) + '</div>' if note else '')
                 + '</div>'
             )
-        blocks.append('<div class="acc-block-title">🌍 Foreign accounts (' + str(len(foreign)) + ')</div>' + ''.join(rows))
+        blocks.append('<div class="acc-block-title">' + _t('Foreign accounts') + ' (' + str(len(foreign)) + ')</div>' + ''.join(rows))
 
     # 🧾 Registers and OFD (Aqsi 5 + RNM + pending_corrections if present)
     if kassas:
@@ -775,21 +786,21 @@ def render_client_accounts(acc):
                 bits.append('<span class="acc-purpose">' + _esc(str(purpose)) + '</span>')
             status = k.get('status', '')
             _kkt_status_ru = {
-                'registering': '⚠ registering',
+                'registering': 'registering',
                 'active': 'active',
                 'exists_details_unknown': 'exists, details TBD',
                 'archived': 'archived',
             }
             if status == 'registering':
-                bits.append('<span class="acc-status" style="color:#dc2626;">⚠ registering</span>')
+                bits.append('<span class="acc-status" style="color:#dc2626;">' + _t('registering') + '</span>')
             elif status:
-                bits.append('<span class="acc-status">' + _esc(_kkt_status_ru.get(status, status)) + '</span>')
+                bits.append('<span class="acc-status">' + _esc(_t(_kkt_status_ru.get(status, status))) + '</span>')
             shifts = k.get('shifts_count_period')
             period = k.get('period')
             if shifts is not None and period:
-                bits.append('<span class="acc-purpose">' + str(shifts) + ' shifts ' + _esc(str(period)) + '</span>')
+                bits.append('<span class="acc-purpose">' + str(shifts) + ' ' + _t('shifts') + ' ' + _esc(str(period)) + '</span>')
             if not bits:
-                bits.append('<span class="acc-bank">KKT</span>')
+                bits.append('<span class="acc-bank">' + _t('KKT') + '</span>')
             row = '<div class="acc-row">' + ' · '.join(bits) + '</div>'
             _knote = k.get('notes')
             if _knote:
@@ -808,7 +819,7 @@ def render_client_accounts(acc):
                         + ('<br>↪️ ' + _esc(str(escape)) if escape else '')
                         + '</div>')
             rows.append(row)
-        blocks.append('<div class="acc-block-title">🧾 Registers and OFD (' + str(len(kassas)) + ')</div>' + ''.join(rows))
+        blocks.append('<div class="acc-block-title">' + _t('Registers and OFD') + ' (' + str(len(kassas)) + ')</div>' + ''.join(rows))
 
     # 💳 Acquiring channels (Client A 3 channels, Client B Prodamus+YooKassa)
     if acquiring:
@@ -831,30 +842,30 @@ def render_client_accounts(acc):
                     'payment_gateway': 'payment gateway',
                     'payment_saas': 'payment service',
                 }.get(role, role)
-                bits.append('<span class="acc-purpose">' + _esc(str(_role_ru)) + '</span>')
+                bits.append('<span class="acc-purpose">' + _esc(_t(str(_role_ru))) + '</span>')
             since = a.get('since')
             if since:
-                bits.append('<span class="acc-purpose">since ' + _esc(str(since)) + '</span>')
+                bits.append('<span class="acc-purpose">' + _t('since') + ' ' + _esc(str(since)) + '</span>')
             status = a.get('status', '')
             if status and status != 'active':
                 _astat_ru = {
                     'idle_since_connection': 'idle since connection',
                 }.get(status, status)
-                bits.append('<span class="acc-status">' + _esc(str(_astat_ru)) + '</span>')
+                bits.append('<span class="acc-status">' + _esc(_t(str(_astat_ru))) + '</span>')
             _purpose = a.get('purpose')
             if _purpose:
                 bits.append('<span class="acc-purpose">' + _esc(str(_purpose)) + '</span>')
             if a.get('confirmed') is False:
-                bits.append('<span class="acc-status">not confirmed</span>')
+                bits.append('<span class="acc-status">' + _t('not confirmed') + '</span>')
             if not bits:
-                bits.append('<span class="acc-bank">Acquiring</span>')
+                bits.append('<span class="acc-bank">' + _t('Acquiring') + '</span>')
             _arow = '<div class="acc-row">' + ' · '.join(bits) + '</div>'
             _anote = a.get('notes')
             if _anote:
                 _arow += ('<div class="acc-note" style="color:var(--text-muted);'
                           'font-size:13px;margin-top:2px;">' + _esc(str(_anote)) + '</div>')
             rows.append(_arow)
-        blocks.append('<div class="acc-block-title">💳 Acquiring channels (' + str(len(acquiring)) + ')</div>' + ''.join(rows))
+        blocks.append('<div class="acc-block-title">' + _t('Acquiring channels') + ' (' + str(len(acquiring)) + ')</div>' + ''.join(rows))
 
     # 🔑 Online banking access
     if bacc.get('primary_bank') or bacc.get('access_level') or bacc.get('note'):
@@ -864,13 +875,13 @@ def render_client_accounts(acc):
         level = bacc.get('access_level')
         level_ru = {'none': 'no access', 'view_only': 'view only', 'full': 'full', 'via_partner': 'via partner'}.get(level, level)
         if level_ru:
-            bits.append('<span class="acc-purpose">' + _esc(str(level_ru)) + '</span>')
+            bits.append('<span class="acc-purpose">' + _esc(_t(str(level_ru))) + '</span>')
         if bacc.get('is_ausn_partner'):
-            bits.append('<span class="acc-purpose" style="color:#059669;">🤝 AUSN partner</span>')
+            bits.append('<span class="acc-purpose" style="color:#059669;">' + _t('AUSN partner') + '</span>')
         head_row = '<div class="acc-row">' + (' · '.join(bits) if bits else '') + '</div>' if bits else ''
         note = bacc.get('note') or ''
         note_html = ('<div class="acc-note">ℹ️ ' + _esc(str(note)) + '</div>') if note else ''
-        blocks.append('<div class="acc-block-title">🔑 Online banking access</div>' + head_row + note_html)
+        blocks.append('<div class="acc-block-title">' + _t('Online banking access') + '</div>' + head_row + note_html)
 
     return (
         '<div class="section-title"><h2>' + _t('🏦 Accounts and registers') + '</h2></div>'
@@ -950,7 +961,7 @@ def render_client_real_estate(re_data):
         legal_html = '<div class="acc-note" style="font-size:11px;color:#6b7280;margin-top:6px;">📜 Marriage contract dated ' + _esc(str(legal_basis['marriage_contract_at'])) + '</div>'
 
     return (
-        '<div class="section-title"><h2>' + _t('🏠 Real estate') + title_extra + '</h2></div>'
+        '<div class="section-title"><h2>' + _t('Real estate') + title_extra + '</h2></div>'
         '<section class="acc-section">'
         + ''.join(rows)
         + legal_html
@@ -1027,7 +1038,7 @@ def render_client_behavior(beh):
     }
 
     def _ru(d, v):
-        return d.get(v, v) if v else v
+        return _t(d.get(v, v)) if v else v
 
     blocks = []
 
@@ -1074,9 +1085,9 @@ def render_client_behavior(beh):
     if likes or dislikes:
         pref_bits = []
         if likes:
-            pref_bits.append('<div class="beh-likes">👍 likes: ' + _esc(', '.join(likes)) + '</div>')
+            pref_bits.append('<div class="beh-likes">' + _t('likes:') + ' ' + _esc(', '.join(likes)) + '</div>')
         if dislikes:
-            pref_bits.append('<div class="beh-dislikes">👎 dislikes: ' + _esc(', '.join(dislikes)) + '</div>')
+            pref_bits.append('<div class="beh-dislikes">' + _t('dislikes:') + ' ' + _esc(', '.join(dislikes)) + '</div>')
         if asks:
             pref_bits.append('<div class="beh-asks">💭 ' + _esc(asks) + '</div>')
         blocks.append('<div class="beh-prefs">' + ''.join(pref_bits) + '</div>')
@@ -1347,7 +1358,8 @@ QUICK_ACCESS_CSS = """
 .qa-tile{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:14px;}
 .qa-tile.qa-off{opacity:.5;}
 .qa-head{display:flex;align-items:center;gap:10px;}
-.qa-ic{width:34px;height:34px;border-radius:8px;background:#eef3fb;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.qa-ic{width:34px;height:34px;border-radius:8px;background:#eef3fb;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1F4E79;}
+.qa-ic .ic{width:18px;height:18px;}
 .qa-tt{line-height:1.25;min-width:0;}
 .qa-name{font-size:14px;font-weight:600;color:#1F4E79;}
 .qa-go{margin-left:auto;text-decoration:none;font-size:13px;border:1px solid #cdd3db;border-radius:8px;padding:6px 11px;color:#1F4E79;white-space:nowrap;}
@@ -1387,10 +1399,16 @@ QUICK_ACCESS_JS = """
 </script>
 """
 
-_QA_ICONS = {'prodamus':'💳','cloudpayments':'💳','ukassa':'💳','bank':'🏦','fns':'🏛','ofd':'🧾','finkoper':'🗂','onec':'🧮','assistant':'👤','mail':'✉️','tg':'💬'}
+# Service → semantic icon name (rendered as a line SVG; emoji would be stripped
+# by the global sanitizer, leaving empty boxes).
+_QA_ICONS = {'prodamus':'acquiring','cloudpayments':'acquiring','ukassa':'acquiring',
+             'bank':'bank_check','fns':'building','ofd':'kkt_check',
+             'finkoper':'primary_collection','onec':'posting_1c',
+             'assistant':'chat','mail':'email_action_required','tg':'chat'}
 
 def render_client_quick_access(acc):
-    """🔗 Quick access — links/logins/passwords to client services from accounts.quick_access[]."""
+    """Quick access — links/logins/passwords to client services from accounts.quick_access[]."""
+    from _icons import icon
     if not acc:
         return ''
     items = acc.get('quick_access') or []
@@ -1400,7 +1418,7 @@ def render_client_quick_access(acc):
     for it in items:
         label = it.get('label') or it.get('service') or _t('Service')
         disabled = it.get('status') == 'disabled'
-        ic = _QA_ICONS.get(it.get('service'), '🔗')
+        ic = icon(_QA_ICONS.get(it.get('service'), 'arrow'))
         url = it.get('url')
         go = ''
         if url and not disabled:

@@ -9,9 +9,9 @@
 
 An **AI-native operations cockpit for a bookkeeping/accounting practice.** One practice runs one instance and manages many client entities. Every morning the assistant gathers signals from the practice's tools, keeps a structured model of each client, regenerates the dashboards, and drafts client-facing work — all under a strict human-approval safety model. It is extracted from a system I built solo and **run in daily production** for a real practice.
 
-<!-- Drop a real screenshot here for the strongest first impression:
-     save the overview/plan as docs/screenshot-dashboard.png and it will render below. -->
-![Saldo dashboard](docs/screenshot-dashboard.png)
+![Saldo — dashboard, plan, periods, client card](docs/demo.gif)
+
+<sub>Dashboard → batchable operations on the plan → a task with its history and the assistant's hypothesis → the monthly-close pipeline by period → a client card. Rendered from a fully synthetic example instance.</sub>
 
 ## What makes it interesting (engineering)
 

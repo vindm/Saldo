@@ -18,6 +18,7 @@ from _brand_assets import LOGO_DATA_URI
 from _config import BRAND_NAME, BRAND_TAGLINE, BRAND_MONOGRAM
 from _helpers import dynamic_groups, clients_in_group, _slugify_group, _group_label
 from _strings import t
+from _icons import icon, ICON_SPRITE, ICON_CSS
 
 SIDEBAR_CSS = (
     ".layout-shell{display:grid;grid-template-columns:210px 1fr;gap:var(--space-md);"
@@ -29,10 +30,10 @@ SIDEBAR_CSS = (
     "max-height:calc(100vh - 2*var(--space-md));overflow-y:auto}"
     ".sb-logo{display:flex;flex-direction:column;align-items:center;text-align:center;"
     "gap:7px;padding:2px var(--space-sm) var(--space-md);"
-    "border-bottom:2px solid #B79257;margin-bottom:var(--space-sm)}"
+    "border-bottom:1px solid var(--border);margin-bottom:var(--space-sm)}"
     ".sb-logo-img{width:64px;height:64px;border-radius:50%;display:block;"
     "box-shadow:0 1px 4px rgba(31,78,121,0.25)}"
-    ".sb-logo-txt{display:flex;flex-direction:column;line-height:1.18}"
+    ".sb-logo-txt{display:flex;flex-direction:column;line-height:1.18;gap:5px}"
     ".sb-logo-txt b{font-size:14px;font-weight:700;color:#1F4E79;letter-spacing:.01em}"
     ".sb-logo-txt span{font-size:11px;color:var(--text-secondary);"
     "text-transform:uppercase;letter-spacing:.05em}"
@@ -54,11 +55,12 @@ SIDEBAR_CSS = (
     ".sb-item.active .count{background:var(--bg-card)}"
     ".sb-item .count.alert{color:var(--accent-red);font-weight:600}"
     ".sb-divider{height:1px;background:var(--border);margin:var(--space-sm) 4px}"
-    ".sb-footer{font-size:15px;color:var(--text-muted);padding:var(--space-sm);"
-    "border-top:1px solid var(--border);margin-top:var(--space-sm);text-align:center}"
+    ".sb-footer{font-size:12px;color:var(--text-muted);padding:var(--space-sm);"
+    "border-top:1px solid var(--border);margin-top:var(--space-sm);text-align:center;letter-spacing:.02em}"
     ".main-content{min-width:0}"
     ".sb-item.sb-clients{border-left:3px solid #7F77DD}"
 )
+SIDEBAR_CSS = SIDEBAR_CSS + ICON_CSS
 
 
 def _sb_item(href, label, key, active, icon='', sub=False, count=None, alert=False,
@@ -80,7 +82,7 @@ def _sb_item(href, label, key, active, icon='', sub=False, count=None, alert=Fal
 
 # Icon assigned to client-group items, cycled by first-seen order so distinct
 # groups read differently. Purely cosmetic — not tied to any specific name.
-_GROUP_ICONS = ['👥', '🏢', '🗂️', '📁', '🧾', '📌']
+_GROUP_ICONS = ['users', 'building', 'folder', 'users', 'building', 'folder']
 
 
 def _client_group_items(active):
@@ -92,10 +94,10 @@ def _client_group_items(active):
         slug = _slugify_group(g)
         key = 'clients_' + slug
         count = len(clients_in_group(clients, g))
-        icon = _GROUP_ICONS[i % len(_GROUP_ICONS)]
+        ic_name = _GROUP_ICONS[i % len(_GROUP_ICONS)]
         items.append(_sb_item(
             'clients_' + slug + '.html', _group_label(g), key, active,
-            icon=icon, count=count, clients_item=True,
+            icon=icon(ic_name), count=count, clients_item=True,
         ))
     return items
 
@@ -116,23 +118,24 @@ def render_sidebar(active='dashboard', counts=None):
     plan_week_count = counts.get('plan_week')
 
     parts = [
+        ICON_SPRITE,
         '<aside class="sb">',
         '<div class="sb-logo"><img class="sb-logo-img" src="' + LOGO_DATA_URI + '" alt="' + BRAND_MONOGRAM + '">'
         '<div class="sb-logo-txt"><b>' + BRAND_NAME + '</b>'
         '<span>' + BRAND_TAGLINE + '</span></div></div>',
-        _sb_item('dashboard_overview.html', t('Dashboard'), 'dashboard', active, icon='🏠'),
+        _sb_item('dashboard_overview.html', t('Dashboard'), 'dashboard', active, icon=icon('home')),
         _sb_item('plan_today.html', t('Plan'), 'plan_today', active,
-                 icon='🔥', count=plan_today_count, alert=True),
-        _sb_item('calendar.html', t('Calendar'), 'calendar', active, icon='📆'),
-        _sb_item('periods.html', t('Periods'), 'periods', active, icon='🗓'),
+                 icon=icon('plan'), count=plan_today_count, alert=True),
+        _sb_item('calendar.html', t('Calendar'), 'calendar', active, icon=icon('calendar')),
+        _sb_item('periods.html', t('Periods'), 'periods', active, icon=icon('periods')),
         '<div class="sb-divider"></div>',
         '<div class="sb-group">' + t('Clients') + '</div>',
     ]
     parts.extend(_client_group_items(active))
     parts.extend([
         '<div class="sb-divider"></div>',
-        _sb_item('guide.html', t('How to use'), 'guide', active, icon='📖'),
-        '<div class="sb-footer">' + BRAND_NAME + '<br>v0.1</div>',
+        _sb_item('guide.html', t('How to use'), 'guide', active, icon=icon('guide')),
+        '<div class="sb-footer">by Ask Why Not</div>',
         '</aside>',
     ])
     return ''.join(parts)

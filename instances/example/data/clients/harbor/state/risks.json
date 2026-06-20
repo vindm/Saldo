@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "client_id": "harbor",
+  "last_updated": "2026-05-31T00:00:00+00:00",
+  "risks": [
+    {
+      "id": "R-harbor-margin",
+      "title": "Thin margin on the income-expense regime",
+      "severity": "yellow",
+      "category": "financial",
+      "description": "Expenses run close to income; verify deductible expense documents each month.",
+      "next_action": "Tighten primary-document collection for expenses.",
+      "linked_tasks": [],
+      "linked_law": null,
+      "since": "2026-05-26",
+      "history": [],
+      "kind": "risk"
+    }
+  ],
+  "resolved_risks": []
+}

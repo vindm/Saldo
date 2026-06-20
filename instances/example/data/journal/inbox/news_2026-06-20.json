@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "severity": "high",
+      "title": "Simplified-regime advance deadline confirmed for July 28",
+      "source": "Tax Daily",
+      "body": "The quarterly advance date is fixed; no extensions announced.",
+      "url": "https://example.com/news/usn-advance"
+    },
+    {
+      "severity": "medium",
+      "title": "New e-invoicing format mandatory in Q4",
+      "source": "Accounting Weekly",
+      "body": "Update billing software before October.",
+      "url": "https://example.com/news/einvoice"
+    },
+    {
+      "severity": "low",
+      "title": "Bank API maintenance window next weekend",
+      "source": "Bank Status",
+      "body": "Statement export may be delayed.",
+      "url": "https://example.com/news/bank-maintenance"
+    }
+  ]
+}

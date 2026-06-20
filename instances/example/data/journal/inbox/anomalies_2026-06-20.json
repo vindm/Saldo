@@ -1,0 +1,37 @@
+{
+  "items": [
+    {
+      "client": "SP Aurora Bakery",
+      "severity": "high",
+      "title": "June advance looks underpaid",
+      "description": "Calculated advance is 19,000 but only 12,000 was transferred on the statement.",
+      "context": "Compared bank outflow against the period tax calendar.",
+      "source": "bank_statement",
+      "suggested_action": "Confirm the shortfall and top up before the deadline.",
+      "anomaly_id": "anom-aurora-001",
+      "lifecycle": "open"
+    },
+    {
+      "client": "SP Northwind Studio",
+      "severity": "medium",
+      "title": "New counterparty without a contract on file",
+      "description": "Two incoming payments from a new buyer but no contract attached.",
+      "context": "Detected during reconciliation of the latest statement.",
+      "source": "reconciliation",
+      "suggested_action": "Request the contract and primary documents.",
+      "anomaly_id": "anom-northwind-002",
+      "lifecycle": "open"
+    },
+    {
+      "client": null,
+      "severity": "medium",
+      "title": "FNS portal maintenance this weekend",
+      "description": "Filing portal unavailable Saturday night; plan submissions earlier.",
+      "context": "Systemic, affects all clients.",
+      "source": "news_feed",
+      "suggested_action": "Submit pending declarations before Friday EOD.",
+      "anomaly_id": "anom-sys-003",
+      "lifecycle": "open"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ Buttons on each task: "💬 Discuss" (a prompt into the chat) and "🎤 Dictate"
 """
 import json
 import os
+import re
 
 from generate import (
     clients, TODAY,
@@ -20,7 +21,7 @@ from _overview_shared import render_header
 from _sidebar import render_sidebar, SIDEBAR_CSS
 from _dictate import DICTATE_CSS, DICTATE_MODAL_HTML, DICTATE_JS
 from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
-from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS
+from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS, render_mode_switch
 from _aggregator import aggregate_tasks
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _assistant_brief import render_assistant_rec_card, ASSISTANT_BRIEF_CSS
@@ -50,24 +51,44 @@ def _format_due(t):
     return f'<span class="due-plan">{dl}d</span>'
 
 
-def _pill_for(t):
-    """Pill by the task's track/scenario."""
+def _track_meta(t):
+    """(label, kind) for the quiet regime/group token. kind: direct/team/ausn/sys."""
     track = t.get('track')
     if not track:
-        return '<span class="pill pill-sys">' + _t('general') + '</span>'
+        return (_t('general'), 'sys')
     if track == 'team':
-        return '<span class="pill pill-team">' + _t('team') + '</span>'
-    # direct — get the scenario from the client
+        return (_t('team'), 'team')
     cid = t.get('client_id')
     if cid:
         for c in clients:
             if c['id'] == cid:
                 scn = c.get('scenario') or ''
                 if scn == 'F':
-                    return '<span class="pill pill-ausn">' + _t('AUSN') + '</span>'
+                    return (_t('AUSN'), 'ausn')
                 if scn:
-                    return f'<span class="pill pill-direct">{_esc(SCENARIO_RU.get(scn, scn))}</span>'
-    return '<span class="pill pill-direct">' + _t('direct') + '</span>'
+                    return (_esc(SCENARIO_RU.get(scn, scn)), 'direct')
+    return (_t('direct'), 'direct')
+
+
+def _pill_for(t):
+    """Filled pill — used in non-plan views (clients list, legend)."""
+    label, kind = _track_meta(t)
+    return f'<span class="pill pill-{kind}">{label}</span>'
+
+
+def _client_initials(name):
+    """Up to two initials for the client avatar (drops an 'SP '/'ИП ' prefix)."""
+    n = (name or '').strip()
+    for p in ('SP ', 'ИП '):
+        if n.startswith(p):
+            n = n[len(p):]
+            break
+    words = [w for w in re.split(r'\s+', n) if w]
+    if not words:
+        return '—'
+    if len(words) == 1:
+        return words[0][:2].upper()
+    return (words[0][0] + words[1][0]).upper()
 
 
 SOURCE_LABEL = {
@@ -158,18 +179,38 @@ def _render_task_row(t, mm_index=None):
 
     next_inline_html = ''
     if next_text and t.get('group') == 'hot':
-        next_inline_html = ('<div class="task-next-inline">→ '
+        next_inline_html = ('<div class="task-next-inline">'
             + _esc(_translate_tech_terms(next_text[:80])) + '</div>')
+
+    reg_label, reg_kind = _track_meta(t)
+    avatar = _client_initials(client_name)
+    # Deterministic per-client avatar colour (so different clients are visually
+    # distinguishable in the list, not all the same grey/reg-type tint).
+    _av_pal = [
+        '#E6F1FB:#185FA5', '#FBE9E6:#A53A18', '#EAF3DE:#3B5E2A', '#F3E6FB:#6B2AA5',
+        '#FBF3D9:#8A6730', '#E0F3F1:#1A6E64', '#FBE6F0:#A52A6B', '#EDEBFE:#534AB7',
+        '#F0EBE3:#6B5A3A', '#E6F7FB:#176B85', '#F1F0DC:#5F6B1A', '#FBEAD9:#A55A18',
+    ]
+    _ci = (sum(ord(ch) for ch in (client_name or 'x')) * 31 + len(client_name or '')) % len(_av_pal)
+    _av_bg, _av_fg = _av_pal[_ci].split(':')
+    av_style = ' style="background:' + _av_bg + ';color:' + _av_fg + '"'
+    sub_html = (
+        '<div class="task-sub">'
+        '<span class="task-client">' + _esc(client_name) + '</span>'
+        '<span class="task-reg task-reg-' + reg_kind + '">' + reg_label + '</span>'
+        '</div>'
+    )
 
     return (
         '<div class="task-item track-card-clickable"' + data_attrs + '>'
         '<div class="task-row">'
+        '<div class="task-avatar"' + av_style + '>' + _esc(avatar) + '</div>'
         '<div class="task-body">'
-        '<span class="task-client">' + _esc(client_name) + '</span>'
-        '<span class="task-what">' + what + '</span>'
+        '<div class="task-what">' + what + '</div>'
+        + sub_html
         + next_inline_html +
         '</div>'
-        '<div class="task-meta">' + pill_html + due_html + '</div>'
+        '<div class="task-meta">' + due_html + '</div>'
         '<div class="task-actions">' + dashboard_link + '</div>'
         '</div>'
         '</div>'
@@ -236,12 +277,24 @@ def render_plan_today():
         groups['all'], lambda t: _render_task_row(t, mm_index), _esc
     )
 
-    _hc = horizon_counts(groups['all'])
+    # Live counts for the All/Team/Direct switcher (was hardcoded 15/6/9).
+    _ms_all = len(groups['all'])
+    _ms_team = sum(1 for x in groups['all'] if _track_type_for(x.get('client_id')) == 'team')
+    _ms_direct = sum(1 for x in groups['all'] if _track_type_for(x.get('client_id')) == 'direct')
+    mode_switch_html = render_mode_switch(_ms_all, _ms_team, _ms_direct)
+
+    # Honest buckets that match what the page actually shows. The old
+    # near/planned/backlog split leaked a "backlog" count that mapped to no
+    # visible section (dateless sub-tasks get absorbed into their operation
+    # waves; far-future items render in the list with their dates). We now show
+    # only what the reader can point at: total, the next-7-days slice, and "the
+    # rest" (everything dated later + the Waiting lane).
+    _near = horizon_counts(groups['all'])['near']
+    _rest = n_total - _near
     summary = (
-        t('{} tasks').format(n_total) + ' · '
-        + (f'<span class="sm sm-red">' + t('{} in the next 7 days').format(_hc["near"]) + '</span> · ' if _hc["near"] else '')
-        + '<span class="sm">' + t('{} planned').format(_hc["soon"]) + '</span> · '
-        + '<span class="sm">' + t('{} in backlog').format(_hc["backlog"]) + '</span>'
+        t('{} tasks').format(n_total)
+        + ((' · <span class="sm sm-red">' + t('{} in the next 7 days').format(_near) + '</span>') if _near else '')
+        + ((' · <span class="sm">' + t('{} later').format(_rest) + '</span>') if _rest else '')
     )
 
     extra_css = (
@@ -270,13 +323,27 @@ def render_plan_today():
         'transition:background var(--transition)}'
         '.task-item:last-child{border-bottom:none}'
         '.task-item:hover{background:var(--bg-page)}'
-        '.task-row{display:grid;grid-template-columns:1fr auto auto;gap:var(--space-md);'
-        'align-items:center;padding:12px var(--space-md);font-size:16px;line-height:1.5}'
+        '.task-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:11px;'
+        'align-items:center;padding:9px 14px}'
+        '.task-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;'
+        'display:flex;align-items:center;justify-content:center;font-size:12px;'
+        'font-weight:600;background:var(--bg-page);color:var(--text-muted)}'
+        '.task-avatar.task-reg-direct{background:#E6F1FB;color:#185FA5}'
+        '.task-avatar.task-reg-ausn{background:#FAEEDA;color:#854F0B}'
+        '.task-avatar.task-reg-team{background:#F1EFE8;color:#5F5E5A}'
+        '.task-avatar.task-reg-sys{background:#EEEDFE;color:#534AB7}'
         '.task-body{min-width:0;overflow:hidden}'
-        '.task-client{font-size:14px;color:var(--text-secondary);margin-right:8px;'
-        'white-space:nowrap;font-weight:500}'
-        '.task-what{color:var(--text-primary);font-size:16px;line-height:1.5}'
-        '.task-meta{display:flex;gap:8px;align-items:center;font-size:14px;flex-shrink:0}'
+        '.task-what{color:var(--text-primary);font-size:15px;font-weight:600;'
+        'line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+        '.task-sub{display:flex;align-items:baseline;gap:6px;margin-top:1px;min-width:0}'
+        '.task-client{font-size:12.5px;color:var(--text-muted);white-space:nowrap;'
+        'overflow:hidden;text-overflow:ellipsis}'
+        '.task-reg{font-size:11.5px;color:#8a8980;white-space:nowrap;flex-shrink:0}'
+        '.task-reg::before{content:"\\00b7 ";color:#c4c2ba}'
+        '.task-next-inline{font-size:12.5px;color:var(--text-muted);margin-top:2px;'
+        'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+        '.task-meta{display:flex;gap:8px;align-items:center;font-size:13px;'
+        'flex-shrink:0;font-weight:500}'
         '.pill{font-size:15px;padding:2px 8px;border-radius:10px;font-weight:600;'
         'border:1px solid transparent;white-space:nowrap;letter-spacing:.02em}'
         '.pill-team{background:var(--bg-page);color:var(--text-secondary);'
@@ -288,12 +355,14 @@ def render_plan_today():
         '.due-today{color:var(--accent-red);font-weight:600}'
         '.due-soon{color:#B8893A;font-weight:500}'
         '.due-plan{color:var(--text-secondary)}'
-        '.task-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}'
+        '.task-actions{display:flex;gap:4px;align-items:center;flex-shrink:0;'
+        'opacity:0;transition:opacity var(--transition)}'
+        '.task-item:hover .task-actions{opacity:1}'
         '.task-go{display:inline-flex;align-items:center;justify-content:center;'
-        'width:32px;height:32px;font-size:16px;border:1px solid var(--border);'
-        'border-radius:var(--radius-btn);text-decoration:none;color:var(--accent-blue);'
-        'background:var(--bg-page)}'
-        '.task-go:hover{border-color:var(--accent-blue);background:var(--bg-card)}'
+        'width:28px;height:28px;font-size:15px;border:1px solid var(--border);'
+        'border-radius:var(--radius-btn);text-decoration:none;color:var(--text-muted);'
+        'background:var(--bg-card)}'
+        '.task-go:hover{border-color:var(--accent-blue);color:var(--accent-blue)}'
         '.group-more-details{border-top:1px dashed var(--border)}'
         '.group-more-details summary{padding:10px var(--space-md);cursor:pointer;'
         'font-size:15px;color:var(--accent-blue);background:var(--bg-page);'
@@ -319,10 +388,8 @@ def render_plan_today():
         )
         + '<main class="main-content">'
         + head
-        + assistant_card
-        + '<h1 class="page-title">' + t('Plan — Today') + '</h1>'
         + '<div class="plan-summary">' + summary + '</div>'
-        + MODE_SWITCH_HTML
+        + mode_switch_html
         + blocks_html
         + '</main></div>'
                 + PROMPT_MODAL_HTML + DICTATE_MODAL_HTML + TRACK_MODAL_HTML
@@ -352,12 +419,26 @@ PLAN_BLOCK_CSS = (
     '.task-item{border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--transition)}'
     '.task-item:last-child{border-bottom:none}'
     '.task-item:hover{background:var(--bg-page)}'
-    '.task-row{display:grid;grid-template-columns:1fr auto auto;gap:var(--space-md);'
-    'align-items:center;padding:11px var(--space-md);font-size:15px;line-height:1.5}'
+    '.task-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:11px;'
+    'align-items:center;padding:9px 14px}'
+    '.task-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;'
+    'display:flex;align-items:center;justify-content:center;font-size:12px;'
+    'font-weight:600;background:var(--bg-page);color:var(--text-muted)}'
+    '.task-avatar.task-reg-direct{background:#E6F1FB;color:#185FA5}'
+    '.task-avatar.task-reg-ausn{background:#FAEEDA;color:#854F0B}'
+    '.task-avatar.task-reg-team{background:#F1EFE8;color:#5F5E5A}'
+    '.task-avatar.task-reg-sys{background:#EEEDFE;color:#534AB7}'
     '.task-body{min-width:0;overflow:hidden}'
-    '.task-client{font-size:13px;color:var(--text-secondary);margin-right:8px;white-space:nowrap;font-weight:500}'
-    '.task-what{color:var(--text-primary);font-size:15px;line-height:1.5}'
-    '.task-meta{display:flex;gap:8px;align-items:center;font-size:14px;flex-shrink:0}'
+    '.task-what{color:var(--text-primary);font-size:15px;font-weight:600;'
+    'line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    '.task-sub{display:flex;align-items:baseline;gap:6px;margin-top:1px;min-width:0}'
+    '.task-client{font-size:12.5px;color:var(--text-muted);white-space:nowrap;'
+    'overflow:hidden;text-overflow:ellipsis}'
+    '.task-reg{font-size:11.5px;color:#8a8980;white-space:nowrap;flex-shrink:0}'
+    '.task-reg::before{content:"\\00b7 ";color:#c4c2ba}'
+    '.task-next-inline{font-size:12.5px;color:var(--text-muted);margin-top:2px;'
+    'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    '.task-meta{display:flex;gap:8px;align-items:center;font-size:13px;flex-shrink:0;font-weight:500}'
     '.pill{font-size:14px;padding:2px 8px;border-radius:10px;font-weight:600;border:1px solid transparent;white-space:nowrap}'
     '.pill-team{background:var(--bg-page);color:var(--text-secondary);border-color:var(--border)}'
     '.pill-direct{background:#E6F1FB;color:#0C447C;border-color:#B5D4F4}'
@@ -366,10 +447,13 @@ PLAN_BLOCK_CSS = (
     '.due-overdue,.due-today{color:var(--accent-red);font-weight:600}'
     '.due-soon{color:#B8893A;font-weight:500}'
     '.due-plan{color:var(--text-secondary)}'
-    '.task-actions{display:flex;gap:4px;align-items:center;flex-shrink:0}'
-    '.task-go{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;'
+    '.task-actions{display:flex;gap:4px;align-items:center;flex-shrink:0;'
+    'opacity:0;transition:opacity var(--transition)}'
+    '.task-item:hover .task-actions{opacity:1}'
+    '.task-go{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;'
     'font-size:15px;border:1px solid var(--border);border-radius:var(--radius-btn);'
-    'text-decoration:none;color:var(--accent-blue);background:var(--bg-page)}'
+    'text-decoration:none;color:var(--text-muted);background:var(--bg-card)}'
+    '.task-go:hover{border-color:var(--accent-blue);color:var(--accent-blue)}'
 )
 
 
@@ -389,4 +473,6 @@ def render_client_plan(client_id, today=None):
     html = render_waves_flat(ctasks, lambda x: _render_task_row(x, mm_index), _esc)
     if not html:
         return ''
-    return '<style>' + PLAN_BLOCK_CSS + WAVES_CSS + '</style>' + html + '<script>' + WAVES_JS + '</script>'
+    # WAVES_JS already carries its own <script>…</script> tags — don't double-wrap
+    # (nested <script> tags break the handler, so client-card waves wouldn't toggle).
+    return '<style>' + PLAN_BLOCK_CSS + WAVES_CSS + '</style>' + html + WAVES_JS

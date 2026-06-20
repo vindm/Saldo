@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "category": "applied",
+      "label": "tax_rates",
+      "title": "USN regional rate table",
+      "body": "Refreshed the 2026 regional reduced-rate table; applied automatically."
+    },
+    {
+      "category": "needs_manual",
+      "label": "okved",
+      "title": "Secondary activity code",
+      "body": "A workshop activity code is suggested for SP Meridian Crafts — needs a human decision."
+    }
+  ]
+}

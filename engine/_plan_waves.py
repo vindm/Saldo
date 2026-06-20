@@ -17,6 +17,7 @@ derived from state, no writes.
 import re
 
 from _strings import t
+from _icons import icon
 
 _QUOTES = '«»"„“”\''
 
@@ -106,6 +107,10 @@ HORIZONS = [
 # Aliases for synonymous task_type -> canonical.
 _OP_ALIAS = {
     'regulatory_monitoring': 'regulatory_watch',
+    # "AUSN operation markup in the bank portal" is one operation regardless of
+    # which bank's portal — merge the bank-marking variant into the markup review
+    # so the two clients batch into a single "AUSN markup" wave (not two).
+    'ausn_bank_marking': 'ausn_markup_review',
 }
 
 # Generic types are statuses/processes, NOT operations: you can't merge a wave on
@@ -222,7 +227,11 @@ def _wave_op_token(members):
 
 
 def _op_key(t):
-    return (_op_canonical(t), t.get('track') or '')
+    # Group by OPERATION only — a wave spans ALL clients sharing an operation+period,
+    # regardless of client group. Group (Team/Direct) is a filter, not a batching
+    # axis: splitting one batch of identical work by group just fragments it. The
+    # Team/Direct toggle filters the member rows inside a wave instead.
+    return _op_canonical(t)
 
 
 def _capf(s):
@@ -283,10 +292,14 @@ def _op_label(members):
 
 
 def _op_icon(members):
+    """Monochrome line icon (SVG) for the wave's operation."""
+    from _icons import icon
     tok = _wave_op_token(members)
     if isinstance(tok, str) and tok.startswith('stage:'):
-        return _STAGE_ICON.get(tok[len('stage:'):].split('|')[0], '📋')
-    return _OP_RU[tok][0] if tok in _OP_RU else ''
+        return icon(tok[len('stage:'):].split('|')[0])
+    if tok in _OP_RU:
+        return icon(tok)
+    return icon('dot')
 
 
 def _min_dl(tasks):
@@ -372,6 +385,39 @@ def horizon_counts(all_tasks):
     return hc
 
 
+# Standard, reusable accounting operations — these read as the same operation on
+# every client, so they form a wave even with a single member. Ad-hoc per-client
+# task types (review_checkpoint, access_request, client_followup, monitoring,
+# awaiting_external, …) are deliberately absent: they only batch when >=2 clients
+# share the exact operation, otherwise they render as individual tasks.
+# Reusable operation tokens (matched against _op_canonical / op_key). These read
+# as the same operation on every client, so they form a wave even with a single
+# member. Ad-hoc op tokens (review_checkpoint, regulatory_watch, monitoring,
+# access_request, client_followup, awaiting_external, patent-from-keyword, …) are
+# deliberately absent — they only batch when >=2 clients share the exact op.
+_REUSABLE_OP_TYPES = frozenset({
+    'primary_collection', 'kudir_posting', 'posting_1c', 'technical_1c',
+    'ndfl_register', 'balance_reconciliation', 'ens_reconciliation',
+    'ausn_reconciliation', 'ausn_markup_review', 'ausn_bank_marking',
+    'sz_checks_reconciliation', 'service_payment', 'acquiring',
+    'acquiring_reconciliation', 'bank_check', 'kkt_check', 'declaration',
+    'statreport', 'regular_check', 'finkoper_recurring', 'tax_pp', 'pp_to_form',
+    'notification', 'sign_pay', 'pp_sign', 'month_close', 'period_close',
+    'month_audit', 'patent',
+})
+
+
+def _is_wave_group(op_key, members):
+    """A group is a wave if the batch is real (>=2) or the operation token is a
+    standard, reusable one (a pipeline stage or a whitelisted recurring op)."""
+    if len(members) >= 2:
+        return True
+    op = str(op_key)
+    if op.startswith('stage:'):
+        return True
+    return op in _REUSABLE_OP_TYPES
+
+
 def cluster_tasks(tasks):
     """Flat list → (waves, singles). A wave = >=2 DIFFERENT clients sharing one
     operation+track. Reused by the Week/Month pages."""
@@ -379,11 +425,16 @@ def cluster_tasks(tasks):
     for t in tasks:
         groups.setdefault(_op_key(t), []).append(t)
     waves, singles = [], []
-    for members in groups.values():
-        # A GROUP forms by semantic operation (op+period+track), independent of
-        # how many distinct clients are in it — we model the operation, not the
-        # current client roster (which grows). >=2 tasks of one operation group.
-        if len(members) >= 2:
+    for op_key, members in groups.items():
+        # A wave is a RECURRING bookkeeping operation — so a standard, reusable
+        # action (a pipeline stage or a whitelisted recurring op like a
+        # reconciliation / register / collection / service-payment / AUSN markup)
+        # is a wave even with a single member, and reads identically on the
+        # all-clients plan and on one client's card. Ad-hoc one-offs (a "control:
+        # is the contract signed?", an access request) are NOT recurring
+        # operations: they render as individual tasks unless >=2 clients share the
+        # exact op.
+        if _is_wave_group(op_key, members):
             waves.append(members)
         else:
             singles.extend(members)
@@ -416,9 +467,14 @@ _RENDER_ROW = None
 
 
 def _render_wave(members, esc, htitle):
-    track = members[0].get('track') or ''
+    # data-track-type drives the Team/Direct filter. A wave can now span groups:
+    # if all members share one group use it; otherwise "mixed" (the inner member
+    # rows still carry their own group, so they filter correctly).
+    _grps = {(m.get('track') or '') for m in members}
+    _grps.discard('')
+    track = next(iter(_grps)) if len(_grps) == 1 else 'mixed'
     op = _op_label(members)
-    icon = _op_icon(members)
+    op_ic = _op_icon(members)
     n = len({m.get('client_id') for m in members})
     nt = len(members)
     clients = ', '.join(sorted({m.get('client_name') or '' for m in members} - {''}))
@@ -429,7 +485,7 @@ def _render_wave(members, esc, htitle):
     bar = _readiness_bar(rd, t('{} ready · {} waiting · {} blocked').format(rd['ready'], rd['waiting'], rd['blocked']))
     comp, plan = _readiness_text(rd, nt)
 
-    head_icon = (esc(icon) + ' ') if icon else ''
+    head_icon = ('<span class="wave-ic">' + op_ic + '</span>') if op_ic else ''  # raw SVG, not escaped
     # Wave-header "anomaly" client labels removed per owner decision (2026-06-19):
     # no red client list in the wave header.
     anomaly_html = ''
@@ -441,9 +497,9 @@ def _render_wave(members, esc, htitle):
 
     actions = (
         '<span class="wave-acts">'
-        '<button class="wave-act wave-act-go" data-prompt="{bp}" title="' + _attr(t('Process the whole wave at once')) + '">' + t('🔍 Process wave') + '</button>'
+        '<button class="wave-act wave-act-go" data-prompt="{bp}" title="' + _attr(t('Process the whole wave at once')) + '">' + icon('search') + ' ' + t('Process wave') + '</button>'
         '<button class="wave-act wave-act-mic" data-wave-op="{wop}" data-wave-clients="{wcl}" '
-        'data-wave-n="{n}" title="' + _attr(t('Dictate for the wave')) + '">' + t('🎤 Dictate') + '</button>'
+        'data-wave-n="{n}" title="' + _attr(t('Dictate for the wave')) + '">' + icon('pencil') + ' ' + t('Dictate') + '</button>'
         '</span>').format(bp=batch_prompt, wop=_attr(op), wcl=_attr(clients), n=n)
 
     assist_html = ''
@@ -454,16 +510,17 @@ def _render_wave(members, esc, htitle):
     return (
         '<div class="wave collapsed" data-track-type="{tt}" data-wave-id="{wid}" data-stage="{stg}">'
         '<div class="wave-head wave-toggle">'
-        '<span class="wave-chevron">▾</span>'
+        '<span class="wave-chevron">{chev}</span>'
         '<span class="wave-op">{ic}{op}</span>'
+        '<span class="wave-count">{nt}</span>'
         '{badge}'
         '{bar}'
-        '<span class="wave-count">{nt}</span>'
         '{anom}'
         '</div>'
         '<div class="wave-sub">{assist}{acts}</div>'
         '<div class="wave-body">{rows}</div>'
         '</div>'.format(
+            chev=icon('chevron'),
             tt=esc(track), wid=wid, stg=stg, ic=head_icon, op=esc(op), bar=bar, n=n, nt=nt,
             badge=_wave_due_badge(_min_dl(members)), anom=anomaly_html,
             acts=actions, assist=assist_html, rows=rows))
@@ -483,10 +540,11 @@ def render_waves_page(all_tasks, render_row, esc):
                 body.append(
                     ('<div class="wave wave-singles collapsed" data-wave-id="{wid}">'
                      '<div class="wave-head wave-toggle">'
-                     '<span class="wave-chevron">▾</span>'
+                     '<span class="wave-chevron">{chev}</span>'
                      '<span class="wave-op">{label}</span>'
                      '{badge}<span class="wave-count">{n}</span></div>'
                      '<div class="wave-body">{rows}</div></div>').format(
+                        chev=icon('chevron'),
                         wid=_attr(htitle + '|singles'), label=t('Individual tasks'),
                         n=len(singles), badge=_wave_due_badge(_min_dl(singles)), rows=srows))
             else:
@@ -510,28 +568,34 @@ WAVES_CSS = (
     '.horizon-body{padding:0}'
     '.wave{border-bottom:1px solid var(--border)}'
     '.wave:last-child{border-bottom:none}'
-    '.wave-head{display:flex;align-items:center;gap:10px;padding:8px var(--space-md);'
-    'border-bottom:1px solid var(--border);background:var(--bg-page);cursor:pointer;'
+    '.wave-head{display:flex;align-items:center;gap:10px;padding:8px var(--space-md) 8px 5px;'
+    'border-bottom:1px solid var(--border);background:transparent;cursor:pointer;'
     'user-select:none;transition:background 120ms}'
     '.wave-head:hover{background:var(--bg-card)}'
     '.wave-head:hover .wave-op{color:var(--accent-blue)}'
     '.wave.collapsed .wave-head{border-bottom:none}'
     '.wave.collapsed .wave-sub{display:none}'
     '.wave.collapsed .wave-body{display:none}'
-    '.wave-chevron{font-size:16px;color:var(--text-secondary);transition:transform .15s;'
-    'flex-shrink:0;width:16px;display:inline-block;text-align:center;line-height:1}'
-    '.wave.collapsed .wave-chevron{transform:rotate(-90deg)}'
-    '.wave-op{font-weight:600;font-size:15px;flex:1;min-width:60px;color:var(--text-primary);'
-    'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+    '.wave-chevron{font-size:15px;color:var(--text-muted);transition:transform .15s;'
+    'flex-shrink:0;width:16px;height:16px;display:inline-flex;align-items:center;'
+    'justify-content:center;line-height:1}'
+    '.wave-chevron .ic{width:15px;height:15px;stroke-width:2.25}'
+    '.wave:not(.collapsed) .wave-chevron{transform:rotate(90deg)}'
+    '.wave-head:hover .wave-chevron{color:var(--text-secondary)}'
+    '.wave-op{font-weight:500;font-size:15px;flex:0 1 auto;min-width:0;color:var(--text-primary);'
+    'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center}'
+    '.wave-ic{margin-right:8px;color:var(--text-muted);display:inline-flex;flex-shrink:0}'
+    '.wave-ic .ic{width:16px;height:16px}'
     '.wave-bar{display:inline-flex;height:6px;width:64px;border-radius:4px;overflow:hidden;'
     'background:var(--border);flex-shrink:0}'
     '.wave-bar .wb{display:block;height:100%}'
     '.wb-ready{background:var(--accent-green)}'
     '.wb-wait{background:var(--accent-yellow)}'
     '.wb-block{background:var(--accent-red)}'
-    '.wave-count{font-size:13px;color:var(--text-secondary);background:var(--bg-card);'
-    'border:1px solid var(--border);border-radius:10px;padding:2px 10px;font-weight:500;'
-    'white-space:nowrap;flex-shrink:0}'
+    '.wave-count{font-size:12px;color:var(--text-secondary);background:var(--border);'
+    'border:none;border-radius:6px;padding:1px 7px;font-weight:600;min-width:20px;'
+    'text-align:center;line-height:1.5;white-space:nowrap;flex-shrink:0;margin:0 auto 0 8px}'
+    '.wave-head:hover .wave-count{color:var(--text-primary)}'
     '.wave-due{font-size:13px;font-weight:600;white-space:nowrap;flex-shrink:0}'
     '.wave-anomaly{font-size:12px;font-weight:600;color:var(--accent-red);background:var(--red-bg);'
     'border-radius:8px;padding:2px 9px;white-space:nowrap;flex-shrink:0}'
@@ -550,9 +614,10 @@ WAVES_CSS = (
     '.wave .task-row{padding-left:calc(var(--space-md) + 8px)}'
     '.wave-singles .wave-op{color:var(--text-secondary);font-weight:500}'
     '.waves-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px}'
+    '.plan-sec-h-ops{display:flex;align-items:center;justify-content:space-between;gap:12px}'
     '.waves-expand-all{font-size:13px;color:var(--text-secondary);background:none;border:none;'
     'cursor:pointer;font-family:inherit;font-weight:500;padding:4px 10px;border-radius:6px;'
-    'transition:all 120ms}'
+    'text-transform:none;letter-spacing:0;transition:all 120ms}'
     '.waves-expand-all:hover{background:var(--bg-card);color:var(--accent-blue)}'
 )
 
@@ -643,13 +708,11 @@ WAVES_JS = WAVES_JS + _STAGE_JUMP_JS
 # shows urgency, and bucketing split one stage across horizons). Dateless backlog
 # is tucked into a collapsed block at the end.
 WAVES_CSS = WAVES_CSS + (
-    '.plan-item{background:var(--bg-card);border:1px solid var(--border);border-left-width:3px;'
-    'border-radius:var(--radius-card);margin-bottom:8px;overflow:hidden}'
-    '.plan-item.g-red{border-left-color:var(--accent-red)}'
-    '.plan-item.g-amber{border-left-color:var(--accent-yellow)}'
-    '.plan-item.g-blue{border-left-color:var(--accent-blue)}'
-    '.plan-item.g-grey{border-left-color:var(--border)}'
+    '.plan-item{background:transparent;border:none;'
+    'border-bottom:1px solid var(--border);border-radius:0;margin-bottom:0;overflow:hidden}'
     '.plan-item .wave{border-bottom:none}'
+    '.plan-item.plan-single .task-item{border-bottom:none}'
+    '.plan-item:hover{background:var(--bg-page)}'
     '.plan-bk{margin-top:var(--space-md);border:1px solid var(--border);border-radius:var(--radius-card);'
     'background:var(--bg-card);overflow:hidden}'
     '.plan-bk>summary{cursor:pointer;padding:11px var(--space-md);font-weight:600;color:var(--text-secondary);'
@@ -659,6 +722,11 @@ WAVES_CSS = WAVES_CSS + (
     '.plan-sec-h{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;'
     'color:var(--text-secondary);margin:var(--space-md) 0 7px;padding-left:2px}'
     '.plan-sec-h:first-child{margin-top:0}'
+    # Section cards: each block sits on its own white card on the canvas
+    '.sec-card{background:var(--bg-card);border:1px solid var(--border);'
+    'border-radius:var(--radius-card);padding:14px 16px;margin-bottom:14px}'
+    '.sec-card .plan-item:last-child{border-bottom:none}'
+    '.sec-card .plan-item:last-child .task-item{border-bottom:none}'
     '.plan-wait{margin-top:var(--space-md);border:1px dashed var(--border);border-radius:var(--radius-card);background:var(--bg-page);overflow:hidden;opacity:.9}'
     '.plan-wait>summary{cursor:pointer;padding:11px var(--space-md);font-weight:600;color:var(--text-muted);list-style:none}'
     '.plan-wait>summary::-webkit-details-marker{display:none}'
@@ -683,7 +751,8 @@ def render_waves_flat(all_tasks, render_row, esc):
     """Plan list with waves and individual tasks kept in SEPARATE blocks (no
     interleaving) so collapsible operation-bars never mix with single-task rows.
     Each block is urgency-sorted and colour-coded; dateless items collapse into a
-    backlog block at the end."""
+    backlog block at the end. "Expand all" lives on the Operations section header
+    (the only block with collapsible groups)."""
     global _RENDER_ROW
     _RENDER_ROW = render_row
     waves, singles = cluster_tasks(all_tasks)
@@ -714,31 +783,36 @@ def render_waves_flat(all_tasks, render_row, esc):
         return '<div class="plan-item plan-single ' + _urg_cls(x.get('days_left')) + '">' + render_row(x) + '</div>'
 
     label_blocks = bool(w_dated) and bool(s_dated)
-    out = []
+
+    def _card(inner):
+        return '<section class="sec-card">' + inner + '</section>'
+
+    sections = []
     if w_dated:
-        if label_blocks:
-            out.append('<div class="plan-sec-h">' + t('Operations (batchable)') + '</div>')
-        out += [_wave_item(w) for w in w_dated]
-    if s_dated:
-        if label_blocks:
-            out.append('<div class="plan-sec-h">' + t('Individual tasks') + '</div>')
-        out += [_single_item(x) for x in s_dated]
-
-    if w_undated or s_undated:
-        binner = ''.join(_wave_item(w) for w in w_undated) + ''.join(_single_item(x) for x in s_undated)
-        n = len(w_undated) + len(s_undated)
-        out.append('<details class="plan-bk"><summary>' + t('Backlog — no due date and later')
-                   + ' (' + str(n) + ')</summary>' + binner + '</details>')
-
-    # Waiting lane (passive, de-emphasised, collapsed) — bottom of the plan / card.
-    if wait_waves or wait_singles:
-        winner = ''.join(_wave_item(w) for w in wait_waves) + ''.join(_single_item(x) for x in wait_singles)
-        wn = len(wait_waves) + len(wait_singles)
-        out.append('<details class="plan-wait"><summary>' + t('Waiting — on the client/bank side')
-                   + ' (' + str(wn) + ')</summary>' + winner + '</details>')
-
-    if not out:
-        return ''
-    toolbar = ('<div class="waves-toolbar"><button class="waves-expand-all" type="button">'
+        hdr = ('<div class="plan-sec-h plan-sec-h-ops"><span>'
+               + t('Operations (batchable)') + '</span>'
+               + '<button class="waves-expand-all" type="button">'
                + t('Expand all') + '</button></div>')
-    return toolbar + ''.join(out)
+        sections.append(_card(hdr + ''.join(_wave_item(w) for w in w_dated)))
+    if s_dated:
+        hdr = ('<div class="plan-sec-h">' + t('Individual tasks') + '</div>') if label_blocks else ''
+        sections.append(_card(hdr + ''.join(_single_item(x) for x in s_dated)))
+
+    # Backlog (dateless, non-passive) — a normal section, expanded, like the others.
+    if w_undated or s_undated:
+        n = len(w_undated) + len(s_undated)
+        hdr = '<div class="plan-sec-h">' + t('Backlog — no due date and later') + ' (' + str(n) + ')</div>'
+        body = ''.join(_wave_item(w) for w in w_undated) + ''.join(_single_item(x) for x in s_undated)
+        sections.append(_card(hdr + body))
+
+    # Waiting (passive: monitoring + dateless awaiting) — a normal section at the
+    # bottom, expanded, consistent with the others.
+    if wait_waves or wait_singles:
+        wn = len(wait_waves) + len(wait_singles)
+        hdr = '<div class="plan-sec-h">' + t('Waiting — on the client/bank side') + ' (' + str(wn) + ')</div>'
+        body = ''.join(_wave_item(w) for w in wait_waves) + ''.join(_single_item(x) for x in wait_singles)
+        sections.append(_card(hdr + body))
+
+    if not sections:
+        return ''
+    return ''.join(sections)

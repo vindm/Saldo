@@ -252,6 +252,7 @@ def aggregate_tasks(today=None):
             'source_ref': track_id,
             'group': ft_grp,
             'details': det,
+            'assist': ft.get('assist') or tr.get('assist') or {},
             '_history': history_list,
         })
 

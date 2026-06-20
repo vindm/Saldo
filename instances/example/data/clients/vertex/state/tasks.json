@@ -1,0 +1,135 @@
+{
+  "schema_version": "2.0",
+  "client_id": "vertex",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "vertex_acq1",
+      "title": "Acquiring confirmation to the bank — June",
+      "task_type": "acquiring_reconciliation",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-24",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Recurring acquiring confirmation to the partner bank.",
+      "next_action": "Confirm the acquiring turnover to the bank.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    },
+    {
+      "id": "vertex_acq2",
+      "title": "Acquiring confirmation to the bank — July",
+      "task_type": "acquiring_reconciliation",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-07-15",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Recurring acquiring confirmation to the partner bank.",
+      "next_action": "Confirm the acquiring turnover to the bank.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    },
+    {
+      "id": "vertex_amr",
+      "title": "AUSN — review the marking of May operations",
+      "task_type": "ausn_markup_review",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-28",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Operation marking in the bank portal needs a review.",
+      "next_action": "Review the operation marking in the bank portal.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05"
+      }
+    },
+    {
+      "id": "vertex_q1",
+      "title": "Which 1C base (Fresh or local) and when set up?",
+      "task_type": "open_question",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-21",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Synthetic clarification.",
+      "next_action": "Ask the client / check the source.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-05-21",
+          "event": "Question opened (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "no_auto_resolve": true
+      }
+    }
+  ]
+}

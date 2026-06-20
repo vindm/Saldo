@@ -5,13 +5,21 @@ State is persisted in localStorage.
 """
 from _strings import t
 
-MODE_SWITCH_HTML = (
-    '<div class="mode-switch">'
-    '<button class="mode-btn active" data-mode="all">' + t('All') + ' <span class="mode-count">15</span></button>'
-    '<button class="mode-btn" data-mode="team">' + t('Team') + ' <span class="mode-count">6</span></button>'
-    '<button class="mode-btn" data-mode="direct">' + t('Direct') + ' <span class="mode-count">9</span></button>'
-    '</div>'
-)
+def render_mode_switch(n_all=None, n_team=None, n_direct=None):
+    """All/Team/Direct toggle with live counts. Pass real task counts per group;
+    omit them to render without numbers (never the old hardcoded 15/6/9)."""
+    def _c(n):
+        return (' <span class="mode-count">' + str(n) + '</span>') if n is not None else ''
+    return (
+        '<div class="mode-switch">'
+        '<button class="mode-btn active" data-mode="all">' + t('All') + _c(n_all) + '</button>'
+        '<button class="mode-btn" data-mode="team">' + t('Team') + _c(n_team) + '</button>'
+        '<button class="mode-btn" data-mode="direct">' + t('Direct') + _c(n_direct) + '</button>'
+        '</div>'
+    )
+
+
+MODE_SWITCH_HTML = render_mode_switch()
 
 MODE_SWITCH_CSS = """
 .mode-switch{display:inline-flex;gap:2px;padding:3px;background:var(--bg-page);

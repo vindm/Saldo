@@ -1,0 +1,206 @@
+{
+  "schema_version": "2.0",
+  "client_id": "harbor",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "harbor_mc04",
+      "title": "Close April 2026 in the ledger (6 regulated ops)",
+      "task_type": "month_close",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-16",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Last open monthly period; a few regulated operations remain.",
+      "next_action": "Run the remaining closing operations in 1C, then re-check the balance.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-04"
+      }
+    },
+    {
+      "id": "harbor_pp06",
+      "title": "June advance: notification + payment order",
+      "task_type": "pp_to_form",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-25",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Quarterly advance for the regime; figure pending confirmation.",
+      "next_action": "Calculate the amount and draft the notification + payment order.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-06",
+        "amount": 14300.0
+      }
+    },
+    {
+      "id": "harbor_ps06",
+      "title": "Sign the payment order in the bank",
+      "task_type": "pp_sign",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-26",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Payment order prepared; waiting for the client's signature.",
+      "next_action": "Remind the client to sign the payment order in the bank.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-06"
+      }
+    },
+    {
+      "id": "harbor_sp",
+      "title": "Fee control — Q2 2026 (postpaid)",
+      "task_type": "service_payment",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-07-05",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Postpaid quarterly fee; verify receipt on the statement.",
+      "next_action": "Check whether the quarterly fee has been received.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "amount": 5000.0
+      }
+    },
+    {
+      "id": "harbor_pc05",
+      "title": "May source documents (expense invoices)",
+      "task_type": "primary_collection",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-17",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Waiting on the client's source documents for the period.",
+      "next_action": "Remind the client to send the source documents.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05"
+      }
+    },
+    {
+      "id": "harbor_q1",
+      "title": "Status of the bank loan (schedule + balance)?",
+      "task_type": "open_question",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-21",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Synthetic clarification.",
+      "next_action": "Ask the client / check the source.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-05-21",
+          "event": "Question opened (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "no_auto_resolve": true
+      }
+    }
+  ]
+}

@@ -902,7 +902,6 @@ def render_overview_v2():
         '<div class="layout-shell">'
         + render_sidebar(active='dashboard')
         + '<main class="main-content">'
-        + MODE_SWITCH_HTML
         + head + _w['stats']
         + analysis_zone + questions_zone + _w['top5'] + _w['activity']
         + dig + global_mic
@@ -914,7 +913,6 @@ def render_overview_v2():
         + PROMPT_MODAL_JS
         + DICTATE_JS
         + TRACK_MODAL_JS
-        + MODE_SWITCH_JS
         + track_filter_js +
         '</body></html>'
     )

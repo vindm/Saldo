@@ -58,34 +58,37 @@ For each one read — determine severity by the subject and the first 500 charac
 
 ### Step 6. R6 — preserving manual notes
 
-If `journal/inbox/email_<today>.md` already exists and contains the markers `📝 Updated DD.MM per the operator's message`, `📝 Operator's comment:`, `Operator's decision:` — move them into `journal/operator_decisions.md` before overwriting.
+If `journal/inbox/mail_<today>.json` already exists and contains the operator's manual notes — move them into `journal/operator_decisions.md` before overwriting.
 
 ### Step 7. Building the daily report
 
-Write `journal/inbox/email_<today>.md`:
+Write `journal/inbox/mail_<today>.json` — the contract the engine reads
+(`engine/_loaders.load_daemon_mail`; note the file is **`mail_`**, not `email_`).
+One object, an `items` array; one item per matched email, ordered urgent →
+needs-reply → informational:
 
-```markdown
-# Mail — DD.MM.YYYY
-
-## 🔴 Urgent (N)
-
-### From: [name] <email>
-**Subject:** [subject]
-**When:** DD.MM HH:MM
-**Client:** [if applicable]
-**Label:** client / gov_authority / bank / team / partner
-**Preview:** [first 500 characters]
-**Attachments:** [list of names + sizes]
-
-## 🟡 Needs a reply (N)
-(same structure)
-
-## 📩 Informational (N)
-(same structure)
-
-## Did not match the filter
-Number of emails from unknown correspondents: N. Contents not disclosed.
+```json
+{
+  "items": [
+    {
+      "severity": "high",
+      "from_name": "Sender name",
+      "from_email": "sender@example.com",
+      "subject": "Email subject",
+      "when": "DD.MM HH:MM",
+      "client": "client_id or null",
+      "label": "client | gov_authority | bank | team | partner",
+      "preview": "first ~500 characters",
+      "attachments": ["name.pdf (120 KB)"]
+    }
+  ]
+}
 ```
+
+Field rules: `severity` ∈ `high` (urgent) | `medium` (needs a reply) | `low`
+(informational). Emit `{"items": []}` if nothing matched (never omit the file —
+heartbeat + empty list is the "ran, found nothing" signal). Do **not** record
+contents of emails from unknown correspondents (only count them, outside `items`).
 
 ### Step 8. Heartbeat
 

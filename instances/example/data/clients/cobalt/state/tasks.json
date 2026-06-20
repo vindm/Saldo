@@ -1,0 +1,120 @@
+{
+  "schema_version": "2.0",
+  "client_id": "cobalt",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "cobalt_mc04",
+      "title": "Close April 2026 in the ledger (6 regulated ops)",
+      "task_type": "month_close",
+      "status": "blocked",
+      "priority": "high",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-16",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Last open monthly period; a few regulated operations remain.",
+      "next_action": "Run the remaining closing operations in 1C, then re-check the balance.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-04"
+      }
+    },
+    {
+      "id": "cobalt_ndfl",
+      "title": "Payroll-tax register for the period",
+      "task_type": "ndfl_register",
+      "status": "blocked",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-24",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Payroll-tax register due for the reporting period.",
+      "next_action": "Compile the payroll-tax register for the period.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    },
+    {
+      "id": "cobalt_q1",
+      "title": "Reason for the -40% revenue dip vs last year?",
+      "task_type": "open_question",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-05-21",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Synthetic clarification.",
+      "next_action": "Ask the client / check the source.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-05-21",
+          "event": "Question opened (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "no_auto_resolve": true
+      },
+      "assist": {
+        "hypothesis": "The drop tracks a lost wholesale buyer in Q1; not a data error. Re-estimate the annual pace and the advance.",
+        "confidence": "medium",
+        "updated_at": "2026-06-17",
+        "actions": [
+          {
+            "label": "Re-estimate pace",
+            "prompt": "Re-estimate SP Cobalt Metalwork's 2026 annual pace and June advance given the revenue drop.",
+            "recommended": true
+          },
+          {
+            "label": "Ask the client",
+            "prompt": "Ask SP Cobalt Metalwork whether the revenue drop is expected to continue."
+          }
+        ]
+      }
+    }
+  ]
+}

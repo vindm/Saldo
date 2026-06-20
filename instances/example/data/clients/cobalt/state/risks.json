@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "client_id": "cobalt",
+  "last_updated": "2026-05-31T00:00:00+00:00",
+  "risks": [
+    {
+      "id": "R-cobalt-revenue-drop",
+      "title": "Sharp revenue drop in 2026",
+      "severity": "yellow",
+      "category": "financial",
+      "description": "Revenue pace down ~40% year over year after losing a wholesale buyer; watch cashflow and re-estimate advances.",
+      "next_action": "Re-estimate the annual pace; revisit advance amounts.",
+      "linked_tasks": [],
+      "linked_law": null,
+      "since": "2026-05-26",
+      "history": [],
+      "kind": "risk"
+    }
+  ],
+  "resolved_risks": []
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.1",
+  "client_id": "vertex",
+  "last_updated": "2026-05-31T01:00:00+00:00",
+  "periods": [
+    {
+      "period": "2025",
+      "period_type": "year",
+      "income_usn": 4840000,
+      "income_usn_estimated": false,
+      "income_usn_basis": "bank_statement",
+      "expenses": null,
+      "patent_income": null,
+      "taxes": {
+        "usn_final": 240000,
+        "one_pct_overage": 36000
+      },
+      "declaration_status": "submitted_accepted",
+      "status": "archive",
+      "notes": "Synthetic year close."
+    }
+  ],
+  "yearly_pace_2026": {
+    "estimated_annual_income_usn": 3800000,
+    "growth_vs_prev_year_x": 0.95,
+    "nds_threshold_2026": 20000000,
+    "ausn_threshold_2026": 60000000,
+    "nds_warning": false,
+    "nds_warning_reason": "Synthetic — safe.",
+    "notes": "Synthetic pace."
+  },
+  "tax_calendar_2026": [],
+  "monthly_close": {
+    "month": "April 2026",
+    "deadline": "2026-06-16",
+    "today": "2026-06-20",
+    "blocker": null
+  }
+}

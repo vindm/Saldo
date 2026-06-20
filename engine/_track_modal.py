@@ -14,8 +14,28 @@ TRACK_MODAL_CSS = """
   display:none;align-items:center;justify-content:center;padding:var(--space-md)}
 .track-modal.open{display:flex}
 .track-modal-box{background:var(--bg-card);border-radius:var(--radius-card);
-  max-width:720px;width:100%;max-height:90vh;overflow-y:auto;
+  max-width:860px;width:100%;max-height:90vh;overflow-y:auto;
   box-shadow:0 10px 40px rgba(0,0,0,0.2);padding:var(--space-lg);position:relative}
+
+/* Two-column: solving content on the left, properties rail on the right (Linear) */
+.tm-grid{display:grid;grid-template-columns:1fr 232px;gap:32px;align-items:start}
+.tm-main{min-width:0}
+.tm-aside{border-left:1px solid var(--border);padding-left:24px;min-width:0}
+.tm-aside-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-muted);font-weight:600;margin-bottom:12px}
+.tm-aside .tm-meta-row{flex-direction:column;align-items:flex-start;gap:7px;
+  margin:0;padding:0;border-bottom:none}
+.tm-aside .tm-section{margin:16px 0 0}
+.tm-aside .tm-section-label{font-size:11px;letter-spacing:.06em}
+.tm-aside .tm-typespecific-grid{grid-template-columns:1fr;gap:2px}
+.tm-aside .tm-typespecific-key{font-size:13px}
+.tm-aside .tm-typespecific-val{font-size:14px;margin-bottom:6px}
+@media (max-width:680px){
+  .tm-grid{grid-template-columns:1fr;gap:0}
+  .tm-aside{border-left:none;padding-left:0;margin-top:16px;
+    border-top:1px solid var(--border);padding-top:16px}
+  .tm-aside .tm-meta-row{flex-direction:row;flex-wrap:wrap}
+}
 .track-modal-close{position:absolute;top:var(--space-md);right:var(--space-md);
   background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);
   width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:2}
@@ -31,24 +51,29 @@ TRACK_MODAL_CSS = """
 .tm-bc-sep{color:var(--text-muted);font-size:14px;margin:0 2px;user-select:none}
 .tm-bc-current{color:var(--text-primary);font-weight:500;padding:3px 8px}
 .tm-bc-spacer{flex:1;min-width:8px}
-.tm-bc-badge{font-size:15px;font-weight:500;padding:3px 10px;
+/* Due now lives in the Properties rail — hide the duplicate breadcrumb badge */
+.tm-bc-badge{display:none;font-size:15px;font-weight:500;padding:3px 10px;
   background:var(--red-bg);color:var(--accent-red);border-radius:8px;white-space:nowrap}
 .tm-bc-badge.bc-yellow{background:var(--yellow-bg);color:var(--accent-yellow)}
 .tm-bc-badge.bc-green{background:var(--green-bg);color:#3B5E2A}
 .tm-bc-badge.bc-grey{background:var(--bg-page);color:var(--text-secondary)}
 
-.tm-title{font-size:24px;font-weight:600;margin:0 0 16px;color:var(--text-primary);
-  padding-right:40px;line-height:1.3}
-.tm-section{margin:24px 0;padding:0}
-.tm-section-label{font-size:15px;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;
+.tm-title{font-size:20px;font-weight:600;margin:0 0 14px;color:var(--text-primary);
+  padding-right:40px;line-height:1.3;letter-spacing:-0.01em}
+.tm-section{margin:16px 0;padding:0}
+.tm-section-label{font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;
   font-weight:600}
-.tm-section-body{font-size:15px;line-height:1.65;color:var(--text-primary)}
-.tm-next-action{padding:14px 18px;background:var(--blue-bg);color:var(--text-primary);font-size:15px;line-height:1.6;border-radius:6px;border-left:3px solid var(--accent-blue)}
+.tm-section-body{font-size:15px;line-height:1.6;color:var(--text-primary)}
+/* Context reads as a lead paragraph, not a labeled form field */
+#tm-context-section{margin-top:0}
+#tm-context-section .tm-section-label{display:none}
+#tm-context-body{font-size:16px;line-height:1.6;color:var(--text-primary)}
+.tm-next-action{padding:12px 14px;background:var(--blue-bg);color:var(--text-primary);font-size:15px;line-height:1.55;border-radius:8px;border-left:3px solid var(--accent-blue)}
 .tm-reply-draft{padding:var(--space-md) var(--space-lg);background:var(--green-bg);
   border-left:4px solid var(--accent-green);border-radius:0 var(--radius-btn) var(--radius-btn) 0;
   font-size:16px;line-height:1.7;color:var(--text-primary);white-space:pre-wrap}
 
-.tm-actions{padding-top:20px;margin-top:24px;border-top:1px solid var(--border)}
+.tm-actions{padding-top:18px;margin-top:20px;border-top:1px solid var(--border)}
 .tm-actions-assist{display:flex;gap:10px;flex-wrap:wrap}
 .tm-actions-assist:not(:empty){margin-bottom:12px}
 .tm-actions-generic{display:flex;gap:10px;flex-wrap:wrap}
@@ -69,16 +94,16 @@ TRACK_MODAL_CSS = """
 .tm-btn-warn:hover{background:#b8893a;color:#fff;border-color:#b8893a}
 .tm-btn-tg{background:#2AABEE;color:#fff;border-color:#2AABEE}
 .tm-btn-tg:hover{background:#1a8fc7;color:#fff;border-color:#1a8fc7}
-.tm-meta-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
-.tm-meta-chip{font-size:15px;padding:4px 10px;border-radius:14px;background:var(--bg-page);
-  color:var(--text-secondary);font-weight:500;border:1px solid var(--border)}
+.tm-meta-row{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.tm-meta-chip{font-size:13px;padding:3px 9px;border-radius:6px;background:var(--bg-page);
+  color:var(--text-primary);font-weight:500;border:1px solid var(--border)}
 .tm-meta-chip.status-awaiting{background:var(--blue-bg);color:var(--accent-blue);border-color:transparent}
 .tm-meta-chip.status-active{background:var(--green-bg);color:var(--accent-green);border-color:transparent}
 .tm-meta-chip.status-blocked{background:var(--yellow-bg);color:var(--accent-yellow);border-color:transparent}
 .tm-meta-chip.status-done{background:var(--bg-page);color:var(--text-muted);border-color:transparent}
-.tm-meta-chip.prio-high{background:var(--red-bg);color:var(--accent-red);font-weight:600;border-color:transparent}
+.tm-meta-chip.prio-high{background:var(--red-bg);color:var(--accent-red);font-weight:500;border-color:transparent}
 .tm-meta-chip.prio-low{background:var(--bg-page);color:var(--text-muted);border-color:transparent}
-.tm-meta-chip.due-overdue{background:var(--red-bg);color:var(--accent-red);font-weight:600;border-color:transparent}
+.tm-meta-chip.due-overdue{background:var(--red-bg);color:var(--accent-red);font-weight:500;border-color:transparent}
 .tm-meta-chip.due-soon{background:var(--yellow-bg);color:#8A6730;border-color:transparent}
 .tm-meta-chip.due-far{background:var(--bg-page);color:var(--text-secondary);border-color:transparent}
 .tm-meta-chip.tm-stale{background:var(--yellow-bg);color:#8A6730;border-color:transparent;font-weight:600}
@@ -101,14 +126,15 @@ TRACK_MODAL_CSS = """
 .tm-comment-meta{font-size:15px;color:var(--text-muted);margin-bottom:4px}
 .tm-comment-text{font-size:14px;color:var(--text-primary);line-height:1.5}
 
-.tm-history-list{display:flex;flex-direction:column;gap:8px}
-.tm-history-item{font-size:16px;line-height:1.55;padding:10px 13px;border-left:3px solid #C9C4B8;
-  background:#F2EEE6;color:var(--text-primary);border-radius:4px}
-.tm-history-item .h-date{color:var(--text-primary);font-weight:700;font-family:var(--font-mono,monospace);
-  font-size:14px;margin-right:9px}
+.tm-history-list{display:flex;flex-direction:column;gap:0}
+.tm-history-item{font-size:14px;line-height:1.55;padding:9px 0;border:none;border-bottom:1px solid var(--border);
+  background:transparent;color:var(--text-secondary);border-radius:0}
+.tm-history-item:last-child{border-bottom:none}
+.tm-history-item .h-date{color:var(--text-muted);font-weight:500;font-family:var(--font-mono,monospace);
+  font-size:13px;margin-right:9px}
 .tm-history-item.auto{opacity:1}
 .tm-history-item .h-src{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:11px;font-size:13px;
-  font-family:var(--font-mono,monospace);font-weight:700;background:#D6E4F7;color:#173A63;border:1px solid #A9C4E8}
+  font-family:var(--font-mono,monospace);font-weight:700;background:var(--bg-page);color:var(--text-muted);border:1px solid var(--border)}
 .tm-history-item .h-src-none{background:#F7D9D9;color:#8A1414;border:1px solid #E0A0A0}
 .tm-history-item .h-auto{display:inline-block;margin-left:7px;padding:2px 9px;border-radius:11px;font-size:12px;
   font-weight:600;background:#E8E8E4;color:#444;border:1px solid #CFCFC8}
@@ -118,7 +144,7 @@ TRACK_MODAL_CSS = """
 .tm-action-status.success{background:var(--green-bg);color:#3B5E2A;border-left:3px solid var(--accent-green)}
 .tm-action-status.error{background:var(--red-bg);color:var(--accent-red);border-left:3px solid var(--accent-red)}
 .tm-action-status.info{background:var(--blue-bg);color:#0C447C;border-left:3px solid var(--accent-blue)}
-.tm-assist-hyp{padding:12px 16px;background:var(--blue-bg);border-left:3px solid var(--accent-blue);border-radius:0 6px 6px 0;font-size:15px;line-height:1.6;color:var(--text-primary);margin-bottom:12px}
+.tm-assist-hyp{padding:11px 14px;background:var(--yellow-bg);border-left:3px solid var(--accent-yellow);border-radius:8px;font-size:15px;line-height:1.55;color:var(--text-primary);margin-bottom:12px}
 .tm-assist-conf{font-size:13px;color:var(--text-muted);margin-left:6px}
 .tm-assist-actions{display:flex;gap:8px;flex-wrap:wrap}
 .tm-assist-btn{padding:9px 16px;font-size:15px;border:1px solid var(--border);border-radius:var(--radius-btn);background:var(--bg-card);color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:500;transition:all 150ms}
@@ -139,48 +165,55 @@ _TRACK_MODAL_HTML_TEMPLATE = """
       <span class="tm-bc-spacer"></span>
       <span id="tm-bc-badge" class="tm-bc-badge"></span>
     </div>
-    <h2 class="tm-title" id="tm-title"></h2>
-    <div class="tm-meta-row" id="tm-meta-row" style="display:none"></div>
-    <div class="tm-section" id="tm-context-section" style="display:none">
-      <div class="tm-section-label">__CONTEXT__</div>
-      <div class="tm-section-body" id="tm-context-body"></div>
-    </div>
-    <div class="tm-section" id="tm-history-section" style="display:none">
-      <div class="tm-section-label">__HISTORY__</div>
-      <div class="tm-section-body tm-history-list" id="tm-history-body"></div>
-    </div>
-    <div class="tm-section" id="tm-assist-section" style="display:none">
-      <div class="tm-section-label">__HYPOTHESIS__</div>
-      <div class="tm-assist-hyp" id="tm-assist-hyp"></div>
-    </div>
-    <div class="tm-section" id="tm-next-section" style="display:none">
-      <div class="tm-section-label">__NEXT_ACTION__</div>
-      <div class="tm-next-action" id="tm-next-body"></div>
-    </div>
-    <div class="tm-section" id="tm-deps-section" style="display:none">
-      <div class="tm-section-label">__DEPENDENCIES__</div>
-      <div class="tm-section-body" id="tm-deps-body"></div>
-    </div>
-    <div class="tm-section" id="tm-typespecific-section" style="display:none">
-      <div class="tm-section-label">__DETAILS__</div>
-      <div class="tm-section-body" id="tm-typespecific-body"></div>
-    </div>
-    <div class="tm-section" id="tm-comments-section" style="display:none">
-      <div class="tm-section-label">__COMMENTS__</div>
-      <div class="tm-section-body" id="tm-comments-body"></div>
-    </div>
-    <div class="tm-section" id="tm-reply-section" style="display:none">
-      <div class="tm-section-label">__REPLY_DRAFT__</div>
-      <div class="tm-reply-draft" id="tm-reply-body"></div>
-    </div>
-    <div class="tm-actions">
-      <div class="tm-actions-assist" id="tm-assist-btns"></div>
-      <div class="tm-actions-generic">
-        <button class="tm-btn tm-btn-sm" id="tm-discuss-btn" type="button">__BREAK_DOWN__</button>
-        <button class="tm-btn tm-btn-sm" id="tm-dictate-btn" type="button">__DICTATE__</button>
+    <div class="tm-grid">
+      <div class="tm-main">
+        <h2 class="tm-title" id="tm-title"></h2>
+        <div class="tm-section" id="tm-context-section" style="display:none">
+          <div class="tm-section-label">__CONTEXT__</div>
+          <div class="tm-section-body" id="tm-context-body"></div>
+        </div>
+        <div class="tm-section" id="tm-assist-section" style="display:none">
+          <div class="tm-section-label">__HYPOTHESIS__</div>
+          <div class="tm-assist-hyp" id="tm-assist-hyp"></div>
+        </div>
+        <div class="tm-section" id="tm-next-section" style="display:none">
+          <div class="tm-section-label">__NEXT_ACTION__</div>
+          <div class="tm-next-action" id="tm-next-body"></div>
+        </div>
+        <div class="tm-section" id="tm-history-section" style="display:none">
+          <div class="tm-section-label">__HISTORY__</div>
+          <div class="tm-section-body tm-history-list" id="tm-history-body"></div>
+        </div>
+        <div class="tm-section" id="tm-comments-section" style="display:none">
+          <div class="tm-section-label">__COMMENTS__</div>
+          <div class="tm-section-body" id="tm-comments-body"></div>
+        </div>
+        <div class="tm-section" id="tm-reply-section" style="display:none">
+          <div class="tm-section-label">__REPLY_DRAFT__</div>
+          <div class="tm-reply-draft" id="tm-reply-body"></div>
+        </div>
+        <div class="tm-actions">
+          <div class="tm-actions-assist" id="tm-assist-btns"></div>
+          <div class="tm-actions-generic">
+            <button class="tm-btn tm-btn-sm" id="tm-discuss-btn" type="button">__BREAK_DOWN__</button>
+            <button class="tm-btn tm-btn-sm" id="tm-dictate-btn" type="button">__DICTATE__</button>
+          </div>
+        </div>
+        <div class="tm-action-status" id="tm-action-status"></div>
       </div>
+      <aside class="tm-aside">
+        <div class="tm-aside-h">__PROPERTIES__</div>
+        <div class="tm-meta-row" id="tm-meta-row" style="display:none"></div>
+        <div class="tm-section" id="tm-typespecific-section" style="display:none">
+          <div class="tm-section-label">__DETAILS__</div>
+          <div class="tm-section-body" id="tm-typespecific-body"></div>
+        </div>
+        <div class="tm-section" id="tm-deps-section" style="display:none">
+          <div class="tm-section-label">__DEPENDENCIES__</div>
+          <div class="tm-section-body" id="tm-deps-body"></div>
+        </div>
+      </aside>
     </div>
-    <div class="tm-action-status" id="tm-action-status"></div>
 
   </div>
 </div>
@@ -199,6 +232,7 @@ TRACK_MODAL_HTML = (
     .replace('__REPLY_DRAFT__', t('💬 Draft reply to client'))
     .replace('__BREAK_DOWN__', t('🔍 Break down'))
     .replace('__DICTATE__', t('🎤 Dictate'))
+    .replace('__PROPERTIES__', t('Properties'))
 )
 
 TRACK_MODAL_JS = r"""
@@ -363,11 +397,19 @@ TRACK_MODAL_JS = r"""
       if(elAssistSec) elAssistSec.style.display = '';
       if(elNextSec) elNextSec.style.display = 'none';
     } else if(elAssistSec){ elAssistSec.style.display = 'none'; }
-    if(_assist && _assist.actions && _assist.actions.length && elAssistBtns){
+    var _hasAssistActions = !!(_assist && _assist.actions && _assist.actions.length && elAssistBtns);
+    if(_hasAssistActions){
       var _attr = function(s){ return String(s||'').replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
       elAssistBtns.innerHTML = _assist.actions.map(function(a, i){
         return '<button class="tm-btn' + (a.recommended ? ' tm-btn-primary' : '') + '" data-prompt="' + _attr(a.prompt || '') + '">' + esc(stripIds(a.label || '') || ('__ACTION__ ' + (i+1))) + '</button>';
       }).join('');
+    }
+    // Always present one primary CTA. With an assist block, the recommended
+    // action is primary. Without one, "Break down" is the default action.
+    var _discussBtn = document.getElementById('tm-discuss-btn');
+    if(_discussBtn){
+      if(_hasAssistActions){ _discussBtn.classList.remove('tm-btn-primary'); }
+      else { _discussBtn.classList.add('tm-btn-primary'); }
     }
 
     // Meta-row: status, priority, type, due, assignee, source

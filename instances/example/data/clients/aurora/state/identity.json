@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "client_id": "aurora",
+  "last_updated": "2026-05-21T00:00:00+03:00",
+  "name": {
+    "short": "SP Aurora Bakery",
+    "full": "Aurora Maxwell",
+    "in_1c": "SP Aurora Bakery",
+    "uncertainty": null
+  },
+  "inn": "000000000184",
+  "ogrnip": "300000000000001",
+  "reg_date": "2021-03-15",
+  "reg_started_year": 2021,
+  "addr": {
+    "city": "Lakeside",
+    "full": "Lakeside (synthetic)",
+    "region_pill": "Lakeside"
+  },
+  "ifns": {
+    "registration": "Tax Office No.1",
+    "accounting": "0001",
+    "oktmo": "00000001"
+  },
+  "okved": {
+    "main": {
+      "code": "10.71",
+      "name": "Synthetic activity",
+      "confirmed_at": "2026-01-10",
+      "confirmed_by": "sample_data",
+      "history": []
+    },
+    "additional": [
+      {
+        "code": "47.91",
+        "name": "Retail via mail order or internet"
+      }
+    ]
+  },
+  "contacts": {
+    "phone": "+10000000001",
+    "email": "hello@aurora.example",
+    "telegram": "@aurora",
+    "whatsapp": null
+  }
+}

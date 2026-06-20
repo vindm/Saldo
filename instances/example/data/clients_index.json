@@ -1,0 +1,51 @@
+[
+  {
+    "id": "aurora",
+    "name_short": "SP Aurora Bakery",
+    "name_full": "Aurora Maxwell",
+    "folder": "clients/aurora",
+    "group": "direct"
+  },
+  {
+    "id": "meridian",
+    "name_short": "SP Meridian Crafts",
+    "name_full": "Celeste Okonkwo",
+    "folder": "clients/meridian",
+    "group": "direct"
+  },
+  {
+    "id": "harbor",
+    "name_short": "SP Harbor Press",
+    "name_full": "Diego Navarro",
+    "folder": "clients/harbor",
+    "group": "direct"
+  },
+  {
+    "id": "lumen",
+    "name_short": "SP Lumen Studio",
+    "name_full": "Farid Haddad",
+    "folder": "clients/lumen",
+    "group": "direct"
+  },
+  {
+    "id": "northwind",
+    "name_short": "SP Northwind Studio",
+    "name_full": "Bruno Castellano",
+    "folder": "clients/northwind",
+    "group": "team"
+  },
+  {
+    "id": "cobalt",
+    "name_short": "SP Cobalt Metalwork",
+    "name_full": "Ivana Petrova",
+    "folder": "clients/cobalt",
+    "group": "team"
+  },
+  {
+    "id": "vertex",
+    "name_short": "SP Vertex Media",
+    "name_full": "Jamal Idris",
+    "folder": "clients/vertex",
+    "group": "team"
+  }
+]

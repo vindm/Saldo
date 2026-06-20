@@ -319,6 +319,16 @@ if __name__ == '__main__':
         f.write(render_guide())
     print(f"OK: guide \u2192 {g_path}")
 
+    # Finalize: strip decorative emoji from the rendered HTML so the UI shows the
+    # project's monochrome line icons only (SVG icons + arrows survive).
+    import glob as _glob, re as _re
+    _EMOJI = _re.compile('[\U0001F000-\U0001FAFF\u2300-\u27BF\u2B00-\u2BFF\uFE0F\u20E3]')
+    for _hp in _glob.glob(os.path.join(OUT_DIR, '*.html')):
+        _txt = open(_hp, encoding='utf-8').read()
+        _new = _EMOJI.sub('', _txt)
+        if _new != _txt:
+            open(_hp, 'w', encoding='utf-8').write(_new)
+
     if '--print-summary' in sys.argv:
         print_summary()
 

@@ -2,13 +2,15 @@
 
 This is the detailed working procedure for the assistant. The base rules, project structure, and style are in the Project Instructions (read automatically at the start of every task). Here is what you need to know once you are already working on a concrete task.
 
+> **Path & layout conventions.** All per-client paths below are relative to the instance's data directory (`config/instance.yaml → data.dir`): `data.dir/clients/<id>/state/*.json`, `…/mental_model.md`, `…/history.jsonl`; shared collector output lives under `data.dir/journal/` (`journal/inbox/<type>_<date>.json`, `journal/finkoper_state/latest/*.json`). A few names carried over from the original system are **legacy fallbacks, superseded by `state/*.json`**: `clients_data.json` (replaced by per-client `state/`), the `registries/` folder and `Consolidated_calendar` spreadsheet (deadlines now live in `state/financials.tax_calendar`; request/reporting logs move under the instance data dir). Treat them as read-only fallbacks, not the source of truth.
+
 ## 1. What to open at the start of a new task
 
 | Task type | What to open in addition |
 |---|---|
 | Anything about a specific client | `state/*.json` + `mental_model.md` (Client_card.md and history.md are DEPRECATED, do not read) |
 | Need a link/access to a client service (Finkoper card, bank portal, FTS portal, 1C:Fresh base, payment provider, OFD) | `state/accounts.json:quick_access[]` via `_loaders.get_access(client_id, service)` — take the link/login/access FROM THERE, do not search again (memory `quick_access_registry`). On the card = the "🔗 Quick access" section. |
-| Month's primary documents | the checklist `monthly_primary_docs.md`, the client's monthly_check field in clients_data.json |
+| Month's primary documents | the checklist `monthly_primary_docs.md`, the client's `state/financials.json` (periods / monthly check) |
 | Statement/operations on T-Bank (direct client) | the domain `policies/workflows/tbank/`, the client's `state/accounts.json`. For the direct circuit we pull the statement ourselves, do not wait for the client (memory `tbank_data_source`). |
 | Statement/operations on Alfa (direct client) | the domain `policies/workflows/alfabank/`, `state/accounts.json`. Direct circuit — we pull it ourselves (memory `alfabank_data_source`). Clients: Client K/Client L/Client M. |
 | Posting a specific document into 1C | the checklist `posting_primary_docs_into_1c.md`, the client's monthly_check.sources[*], the 1C:Fresh bases one at a time |
@@ -137,12 +139,12 @@ If there are several actions — number them.
 **Step 6. Approval and sending.** At the end of Step 5, ask: "send as is, or revise?". After "send" — for actions in Chrome prepare the exact command; for texts in a task chat — the final version to copy.
 
 **Step 7. Memory update.** After closing a task, propose (with a diff for each):
-1. An entry in the client's history.md
+1. An `history.jsonl` append for the client (via `state_ops.history_append`)
 2. ~~Client_card.md~~ — DEPRECATED, do not edit; new data → into `state/*.json`
-3. Edits to clients_data.json (special_notes, monthly_check) — if it changes, then run generate.py afterward
-4. An entry in registries/request_log.md — if something was requested or an answer received
-5. An entry in registries/reporting_archive/ — if something was filed
-6. ~~An entry in registries/e-signatures_and_powers_of_attorney.md~~ — not my zone; if a new e-signature/power of attorney arose from the task, redirect to the manager
+3. Edits to the client's `state/*.json` (e.g. `behavior.notes`, `financials` monthly check) — after a change, run `generate.py`
+4. A request-log entry (under the instance data dir) — if something was requested or an answer received
+5. A reporting-archive entry (under the instance data dir) — if something was filed
+6. ~~e-signatures / powers of attorney~~ — not my zone; if a new e-signature/power of attorney arose from the task, redirect to the manager
 
 Each one — a separate approval.
 
@@ -192,7 +194,7 @@ What NOT to do: do not edit the HTML directly. Only via state/mental_model and r
 - Rotation — once a month by hand (or by a separate P2 daemon in the future). At the next rotation, check that no more than 2 backups per file have accumulated in the working folder.
 - A backup with a "key" context (apply_patches, p0a_anomaly_id, etc.) is considered more valuable than a plain "timestamp-updater" one — keep it in priority at rotation.
 
-The daemons (scheduled tasks) fill `journal/inbox/` and `journal/finkoper_state/` with fresh data for the day. Schedule: 06:00 — `news`, 06:15 — `email`, 06:30 — `finkoper` (a snapshot of tasks+chats into JSON), 07:00 — `updater` (updater updates), 07:15 — `analytic` (anomalies), **07:45 — `dashboard`** (regenerate, calls `python generate.py --print-summary`). The `bank` daemon is not configured yet.
+The collectors (scheduled tasks) fill `journal/inbox/` and `journal/finkoper_state/` with fresh data for the day. The schedule is declared in `config/instance.yaml → schedule` (times local to `instance.timezone`); the default is 06:00 — `news`, 06:15 — `email`, 06:30 — `practice_management` (a snapshot of tasks+chats into JSON), **07:45 — `dashboards`** (regenerate). The old standalone `updater`/`analytic` daemons were retired (their logic moved into `mm_update` and the on-the-fly dashboard widgets); the `bank` collectors (T-Bank/Alfa) run on demand for the direct circuit. Each collector degrades gracefully — a failure or empty result yields an empty panel + a status dot, never a broken render.
 
 Hybrid reading architecture (since 2026-05-13):
 - **Finkoper** — a JSON snapshot `journal/finkoper_state/latest/tasks.json`, `chats.json`, `snapshot_meta.json`
@@ -211,17 +213,17 @@ The old versions of the renderers are kept in `generate.py` under the names `gen
 
 If some daemon failed or a file is missing — `generate.py` still runs on the data it has (graceful degradation: an empty container instead of a traceback). The state of each source is shown by the source dots in the overview header: 🟢 — data present, 🟡 — file present but did not parse, 🔴 — file missing.
 
-The sources that `generate.py` reads on each run:
-- `clients_data.json` — client cards, monthly_check, prep_done_2026
-- `registries/Consolidated_calendar_2026.xlsx` — deadlines and the statuses of preparation/execution
-- ~~`registries/e-signatures_and_powers_of_attorney.md`~~ — not used (the manager's zone)
-- `registries/request_log.md` — open requests and their age
-- `journal/finkoper_state/latest/*.json` — the Finkoper JSON snapshot
-- `journal/inbox/*_YYYY-MM-DD.md` — the daemons' fresh markdown data for today
+The sources that `generate.py` reads on each run (all under the instance `data.dir`):
+- `clients/<id>/state/*.json` + `mental_model.md` — the source of truth for every client (identity/regime/accounts/financials/counterparties/risks/behavior/tasks)
+- `clients_index.json` — the roster (id, name, folder, group/track)
+- deadlines — from each client's `state/financials.tax_calendar` (the legacy `registries/Consolidated_calendar` spreadsheet is no longer read)
+- `journal/finkoper_state/latest/*.json` — the practice-management JSON snapshot
+- `journal/inbox/<type>_YYYY-MM-DD.json` — the collectors' fresh data for today (news/email/anomalies/updates)
+- e-signatures / powers of attorney — out of scope (the manager's zone)
 
 ## 5. Working with the downloads folder
 
-New files from the browser land in the system folder on Windows: `C:\Users\<name>\Downloads\`. This is a transit zone, not a place of storage.
+New files from the browser land in the operating system's download folder (the practice's configured transit path — e.g. `~/Downloads`). This is a transit zone, not a place of storage.
 
 The "sort the downloads" scenario:
 1. Read the contents of Downloads. Show only the files that look like work files (statements, acts, contracts, client documents). Ignore personal files.
@@ -253,7 +255,7 @@ The Chrome agent is the "hands", you are the "brain". When an action is needed i
 Principles:
 - The goal — one phrase
 - The steps — numbered, concrete
-- Where to save — the standard Windows downloads folder (`Downloads/`)
+- Where to save — the operating system's download folder (the configured transit path, e.g. `~/Downloads`)
 - The HARD RULES section — always from the template, do not shorten
 - What to show me before which action — a mandatory last item
 

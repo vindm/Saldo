@@ -1,0 +1,214 @@
+{
+  "schema_version": "2.0",
+  "client_id": "aurora",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "aurora_mc04",
+      "title": "Close April 2026 in the ledger (6 regulated ops)",
+      "task_type": "month_close",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-16",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "April close is the last open monthly period; 6 regulated operations remain after the bank statement was posted on 14.06.",
+      "next_action": "Run the 6 closing operations in 1C, then re-check the balance.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Period opened for April close.",
+          "kind": "status_change",
+          "auto": true
+        },
+        {
+          "date": "2026-06-14",
+          "event": "Client sent the missing April invoices via Telegram.",
+          "kind": "reply",
+          "auto": false
+        },
+        {
+          "date": "2026-06-18",
+          "event": "Bank statement for April posted; 2 of 6 closing ops done.",
+          "kind": "posting",
+          "auto": false
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-04"
+      },
+      "assist": {
+        "hypothesis": "Ready to finish — the inputs are in. The remaining 4 ops are mechanical; no client action needed.",
+        "confidence": "high",
+        "updated_at": "2026-06-19",
+        "actions": [
+          {
+            "label": "Run the close",
+            "prompt": "Close April for SP Aurora Bakery: run the remaining 4 regulated operations in 1C and re-check the balance.",
+            "recommended": true
+          },
+          {
+            "label": "Show the checklist",
+            "prompt": "Show the month-close checklist for SP Aurora Bakery and where we are."
+          },
+          {
+            "label": "Defer 2 days",
+            "prompt": "Defer the April close for SP Aurora Bakery by 2 days with a reminder."
+          }
+        ]
+      }
+    },
+    {
+      "id": "aurora_pp06",
+      "title": "June advance: notification + payment order",
+      "task_type": "pp_to_form",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-25",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "June advance for USN 6%. The client asked for the exact figure today (see the morning mail).",
+      "next_action": "Confirm the advance amount, draft the notification + payment order.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-17",
+          "event": "Quarterly pace recalculated; advance estimate ~19,000.",
+          "kind": "calc",
+          "auto": false
+        },
+        {
+          "date": "2026-06-20",
+          "event": "Client emailed asking for the exact figure before noon.",
+          "kind": "reply",
+          "auto": false
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-06",
+        "amount": 19000.0
+      },
+      "assist": {
+        "hypothesis": "The estimate (19,000) is solid; reconcile it against the latest bank inflow before confirming to the client.",
+        "confidence": "medium",
+        "updated_at": "2026-06-20",
+        "actions": [
+          {
+            "label": "Draft the figure + PO",
+            "prompt": "For SP Aurora Bakery, reconcile the June USN advance against the latest statement and draft the notification + payment order.",
+            "recommended": true
+          },
+          {
+            "label": "Reply to the client",
+            "prompt": "Draft a short reply to SP Aurora Bakery confirming the June advance amount."
+          }
+        ]
+      }
+    },
+    {
+      "id": "aurora_sp",
+      "title": "Fee control — Q2 2026 (postpaid)",
+      "task_type": "service_payment",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-07-05",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Postpaid quarterly fee; verify receipt on the statement.",
+      "next_action": "Check whether the quarterly fee has been received.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "amount": 5000.0
+      }
+    },
+    {
+      "id": "aurora_q1",
+      "title": "Confirm the webshop revenue OKVED is registered",
+      "task_type": "open_question",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-05-21",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Synthetic clarification.",
+      "next_action": "Ask the client / check the source.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-05-21",
+          "event": "Question opened (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "no_auto_resolve": true
+      },
+      "assist": {
+        "hypothesis": "The webshop activity is very likely covered by the existing additional OKVED 47.91; worth a 1-minute EGRIP check before the next close.",
+        "confidence": "medium",
+        "updated_at": "2026-06-18",
+        "actions": [
+          {
+            "label": "Check & close",
+            "prompt": "Check the EGRIP extract for SP Aurora Bakery; if 47.91 is present, close this question.",
+            "recommended": true
+          },
+          {
+            "label": "Ask the client",
+            "prompt": "Ask SP Aurora Bakery to confirm which OKVED codes are registered."
+          },
+          {
+            "label": "Defer a quarter",
+            "prompt": "Defer the OKVED question for SP Aurora Bakery with a wake-up next quarter."
+          }
+        ]
+      }
+    }
+  ]
+}

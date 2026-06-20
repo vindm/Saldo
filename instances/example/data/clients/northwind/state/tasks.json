@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.0",
+  "client_id": "northwind",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "northwind_bk",
+      "title": "Get the bank statement (Q2 package)",
+      "task_type": "bank_check",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-22",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Quarterly bank statement needed to post the period.",
+      "next_action": "Download and review the bank statement.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    },
+    {
+      "id": "northwind_aw1",
+      "title": "Awaiting the client's decision on acquiring with fiscalization",
+      "task_type": "awaiting_external",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "The ball is in the client's court; nothing to do but wait.",
+      "next_action": "Waiting on the client — follow up if it stalls.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    }
+  ]
+}

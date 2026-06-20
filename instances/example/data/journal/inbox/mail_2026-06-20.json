@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "severity": "high",
+      "from_name": "Aurora Maxwell",
+      "from_email": "aurora@aurora.example",
+      "subject": "Need the June advance figure today",
+      "received_at": "20.06 09:14",
+      "client": "SP Aurora Bakery",
+      "preview": "Bank is asking for the exact amount before noon. Can you confirm?",
+      "attachments": []
+    },
+    {
+      "severity": "medium",
+      "from_name": "Bruno Castellano",
+      "from_email": "bruno@northwind.example",
+      "subject": "Contract for the new buyer",
+      "received_at": "20.06 08:02",
+      "client": "SP Northwind Studio",
+      "preview": "Attaching the signed agreement you asked about.",
+      "attachments": [
+        "contract.pdf"
+      ]
+    },
+    {
+      "severity": "low",
+      "from_name": "FNS Notifications",
+      "from_email": "noreply@fns.example",
+      "subject": "Reporting calendar for July",
+      "received_at": "19.06 19:40",
+      "client": null,
+      "preview": "Informational digest of upcoming July deadlines.",
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.1",
+  "client_id": "lumen",
+  "last_updated": "2026-05-21T00:00:00+03:00",
+  "counterparties": [
+    {
+      "id": "main_buyer",
+      "name": "Sample Buyer Ltd",
+      "inn": null,
+      "kpp": null,
+      "ogrn": null,
+      "relation_type": "b2b_customer_main",
+      "category": "wholesale",
+      "contract_type": "supply",
+      "since": "2024-06-01",
+      "volume_share_2026": "main B2B",
+      "volume_amount_2026": null,
+      "requisites": {},
+      "tags": [
+        "B2B"
+      ],
+      "linked_open_questions": [],
+      "linked_tasks": [],
+      "documents": [],
+      "notes": "Synthetic."
+    }
+  ],
+  "open_questions_summary": "Synthetic example."
+}

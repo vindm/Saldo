@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.1",
+  "client_id": "cobalt",
+  "last_updated": "2026-05-21T00:00:00+08:00",
+  "bank_accounts": [
+    {
+      "id": "main",
+      "bank_name": "Example Bank",
+      "bik": "000000001",
+      "account": "40800000000000000006",
+      "purpose": "primary",
+      "is_primary": true,
+      "since": "2021-03-20",
+      "closed_at": null,
+      "notes": "Synthetic."
+    }
+  ],
+  "foreign_accounts": [],
+  "kassas": [],
+  "acquiring_channels": [],
+  "ofd": null,
+  "bank_access": {
+    "primary_bank": "Example Bank",
+    "access_level": "full",
+    "lk_url": "bank.example",
+    "is_ausn_partner": false,
+    "statements_source": "accountant_access",
+    "note": "Synthetic."
+  },
+  "quick_access": [
+    {
+      "service": "bank",
+      "label": "Example Bank",
+      "icon": "building-bank",
+      "url": "https://bank.example/login",
+      "login": null,
+      "password": null,
+      "cred_status": "na",
+      "status": "active",
+      "note": "Sample."
+    },
+    {
+      "service": "fns",
+      "label": "Tax office portal",
+      "icon": "building-estate",
+      "url": "https://tax.example/lk",
+      "login": null,
+      "password": null,
+      "cred_status": "na",
+      "status": "active",
+      "note": "Sample."
+    }
+  ]
+}

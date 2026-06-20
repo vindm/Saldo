@@ -1,0 +1,168 @@
+{
+  "schema_version": "2.0",
+  "client_id": "lumen",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "lumen_ps06",
+      "title": "Sign the payment order in the bank",
+      "task_type": "pp_sign",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-06-26",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Payment order prepared; waiting for the client's signature.",
+      "next_action": "Remind the client to sign the payment order in the bank.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-06"
+      }
+    },
+    {
+      "id": "lumen_sp",
+      "title": "Fee control — Q2 2026 (postpaid)",
+      "task_type": "service_payment",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-07-05",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Postpaid quarterly fee; verify receipt on the statement.",
+      "next_action": "Check whether the quarterly fee has been received.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "amount": 5000.0
+      }
+    },
+    {
+      "id": "lumen_ens",
+      "title": "Reconcile the single tax account for Q2",
+      "task_type": "ens_reconciliation",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": "2026-07-15",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Quarterly single-tax-account reconciliation.",
+      "next_action": "Reconcile the single tax account balance for the quarter.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    },
+    {
+      "id": "lumen_mon",
+      "title": "Monitor the bank's reaction to new payees (after the recent hold)",
+      "task_type": "monitoring",
+      "status": "awaiting",
+      "priority": "normal",
+      "created_at": "2026-05-30",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Passive watch after a recent bank hold on an unusual payee.",
+      "next_action": "Keep watching; act only if the bank flags a transfer.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-13",
+          "event": "Task created (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {}
+    },
+    {
+      "id": "lumen_q1",
+      "title": "Bank-acquirer and tariff?",
+      "task_type": "open_question",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-05-21",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Synthetic clarification.",
+      "next_action": "Ask the client / check the source.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-05-21",
+          "event": "Question opened (synthetic seed).",
+          "auto": true,
+          "kind": "status_change"
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "no_auto_resolve": true
+      }
+    }
+  ]
+}

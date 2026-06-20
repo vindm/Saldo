@@ -9,6 +9,7 @@ Extracted from _overview_legacy.py during the legacy cleanup 2026-05-17.
 from _helpers import _esc, _esca, _format_date_ru, _snapshot_time
 from _loaders import _DAEMON_DIAG
 from _strings import t
+from _icons import icon
 
 
 def render_header():
@@ -36,24 +37,22 @@ def render_header():
     if time_bali and time_msk:
         time_html = (
             f'<span title="{_esca(t("Current time in Bali and Moscow"))}">'
-            f'🕐 {_esc(time_bali)} WITA · {_esc(time_msk)} {t("MSK")}'
-            f'</span>'
+            + icon('clock') + f' {_esc(time_bali)} WITA · {_esc(time_msk)} {t("MSK")}'
+            + '</span>'
         )
     else:
-        time_html = f'<span>🕐 {_esc(snapshot)} {t("MSK")}</span>'
+        time_html = '<span>' + icon('clock') + f' {_esc(snapshot)} {t("MSK")}</span>'
     snapshot_html = ''
     if snapshot:
         snapshot_html = (
             f'<span title="{_esca(t("Last daemon snapshot"))}" class="meta">'
-            f'📡 {t("snapshot")} {_esc(snapshot)}</span>'
+            f'{t("snapshot")} {_esc(snapshot)}</span>'
         )
     return (
         '<header class="page-header">'
         f'<h1>{_esc(date_str)}</h1>'
         '<div class="status-line">'
         f'{time_html}'
-        f'{snapshot_html}'
-        f'<span>📡 {dots_html}</span>'
         '</div></header>'
     )
 
@@ -96,7 +95,7 @@ def render_morning_digest(daemon_news, daemon_mail, daemon_updates):
     updates_rows = ''
     if applied:
         updates_rows = ''.join(
-            f'<div class="digest-item">✅ {_esc(u.get("title") or u.get("body",""))}'
+            f'<div class="digest-item">{_esc(u.get("title") or u.get("body",""))}'
             + (f'<div class="meta">{_esc(u.get("label",""))}</div>' if u.get('label') else '')
             + '</div>'
             for u in applied
@@ -104,7 +103,7 @@ def render_morning_digest(daemon_news, daemon_mail, daemon_updates):
     if needs_manual:
         updates_rows += (
             f'<div class="digest-item" style="color:var(--accent-yellow)">'
-            f'⚠️ {len(needs_manual)} {t("updates need my decision")} '
+            f'{len(needs_manual)} {t("updates need my decision")} '
             f'(see _diary/inbox/updates_*.md)</div>'
         )
     if not updates_rows:

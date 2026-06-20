@@ -44,33 +44,32 @@ For each news item — note which of the 6 clients it affects:
 
 ### Step 5. R6 — preserving manual notes
 
-If `journal/inbox/news_<today>.md` exists and contains the operator's manual notes — save them into `operator_decisions.md`.
+If `journal/inbox/news_<today>.json` exists and contains the operator's manual notes — save them into `operator_decisions.md`.
 
 ### Step 6. Building the daily report
 
-Write `journal/inbox/news_<today>.md`:
+Write `journal/inbox/news_<today>.json` — this is the contract the engine reads
+(`engine/_loaders.load_daemon_news`). One object, an `items` array; one item per
+news piece, ordered urgent → important → informational:
 
-```markdown
-# Accounting news — DD.MM.YYYY
-
-## 🔴 Urgent (N)
-- **[Headline]** ([source, date])
-  2-3 sentences of the gist. **Who it affects:** [list or "all"]. **Deadline:** [if any].
-  Link: [URL]
-
-## 🟡 Important (N)
-(same structure)
-
-## 📋 Informational (N)
-(same structure)
-
-## Sources
-[Verified domains marked "empty" if nothing was found]
-
-## Ignored
-- UKEP / electronic signature (ECP) news: N (not the operator's area)
-- Foreign sources: N
+```json
+{
+  "items": [
+    {
+      "severity": "high",
+      "title": "Headline / gist of the news",
+      "source": "Source name (verified domain)",
+      "body": "2-3 sentences: the gist, who it affects, deadline if any.",
+      "url": "https://source/article"
+    }
+  ]
+}
 ```
+
+Field rules: `severity` ∈ `high` (urgent) | `medium` (important) | `low`
+(informational). Emit `{"items": []}` if nothing was found (never omit the file —
+the heartbeat + an empty list is the "ran, found nothing" signal). Do **not**
+include UKEP/e-signature or foreign-source items (filtered out per README).
 
 ### Step 7. Heartbeat
 

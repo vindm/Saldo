@@ -234,7 +234,7 @@ def render_brief_zone(clients, state_read, plan_dir, today, fmt_date=None,
     return '<section class="brief-zone">' + ''.join(_parts[s] for s in sections) + '</section>'
 
 BRIEF_CSS = (
-    ".brief-lead{border-left:3px solid var(--accent-blue)}"
+    ".brief-lead{}"
     ".brief-text{color:var(--text-primary);font-size:15px;line-height:1.6}"
     ".brief-sub{font-size:14px;color:var(--text-secondary);margin-top:2px;line-height:1.4}"
     ".brief-age{font-size:14px;padding:3px 10px;border-radius:6px;background:var(--bg-page);"
@@ -252,13 +252,13 @@ BRIEF_CSS = (
     ".brief-opt-free{border:none;background:none;color:var(--text-secondary)}"
     ".brief-opt-free:hover{color:var(--accent-blue)}"
     ".brief-stale{font-size:14px;color:#8A6730;background:var(--yellow-bg);padding:1px 7px;border-radius:6px;white-space:nowrap}"
-    ".aw-decisions{border-left:4px solid var(--accent-red)}"
+    ".aw-decisions{}"
     ".aw-decisions .aw-head{color:var(--accent-red)}"
     ".aw-decisions .aw-row{background:var(--red-bg);border-bottom:none;margin-bottom:6px}"
     ".aw-decisions .aw-row:hover{background:#F4CBC4}"
-    ".aw-questions{border-left:3px solid var(--border)}"
+    ".aw-questions{}"
     ".aw-questions .aw-head{color:var(--text-muted)}"
-    ".aw-questions-all{border-left:3px solid var(--border)}"
+    ".aw-questions-all{}"
     ".aw-questions-all>summary{cursor:pointer;list-style:none}"
     ".aw-questions-all>summary::-webkit-details-marker{display:none}"
     ".aw-questions-all .aw-head{color:var(--text-muted)}"
@@ -373,9 +373,8 @@ def render_analysis_zone(analysis, today, last_change=None, esc=None, esca=None)
 
 
 ANALYSIS_CSS = (
-    ".an-widget{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid #7F77DD;"
-    "border-radius:var(--radius-card);padding:var(--space-md) var(--space-lg);margin-bottom:var(--space-lg);"
-    "box-shadow:0 1px 2px rgba(0,0,0,0.03)}"
+    ".an-widget{background:var(--bg-card);border:1px solid var(--border);"
+    "border-radius:var(--radius-card);padding:16px 20px;margin-bottom:14px;box-shadow:none}"
     ".an-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-sm);"
     "margin-bottom:var(--space-sm);flex-wrap:wrap}"
     ".an-title{font-size:16px;font-weight:600;color:var(--text-primary)}"

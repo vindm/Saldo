@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "client_id": "lumen",
+  "last_updated": "2026-05-31T00:00:00+00:00",
+  "risks": [
+    {
+      "id": "R-lumen-bank-block",
+      "title": "Bank may block transfers to unusual payees",
+      "severity": "yellow",
+      "category": "operational",
+      "description": "On AUSN the partner bank is the only one, so a hold on a tax payment is critical. A transfer to an unusual payee was recently held and released via the operator.",
+      "next_action": "Warn the client before any unusual payee; keep an alternative channel ready.",
+      "linked_tasks": [],
+      "linked_law": null,
+      "since": "2026-05-26",
+      "history": [],
+      "kind": "risk"
+    }
+  ],
+  "resolved_risks": []
+}

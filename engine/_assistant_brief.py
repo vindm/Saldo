@@ -13,15 +13,11 @@ from _strings import t, WEEKDAYS_FULL
 
 ASSISTANT_BRIEF_CSS = (
     ".assistant-brief-card{"
-    "background:#F4F8F1;"
-    "border:0.5px solid #C3D9B8;"
-    "border-left:3px solid #6B8E5A;"
-    "border-radius:0 8px 8px 0;"
-    "padding:10px 16px;"
-    "margin-bottom:16px;"
-    "display:flex;gap:10px;align-items:flex-start}"
-    ".abc-icon{font-size:18px;flex-shrink:0;margin-top:2px;line-height:1}"
-    ".abc-text{font-size:16px;color:#1F2937;line-height:1.65;flex:1;min-width:0}"
+    "background:transparent;border:none;border-radius:0;"
+    "padding:0;margin:0 0 24px;"
+    "display:flex;gap:9px;align-items:flex-start}"
+    ".abc-icon{flex-shrink:0;margin-top:2px;line-height:1;color:var(--text-muted)}"
+    ".abc-text{font-size:15px;color:var(--text-secondary);line-height:1.6;flex:1;min-width:0}"
     ".assistant-overview-brief{"
     "background:#F4F8F1;"
     "border:0.5px solid #C3D9B8;"
@@ -143,7 +139,7 @@ def render_assistant_rec_card(groups):
         return ''
     return (
         '<div class="assistant-brief-card">'
-        '<span class="abc-icon">\U0001f4a1</span>'
+        '<span class="abc-icon">' + __import__('_icons', fromlist=['icon']).icon('brief') + '</span>'
         '<span class="abc-text">' + _esc(text) + '</span>'
         '</div>'
     )

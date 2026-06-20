@@ -6,17 +6,17 @@ Imported by generate.py, _client_dashboard_v2.py, _overview_v2.py.
 
 DESIGN_TOKENS_CSS = (
     ":root{"
-    "--bg-page:#FAFAF7;--bg-card:#FFFFFF;--border:#D7D4CB;"
+    "--bg-page:#FBFBFA;--bg-card:#FFFFFF;--bg-canvas:#F2F0EA;--border:#EAE8E2;"
     "--text-primary:#171717;--text-secondary:#2E2E2E;--text-muted:#474744;"
     "--accent-red:#C0392B;--accent-yellow:#D98324;--accent-green:#5E8B49;--accent-blue:#3A6CA8;"
     "--red-bg:#FBE6E0;--yellow-bg:#FBEFD4;--green-bg:#EAF3DE;--blue-bg:#E6F0FB;"
     "--font:-apple-system,\"Segoe UI\",\"Helvetica Neue\",system-ui,sans-serif;"
-    "--fs-base:17px;--fs-meta:15px;--fs-h2:22px;--fs-h1:28px;--fs-number:28px;--fs-number-large:40px;"
+    "--fs-base:15px;--fs-meta:13px;--fs-h2:22px;--fs-h1:28px;--fs-number:28px;--fs-number-large:40px;"
     "--space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;"
     "--radius-card:8px;--radius-btn:4px;--radius-badge:2px;"
-    "--shadow-card:0 1px 3px rgba(0,0,0,0.04);--transition:150ms ease;}"
+    "--shadow-card:0 1px 2px rgba(17,17,17,0.03);--transition:150ms ease;}"
     "*{box-sizing:border-box}"
-    "body{margin:0;padding:var(--space-lg);background:var(--bg-page);color:var(--text-primary);"
+    "body{margin:0;padding:var(--space-lg);background:var(--bg-canvas);color:var(--text-primary);"
     "font-family:var(--font);font-size:var(--fs-base);line-height:1.6}"
     "a{color:inherit;text-decoration:none}a:hover{color:var(--accent-blue)}"
     ".card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-card);"
@@ -37,7 +37,9 @@ DESIGN_TOKENS_CSS = (
     ".risks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));"
     "gap:var(--space-md);margin-bottom:var(--space-lg)}"
     ".risk-card{background:var(--bg-card);border:1px solid var(--border);"
-    "border-radius:var(--radius-card);padding:var(--space-md);border-left:4px solid var(--border)}"
+    "border-radius:var(--radius-card);padding:var(--space-md);border-left:4px solid var(--border);"
+    "display:flex;flex-direction:column}"
+    ".risk-card:hover{background:var(--bg-page)}"
     ".risk-card.risk-sev-red{border-left-color:var(--accent-red)}"
     ".risk-card.risk-sev-yellow{border-left-color:var(--accent-yellow)}"
     ".risk-card.risk-sev-green{border-left-color:var(--accent-green)}"
@@ -53,7 +55,7 @@ DESIGN_TOKENS_CSS = (
     ".risk-next::before{content:''}"
     ".risk-linked-tasks{font-size:15px;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono,monospace)}"
     ".risk-law{font-size:15px;color:var(--accent-blue);margin-top:4px;font-style:italic}"
-    ".risk-summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}"
+    ".risk-summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;flex:1 0 auto;align-content:flex-start}"
     ".risk-summary::-webkit-details-marker{display:none}"
     ".risk-summary::before{content:'▸';color:var(--text-muted);font-size:11px}"
     "details.risk-card[open]>.risk-summary::before{content:'▾'}"
@@ -73,7 +75,8 @@ DESIGN_TOKENS_CSS = (
     ".risk-resolved-by{font-size:15px;color:var(--text-muted);margin-top:2px}"
 
     # === Financials + Counterparties ===
-    ".fin-section{margin-bottom:var(--space-lg)}"
+    ".fin-section{background:var(--bg-card);border:1px solid var(--border);"
+    "border-radius:var(--radius-card);padding:16px 20px;margin-bottom:14px}"
     ".fin-pace{font-size:15px;color:var(--text-primary);background:#F8F5EF;"
     "padding:8px 12px;border-radius:6px;margin-bottom:var(--space-md)}"
     ".fin-subtitle{font-size:15px;text-transform:uppercase;letter-spacing:.04em;"
@@ -144,12 +147,15 @@ DESIGN_TOKENS_CSS = (
     ".meta-label{color:var(--text-muted);font-size:15px;text-transform:uppercase;letter-spacing:.04em;font-weight:500}"
 
     # === UX-fix #6: Accounts + Behavior ===
-    ".acc-section{margin-bottom:var(--space-lg)}"
+    ".acc-section{background:var(--bg-card);border:1px solid var(--border);"
+    "border-radius:var(--radius-card);padding:16px 20px;margin-bottom:14px}"
     ".acc-block-title{font-size:15px;text-transform:uppercase;letter-spacing:.04em;"
     "color:var(--text-muted);font-weight:500;margin:var(--space-md) 0 6px}"
-    ".acc-row{background:var(--bg-card);border:1px solid var(--border);"
-    "border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:15px;"
+    ".acc-section > .acc-block-title:first-child{margin-top:0}"
+    ".acc-row{background:transparent;border:none;border-bottom:1px solid var(--border);"
+    "border-radius:0;padding:9px 2px;margin-bottom:0;font-size:15px;"
     "color:var(--text-secondary);display:flex;align-items:center;gap:8px;flex-wrap:wrap}"
+    ".acc-row:last-child{border-bottom:none}"
     ".acc-row.acc-st-closed{opacity:.5}"
     ".acc-bank{font-weight:500;color:var(--text-primary)}"
     ".acc-num{font-family:var(--font-mono,monospace);font-size:15px;color:var(--text-primary);"
@@ -199,7 +205,8 @@ DESIGN_TOKENS_CSS = (
     ".tm-btn-tg:hover{background:#1a8fc7;color:#fff;border-color:#1a8fc7}"
 
     # === UX-fix #9: req-section consistent with the other sections ===
-    ".req-section{margin-bottom:var(--space-lg);background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--space-md)}"
+    ".req-section{background:var(--bg-card);border:1px solid var(--border);"
+    "border-radius:var(--radius-card);padding:16px 20px;margin-bottom:14px}"
     ".cal-task-title{font-size:15px;color:var(--accent-blue)}"
 )
 

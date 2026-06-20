@@ -336,56 +336,45 @@ body.mode-team [data-track-type="direct"]{display:none !important}
 body.mode-direct [data-track-type="team"]{display:none !important}
 
 /* === Light stats in a single line === */
-.aw-stats{display:flex;gap:var(--space-md);padding:var(--space-md) var(--space-lg);
-  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-card);
-  margin:0 0 var(--space-lg);flex-wrap:wrap;align-items:center}
-.aw-stats .stat{display:flex;flex-direction:column;gap:2px;padding:0 var(--space-md);
-  border-right:1px solid var(--border);min-width:110px}
-.aw-stats .stat:last-child{border-right:none}
-.aw-stats .stat-num{font-size:24px;font-weight:600;color:var(--text-primary);line-height:1}
-.aw-stats .stat-lbl{font-size:14px;color:var(--text-muted);text-transform:uppercase;
-  letter-spacing:0.04em}
+.aw-stats{display:flex;gap:32px;padding:16px 20px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:var(--radius-card);
+  margin:0 0 14px;flex-wrap:wrap;align-items:flex-end}
+.aw-stats .stat{display:flex;flex-direction:column;gap:3px;padding:0;
+  border-right:none;min-width:0}
+.aw-stats .stat-num{font-size:22px;font-weight:500;color:var(--text-primary);line-height:1}
+.aw-stats .stat-lbl{font-size:11.5px;color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:0.05em}
 .aw-stats .stat-red .stat-num{color:var(--accent-red)}
 .aw-stats .stat-amber .stat-num{color:var(--accent-yellow)}
 .aw-stats .stat-green .stat-num{color:var(--accent-green)}
-.aw-stats .stat-red,.aw-stats .stat-amber,.aw-stats .stat-green{border-right:none;padding-top:6px;padding-bottom:6px;border-radius:8px}
-.aw-stats .stat-red{background:var(--red-bg)}
-.aw-stats .stat-amber{background:var(--yellow-bg)}
-.aw-stats .stat-green{background:var(--green-bg)}
 
 /* === Top-5 and Deadlines widgets === */
-.aw-widget{background:var(--bg-card);border-radius:var(--radius-card);
-  padding:var(--space-md) var(--space-lg);border:1px solid var(--border);
-  margin-bottom:var(--space-md);box-shadow:0 1px 2px rgba(0,0,0,0.03)}
-.aw-head{font-size:16px;font-weight:600;margin-bottom:var(--space-sm);color:var(--text-primary);
+.aw-widget{background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--radius-card);box-shadow:none;padding:16px 20px;
+  margin-bottom:14px}
+.aw-head{font-size:12px;font-weight:500;margin-bottom:8px;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:.05em;
   display:flex;justify-content:space-between;align-items:center}
-.aw-count{font-size:15px;font-weight:400;color:var(--text-muted)}
-.aw-link{font-size:15px;font-weight:500;color:var(--accent-blue);text-decoration:none;
-  padding:4px 10px;border-radius:6px;transition:all 120ms}
-.aw-link:hover{background:var(--blue-bg)}
+.aw-count{font-size:12px;font-weight:500;color:var(--text-muted);text-transform:none;letter-spacing:0}
+.aw-link{font-size:13px;font-weight:500;color:var(--accent-blue);text-decoration:none;
+  text-transform:none;letter-spacing:0;padding:2px 6px;border-radius:6px;transition:all 120ms}
+.aw-link:hover{color:var(--text-primary)}
 .aw-body{font-size:14px;line-height:1.5}
-.aw-empty{padding:var(--space-md);color:var(--text-muted);text-align:center;
-  font-style:italic;font-size:15px}
-.aw-row{display:flex;align-items:flex-start;gap:8px;padding:8px 0;
+.aw-empty{padding:10px 0;color:var(--text-muted);font-size:14px}
+.aw-row{display:flex;align-items:flex-start;gap:8px;
   border-bottom:1px solid var(--border);cursor:pointer;transition:background 120ms;
-  margin:0 -8px;padding:8px;border-radius:6px}
+  padding:9px 8px;margin:0 -8px;border-radius:6px}
 .aw-row:last-child{border-bottom:none}
 .aw-row:hover{background:var(--bg-page)}
 .aw-text{color:var(--text-primary);flex:1;min-width:0}
 .aw-client{color:var(--text-muted);font-size:15px;white-space:nowrap}
-.aw-dl-badge{font-size:14px;padding:3px 10px;border-radius:6px;font-weight:500;
-  white-space:nowrap;flex-shrink:0;min-width:100px;text-align:center}
-.dl-overdue{background:#F4CBC4;color:#8A1F1F}
-.dl-today{background:#F4CBC4;color:#8A1F1F}
-.dl-soon{background:#FAE0B8;color:#6B4310}
-.dl-week{background:#FBEBC9;color:#74521A}
-.dl-plan{background:#DCEBFB;color:#0C447C}
-
-/* Top-5 slightly highlighted */
-.aw-focus{border-left:3px solid var(--accent-blue)}
-
-/* Activity feed */
-.aw-activity{border-left:3px solid var(--accent-green)}
+.aw-dl-badge{font-size:13px;padding:2px 9px;border-radius:6px;font-weight:600;
+  white-space:nowrap;flex-shrink:0;min-width:84px;text-align:center}
+.dl-overdue{background:var(--red-bg);color:var(--accent-red)}
+.dl-today{background:var(--red-bg);color:var(--accent-red)}
+.dl-soon{background:var(--yellow-bg);color:#8A6730}
+.dl-week{background:var(--yellow-bg);color:#8A6730}
+.dl-plan{background:var(--blue-bg);color:var(--accent-blue)}
 .aw-act-row{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;
   border-bottom:1px solid var(--border);font-size:15px;line-height:1.4;
   border-radius:4px;transition:background 120ms;margin:0 -8px}
@@ -406,14 +395,15 @@ body.mode-direct [data-track-type="team"]{display:none !important}
 
 # Actions shown in the feed — icon + human-readable label.
 # Keys are canonical English `kind` codes read straight from history[].kind.
+from _icons import icon as _icon
 _ACTION_LABELS = {
-    "payment": ("💰", "Payment"),
-    "filing": ("📄", "Filed"),
-    "reply": ("📥", "Client replied"),
-    "document": ("📎", "Document"),
-    "status_change": ("🔄", "Status changed"),
-    "note": ("📝", "Note"),
-    "decision": ("📝", "Decision recorded"),
+    "payment": ("service_payment", "Payment"),
+    "filing": ("declaration", "Filed"),
+    "reply": ("email_action_required", "Client replied"),
+    "document": ("declaration", "Document"),
+    "status_change": ("finkoper_recurring", "Status changed"),
+    "note": ("pencil", "Note"),
+    "decision": ("analysis", "Decision recorded"),
 }
 
 
@@ -483,9 +473,9 @@ def recent_activity(all_tracks, journal_path, limit=15):
                                 chosen_d = real_d
                         except Exception:
                             pass
-            icon, action = _ACTION_LABELS.get(chosen_kind, ("🔄", "Updated"))
+            ic_name, action = _ACTION_LABELS.get(chosen_kind, ("finkoper_recurring", "Updated"))
             items.append({
-                "date": chosen_d, "icon": icon, "kind": chosen_kind,
+                "date": chosen_d, "icon": _icon(ic_name), "kind": chosen_kind,
                 "action": action, "title": title[:90],
                 "client_id": cid, "client_name": cname,
                 "track": t, "source": "track",
@@ -525,7 +515,7 @@ def recent_activity(all_tracks, journal_path, limit=15):
                     if not summ or rec.get("kind") not in ("decision", "significant"):
                         continue
                     items.append({
-                        "date": d, "icon": "📝", "kind": "decision",
+                        "date": d, "icon": _icon('analysis'), "kind": "decision",
                         "action": "Decision recorded",
                         "title": summ[:90],
                         "client_id": cid, "client_name": cname or cid,
