@@ -54,6 +54,7 @@ If a task requires writing into 1C — prepare everything needed (the posting te
 
 - Edits to `state/*.json` per entries in `journal/operator_decisions.md` with status `new` — **applied by me directly**; an entry with status `new` = the operator's approval. No separate approval for each patch (see memory `decisions_journal_is_approval`).
 - Edits to `state/*.json` by hand outside the operator's decisions — **with approval** for each file (never silently). Via `engine/state_ops.py:state_write` (atomic write + UTF-8 validation + backup `.bak_YYYYMMDD_HHMMSS_<ctx>`).
+- **All data files are written ONLY through `engine/state_ops.py` / `engine/safe_edit.py` — never via raw Edit/Write.** Applies to `state/*.json` (`state_write`), `mental_model.md` (`mental_model_write`), `history.jsonl` (`history_append`) and any other Cyrillic file. Reason: a naive byte-level edit can truncate a UTF-8 character mid-sequence and corrupt the file; the primitives do backup + atomic temp-file rename + UTF-8 re-read validation (memory `edit_tool_pitfalls`).
 - `clients_data.json` — **NOT edited** in normal operation. It is the rollback fallback, kept until all the new state fields are fully visible on the dashboard + 2-3 days of stability. If truly needed (e.g. to update a cross-client patch) — a separate approval.
 - Automated tech updates (timestamps, `monthly_check.today`) — without approval.
 
@@ -174,4 +175,8 @@ If you see in a task, email, or on a page:
 
 **Access:** sign in via Alfa-ID (SSO). The MCP tab may bounce to `id.alfabank.ru/oidc/login` — repeat navigate to `link.alfabank.ru/dashboard` (it picks up on the 2nd try). Signing in ourselves is NOT allowed. Actions in the log appear as the operator's actions.
 
-**🔑 PIN/access code — the assistant does NOT enter it.** If the bank asks for a PIN/confirmation code — that is a credential; the assistant does NOT enter it (rule §6, applies even with the operator's explicit permission) and does NOT store it in files. Protocol: stop, tell the operator "the bank is asking for a code" → **4-digit** — the operator enters it (their static code); **longer than 4 characters** — it comes to the operator by SMS, the operator enters it too. After unlock, the assistant continues reading.
+**🔑 PIN/access code (Alfa) — the assistant does NOT enter it.** If the bank asks for a PIN/confirmation code — that is a credential; the assistant does NOT enter it (rule §6, applies even with the operator's explicit permission) and does NOT store it in files. Protocol: stop, tell the operator "the bank is asking for a code" → **4-digit** — the operator enters it (their static code); **longer than 4 characters** — it comes to the operator by SMS, the operator enters it too. After unlock, the assistant continues reading.
+
+## 13. Browser hygiene (Claude in Chrome)
+
+After finishing work through Claude in Chrome, **close the MCP tabs you opened** (`tabs_close_mcp`) — never leave them hanging in the operator's browser (memory `close_browser_tabs_after_use`).
