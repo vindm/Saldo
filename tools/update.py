@@ -102,9 +102,13 @@ def main():
             say("  (could not update from GitHub - continuing with the current version)",
                 "  (не получилось обновиться с GitHub - продолжаю на текущей версии)")
 
-    # 2. Make sure the one dependency is present (no-op if already installed).
-    subprocess.run([py, "-m", "pip", "install", "--quiet", "pyyaml"],
-                   cwd=REPO, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # 2. Make sure Python dependencies are present (no-op if already installed).
+    req = os.path.join(REPO, "requirements.txt")
+    if os.path.exists(req):
+        r = subprocess.run([py, "-m", "pip", "install", "--quiet", "-r", req], cwd=REPO)
+        if r.returncode != 0:
+            say("  (could not install Python packages - if there is an error below, run: pip install -r requirements.txt)",
+                "  (не удалось установить пакеты Python - при ошибке ниже выполните: pip install -r requirements.txt)")
 
     # 3. Apply pending data migrations (backup + atomic + ledger handled by migrate.py).
     ok_mig = run([py, os.path.join(ENGINE, "migrate.py"), "up", "--apply"],

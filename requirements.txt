@@ -1,0 +1,7 @@
+# Python dependencies for the Saldo engine.
+# Install:  python -m pip install -r requirements.txt
+# (the one-click updater, tools/update.py, does this automatically)
+
+PyYAML>=6   # config/instance.yaml parsing (engine/_config.py)
+# Timezones use the stdlib zoneinfo with a fixed-offset fallback (engine/generate.py),
+# so no 'tzdata' package is required, even on Windows.

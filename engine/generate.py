@@ -124,13 +124,21 @@ try:
     from zoneinfo import ZoneInfo
     TZ_BALI = ZoneInfo('Asia/Makassar')  # WITA, UTC+8
     TZ_MSK = ZoneInfo('Europe/Moscow')   # MSK, UTC+3
+except Exception:
+    # Windows ships no IANA tz database (and the 'tzdata' package may be absent),
+    # so ZoneInfo raises ZoneInfoNotFoundError. Both zones are fixed-offset with no
+    # DST, so a plain UTC offset is exactly correct and needs no dependency.
+    from datetime import timezone as _tz, timedelta as _td
+    TZ_BALI = _tz(_td(hours=8))   # WITA, UTC+8
+    TZ_MSK = _tz(_td(hours=3))    # MSK,  UTC+3
+try:
     from datetime import datetime as _dt_with_tz
     _NOW_BALI = _dt_with_tz.now(TZ_BALI)
     _NOW_MSK = _dt_with_tz.now(TZ_MSK)
     TODAY = _NOW_BALI.date()
     TIME_BALI = _NOW_BALI.strftime('%H:%M')
     TIME_MSK = _NOW_MSK.strftime('%H:%M')
-except ImportError:
+except Exception:
     TODAY = date.today()
     TIME_BALI = ''
     TIME_MSK = ''
