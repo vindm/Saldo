@@ -1,0 +1,30 @@
+# ID monthly cycle for a UMKM-final micro client (synthetic demo).
+# Mirrors the RU pipeline shape (ordered stages keyed by task_type) so the engine
+# reads it the same way. Each stage declares its own icon/glyph so a new
+# jurisdiction is pure data (no engine edit). Coretax is browser-driven by the
+# runtime, not a connector.
+pipeline: monthly_close_id
+stages:
+  - code: turnover_collection
+    title: { en: "Collect turnover", id: "Kumpulkan peredaran bruto" }
+    task_types: [turnover_collection]
+    checklist: monthly_turnover
+    icon: folder
+    glyph: "📂"
+  - code: compute_final
+    title: { en: "Compute 0.5% final PPh", id: "Hitung PPh final 0,5%" }
+    task_types: [compute_final_pph]
+    icon: file-text
+    glyph: "🧮"
+  - code: billing_pay
+    title: { en: "Billing code + pay (Coretax)", id: "Kode billing + bayar" }
+    task_types: [coretax_billing, tax_pay]
+    checklist: coretax_final_tax_payment
+    icon: credit-card
+    glyph: "💳"
+  - code: record_ntpn
+    title: { en: "Record NTPN", id: "Catat NTPN" }
+    task_types: [record_ntpn]
+    icon: receipt
+    glyph: "🧾"
+feeders: [bank_check]

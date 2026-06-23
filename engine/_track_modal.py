@@ -72,22 +72,41 @@ _TS_RU_LOC = {
     "requested_systems": "Запрошенные системы", "check_items": "Пункты проверки",
     "yearly_fixed": "Годовой фикс. взнос", "period_from": "Период с", "period_to": "Период по",
     "tax_amount_may_2026": "Налог за май 2026", "blocker_resolution": "Снятие блокера",
+    "doc_expected": "Ожидаемый документ", "deadline": "Срок", "decision": "Решение",
+    "next_step": "Следующий шаг", "amount_paid": "Оплачено (сумма)", "payment_basis": "Основание платежа",
+    "service_quarter": "Квартал обслуживания", "tariff_note": "Тариф (примечание)",
+    "wake_date": "Возобновить (дата)", "wake_to": "Спит до", "jur_services": "Юр. услуги",
+    "condition": "Условие", "contract_termination_date": "Дата расторжения договора",
+    "activation": "Активация", "advance_calc_gross": "Расчёт аванса (брутто)",
+    "advance_due_q1": "Аванс за 1 кв (срок)", "filled_through": "Заполнено по",
+    "form_when": "Когда формировать", "last_verified_period": "Последний проверенный период",
+    "legal_basis": "Правовое основание", "payer": "Плательщик", "payment_tranches": "Транши платежа",
+    "reconciliation_status": "Статус сверки", "review_date": "Дата проверки",
+    "threshold_law": "Норма о пороге", "q1_2026_paid": "Оплачено за 1 кв 2026",
+    "q4_2025_paid": "Оплачено за 4 кв 2025",
 }
 
 
 def _ts_ru_loc_json():
     return json.dumps(_TS_RU_LOC, ensure_ascii=False) if LOCALE == 'ru' else '{}'
 
+# type_specific keys that are internal plumbing — never shown in the modal.
+INTERNAL_TS_KEYS = ['no_auto_resolve', 'id_slug_note', 'exclude', 'feeds',
+                    'resolved_value', 'resolves_when']
+
+def _ts_internal_json():
+    return json.dumps(INTERNAL_TS_KEYS)
+
 TRACK_MODAL_CSS = """
 .track-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;
   display:none;align-items:center;justify-content:center;padding:var(--space-md)}
 .track-modal.open{display:flex}
 .track-modal-box{background:var(--bg-card);border-radius:var(--radius-card);
-  max-width:860px;width:100%;max-height:90vh;overflow-y:auto;
-  box-shadow:0 10px 40px rgba(0,0,0,0.2);padding:var(--space-lg);position:relative}
+  max-width:1040px;width:100%;max-height:90vh;overflow-y:auto;
+  box-shadow:0 16px 48px rgba(16,16,26,0.22);padding:var(--space-lg) var(--space-xl);position:relative}
 
 /* Two-column: solving content on the left, properties rail on the right (Linear) */
-.tm-grid{display:grid;grid-template-columns:1fr 232px;gap:32px;align-items:start}
+.tm-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
 .tm-main{min-width:0}
 .tm-aside{border-left:1px solid var(--border);padding-left:24px;min-width:0}
 .tm-aside-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;
@@ -156,7 +175,7 @@ TRACK_MODAL_CSS = """
   align-items:center;gap:8px;font-family:inherit;font-weight:500}
 .tm-btn:hover{border-color:var(--accent-blue);background:var(--blue-bg);color:var(--accent-blue)}
 .tm-btn-primary{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue)}
-.tm-btn-primary:hover{background:#3a5c8f;color:#fff;border-color:#3a5c8f}
+.tm-btn-primary:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}
 .tm-btn-success{background:var(--accent-green);color:#fff;border-color:var(--accent-green)}
 .tm-btn-success:hover{background:#557546;color:#fff;border-color:#557546}
 .tm-btn-warn{background:var(--accent-yellow);color:#fff;border-color:var(--accent-yellow)}
@@ -170,6 +189,9 @@ TRACK_MODAL_CSS = """
 .tm-meta-chip.status-active{background:var(--green-bg);color:var(--accent-green);border-color:transparent}
 .tm-meta-chip.status-blocked{background:var(--yellow-bg);color:var(--accent-yellow);border-color:transparent}
 .tm-meta-chip.status-done{background:var(--bg-page);color:var(--text-muted);border-color:transparent}
+.tm-meta-chip.status-in_progress,.tm-meta-chip.status-paid{background:var(--green-bg);color:var(--accent-green);border-color:transparent}
+.tm-meta-chip.status-scheduled,.tm-meta-chip.status-calculated{background:var(--blue-bg);color:var(--accent-blue);border-color:transparent}
+.tm-meta-chip.status-deferred,.tm-meta-chip.status-dropped,.tm-meta-chip.status-cancelled,.tm-meta-chip.status-archived{background:var(--bg-page);color:var(--text-muted);border-color:transparent}
 .tm-meta-chip.prio-high{background:var(--red-bg);color:var(--accent-red);font-weight:500;border-color:transparent}
 .tm-meta-chip.prio-low{background:var(--bg-page);color:var(--text-muted);border-color:transparent}
 .tm-meta-chip.due-overdue{background:var(--red-bg);color:var(--accent-red);font-weight:500;border-color:transparent}
@@ -268,6 +290,10 @@ _TRACK_MODAL_HTML_TEMPLATE = """
           <div class="tm-section-label">__REPLY_DRAFT__</div>
           <div class="tm-reply-draft" id="tm-reply-body"></div>
         </div>
+        <div class="tm-section" id="tm-deps-section" style="display:none">
+          <div class="tm-section-label">__DEPENDENCIES__</div>
+          <div class="tm-section-body" id="tm-deps-body"></div>
+        </div>
         <div class="tm-actions">
           <div class="tm-actions-assist" id="tm-assist-btns"></div>
           <div class="tm-actions-generic">
@@ -283,10 +309,6 @@ _TRACK_MODAL_HTML_TEMPLATE = """
         <div class="tm-section" id="tm-typespecific-section" style="display:none">
           <div class="tm-section-label">__DETAILS__</div>
           <div class="tm-section-body" id="tm-typespecific-body"></div>
-        </div>
-        <div class="tm-section" id="tm-deps-section" style="display:none">
-          <div class="tm-section-label">__DEPENDENCIES__</div>
-          <div class="tm-section-body" id="tm-deps-body"></div>
         </div>
       </aside>
     </div>
@@ -403,6 +425,8 @@ TRACK_MODAL_JS = r"""
       due: card.getAttribute('data-track-due') || '',
       dueRaw: card.getAttribute('data-track-due-raw') || '',
       statusRaw: card.getAttribute('data-track-status-raw') || '',
+      statusDisp: card.getAttribute('data-track-status-disp') || '',
+      statusCanon: card.getAttribute('data-track-status-canon') || '',
       source: card.getAttribute('data-track-source') || '',
       blockedByJson: card.getAttribute('data-track-blocked-by-json') || '[]',
       labelsJson: card.getAttribute('data-track-labels-json') || '[]',
@@ -440,7 +464,16 @@ TRACK_MODAL_JS = r"""
       elBcBadge.style.display = 'none';
     }
     elTitle.textContent = currentTrack.title;
-    btnDiscuss.setAttribute('data-prompt', '__DISCUSS_PRE__' + (currentTrack.title || '') + '__DISCUSS_MID__' + (currentTrack.clientName || '') + '__DISCUSS_POST__');
+    var _p = '__DISC_PRE__' + (currentTrack.title || '') + '__DISC_MID__' + (currentTrack.clientName || '') + '. ';
+    if (currentTrack.context) _p += '__DISC_CTX__' + currentTrack.context + ' ';
+    if (currentTrack.nextAction) _p += '__DISC_NEXT__' + currentTrack.nextAction + '. ';
+    if (currentTrack.taskType) _p += '(task_type: ' + currentTrack.taskType + ') ';
+    try { var _ts = JSON.parse(currentTrack.typeSpecificJson || '{}'); var _sp = []; if (_ts.period) _sp.push('period ' + _ts.period); if (_ts.amount != null) _sp.push('amount ' + _ts.amount); if (_sp.length) _p += '__DISC_SPEC__' + _sp.join(', ') + '. '; } catch (e) {}
+    try { var _bb = JSON.parse(currentTrack.blockedByJson || '[]'); if (_bb.length) _p += '__DISC_BLOCK__' + _bb.map(function(x){ return x.title || x.id || x; }).join(', ') + '. '; } catch (e) {}
+    try { var _h = JSON.parse(currentTrack.historyJson || '[]'); if (_h.length) { var _last = _h.slice(-2).map(function(ev){ return (ev.date ? ev.date + ' ' : '') + (ev.event || ''); }); _p += '__DISC_DONE__' + _last.join('; ') + '. '; } } catch (e) {}
+    try { var _a = currentTrack.assistJson ? JSON.parse(currentTrack.assistJson) : null; if (_a && _a.hypothesis) _p += '__DISC_HYP__' + _a.hypothesis + ' '; } catch (e) {}
+    _p += '__DISC_INSTR__';
+    btnDiscuss.setAttribute('data-prompt', _p);
     if(currentTrack.context){
       elCtxBody.textContent = stripIds(currentTrack.context);
       elCtxSec.style.display = '';
@@ -491,13 +524,12 @@ TRACK_MODAL_JS = r"""
 
     // Meta-row: status, priority, type, due, assignee, source
     var metaChips = [];
-    if(currentTrack.statusRaw){
-      var statusRu = {
-        active: '__ST_ACTIVE__', awaiting: '__ST_WAITING__', awaiting_external: '__ST_WAITING_EXT__',
-        blocked: '__ST_BLOCKED__', done: '__ST_CLOSED__', cancelled: '__ST_CANCELLED__'
-      }[currentTrack.statusRaw] || currentTrack.statusRaw;
-      var statusCls = 'status-' + currentTrack.statusRaw.replace('awaiting_external', 'awaiting');
-      metaChips.push('<span class="tm-meta-chip ' + statusCls + '">●&nbsp;' + esc(statusRu) + '</span>');
+    if(currentTrack.statusRaw || currentTrack.statusDisp){
+      // Localized, normalized label (Python collapses free-form statuses to a
+      // canonical token + Russian label); CSS class follows the canonical bucket.
+      var statusTxt = currentTrack.statusDisp || currentTrack.statusRaw;
+      var statusCls = 'status-' + (currentTrack.statusCanon || currentTrack.statusRaw.replace('awaiting_external', 'awaiting'));
+      metaChips.push('<span class="tm-meta-chip ' + statusCls + '">●&nbsp;' + esc(statusTxt) + '</span>');
     }
     if(currentTrack.priority && currentTrack.priority !== 'normal'){
       var prioRu = {high: '🔥 __PRIO_HIGH__', low: '__PRIO_LOW__'}[currentTrack.priority] || currentTrack.priority;
@@ -579,9 +611,11 @@ TRACK_MODAL_JS = r"""
           targets: 'Targets', tax_due_date: 'Tax due date', tax_paid_amount: 'Tax paid (amount)',
           tax_paid_date: 'Tax payment date', topic: 'Topic', topics: 'Topics',
           trigger: 'Trigger', verification_needed: 'Verification needed', uuid: 'UUID',
-          remaining_operations: 'Operations remaining', account_id: 'Account', blocking_what: 'Blocking what', dismissed_at: 'Dropped', dismissed_by: 'Dropped by', dismissed_note: 'Drop note', finkoper_tasks: 'Finkoper tasks', finkoper_task_url: 'Task link', change_date: 'Change date', auditor: 'Auditor', reminder_at: 'Reminder', debit: 'Debit', credit: 'Credit', balance_end: 'Closing balance', paid_outside_rs: 'Paid outside account', accounts_to_review: 'Accounts to review', period_covered: 'Period covered', control_check_at: 'Control check', status_detail: 'Status detail', investigation_steps: 'Investigation steps', memory_refs: 'Memory references', check_cycles: 'Check cycles', loaded_until: 'Loaded until', balance_at_loaded: 'Balance at load', remaining_period: 'Remaining period', kassas_ids: 'Cash registers', owner_role: 'Assignee role', kkt_status: 'Cash register status', pending_corrections_amount: 'Amount to correct', law_basis_penalty: 'Statute (penalty)', law_basis_escape: 'Statute (exemption)', monitor_url: 'Monitoring link', target_regime: 'Target regime', okved: 'OKVED', regions_candidate: 'Candidate regions', estimated_economy_per_year_rub: 'Yearly savings, ₽', psn_cost_spb_2026_per_vehicle_rub: 'SPb 2026 patent per vehicle, ₽', spn_income_limit_2026_rub: 'Income limit 2026, ₽', application_deadline_for_2026_07_01_start: 'Application deadline for 2026-07-01 start', application_form: 'Application form', taxi_permit_law: 'Taxi permit law', pending_client_answers: 'Awaiting client answers', recommended_combo: 'Recommended combination', package_files_count: 'Files in package', contract: 'Contract', may_act_available_after: 'May statement available after', requested_systems: 'Requested systems', check_items: 'Check items', yearly_fixed: 'Yearly fixed contribution', period_from: 'Period from', period_to: 'Period to', tax_amount_may_2026: 'Tax for May 2026', blocker_resolution: 'Blocker resolution'
+          remaining_operations: 'Operations remaining', account_id: 'Account', blocking_what: 'Blocking what', dismissed_at: 'Dropped', dismissed_by: 'Dropped by', dismissed_note: 'Drop note', finkoper_tasks: 'Finkoper tasks', finkoper_task_url: 'Task link', change_date: 'Change date', auditor: 'Auditor', reminder_at: 'Reminder', debit: 'Debit', credit: 'Credit', balance_end: 'Closing balance', paid_outside_rs: 'Paid outside account', accounts_to_review: 'Accounts to review', period_covered: 'Period covered', control_check_at: 'Control check', status_detail: 'Status detail', investigation_steps: 'Investigation steps', memory_refs: 'Memory references', check_cycles: 'Check cycles', loaded_until: 'Loaded until', balance_at_loaded: 'Balance at load', remaining_period: 'Remaining period', kassas_ids: 'Cash registers', owner_role: 'Assignee role', kkt_status: 'Cash register status', pending_corrections_amount: 'Amount to correct', law_basis_penalty: 'Statute (penalty)', law_basis_escape: 'Statute (exemption)', monitor_url: 'Monitoring link', target_regime: 'Target regime', okved: 'OKVED', regions_candidate: 'Candidate regions', estimated_economy_per_year_rub: 'Yearly savings, ₽', psn_cost_spb_2026_per_vehicle_rub: 'SPb 2026 patent per vehicle, ₽', spn_income_limit_2026_rub: 'Income limit 2026, ₽', application_deadline_for_2026_07_01_start: 'Application deadline for 2026-07-01 start', application_form: 'Application form', taxi_permit_law: 'Taxi permit law', pending_client_answers: 'Awaiting client answers', recommended_combo: 'Recommended combination', package_files_count: 'Files in package', contract: 'Contract', may_act_available_after: 'May statement available after', requested_systems: 'Requested systems', check_items: 'Check items', yearly_fixed: 'Yearly fixed contribution', period_from: 'Period from', period_to: 'Period to', tax_amount_may_2026: 'Tax for May 2026', blocker_resolution: 'Blocker resolution',
+          doc_expected: 'Document expected', deadline: 'Deadline', decision: 'Decision', next_step: 'Next step', amount_paid: 'Amount paid', payment_basis: 'Payment basis', service_quarter: 'Service quarter', tariff_note: 'Tariff note', wake_date: 'Resume on', wake_to: 'Dormant until', jur_services: 'Legal services', condition: 'Condition', contract_termination_date: 'Contract termination date', activation: 'Activation', advance_calc_gross: 'Advance calc (gross)', advance_due_q1: 'Advance due Q1', filled_through: 'Filled through', form_when: 'Form when', last_verified_period: 'Last verified period', legal_basis: 'Legal basis', payer: 'Payer', payment_tranches: 'Payment tranches', reconciliation_status: 'Reconciliation status', review_date: 'Review date', threshold_law: 'Threshold statute', q1_2026_paid: 'Q1 2026 paid', q4_2025_paid: 'Q4 2025 paid'
         };
         var TS_RU_LOC = __TS_RU_LOC_JSON__;
+        var TS_INTERNAL = __TS_INTERNAL_JSON__;
         // Separate CONTENT (free-form text / lists) from PROPERTIES (short scalars).
         function _tsIsContent(v){
           if(Array.isArray(v)) return true;
@@ -598,7 +632,7 @@ TRACK_MODAL_JS = r"""
           return String(v);
         }
         var propRows = [], contentRows = [];
-        keys.filter(function(k){return ts[k] !== null && ts[k] !== '';}).forEach(function(k){
+        keys.filter(function(k){return ts[k] !== null && ts[k] !== '' && TS_INTERNAL.indexOf(k) < 0;}).forEach(function(k){
           var label = TS_RU_LOC[k] || TS_RU[k] || k.replace(/_/g,' ');
           var val = ts[k];
           if(_tsIsContent(val)){
@@ -735,12 +769,6 @@ TRACK_MODAL_JS = r"""
 # the same pattern as the static HTML template above. JS logic is untouched.
 TRACK_MODAL_JS = (
     TRACK_MODAL_JS
-    .replace('__ST_ACTIVE__', t('active'))
-    .replace('__ST_WAITING_EXT__', t('waiting (external)'))
-    .replace('__ST_WAITING__', t('waiting'))
-    .replace('__ST_BLOCKED__', t('blocked'))
-    .replace('__ST_CLOSED__', t('closed'))
-    .replace('__ST_CANCELLED__', t('cancelled'))
     .replace('__PRIO_HIGH__', t('high priority'))
     .replace('__PRIO_LOW__', t('low priority'))
     .replace('__STALE_FOR__', t('stale for'))
@@ -749,15 +777,24 @@ TRACK_MODAL_JS = (
     .replace('__ACTION__', t('Action'))
     .replace('__AUTO__', t('auto'))
     .replace('__TS_RU_LOC_JSON__', _ts_ru_loc_json())
-    .replace('__DISCUSS_PRE__', _loc('Break down the task "', 'Разбери задачу «'))
-    .replace('__DISCUSS_MID__', _loc('" for client ', '» для клиента '))
-    .replace('__DISCUSS_POST__', _loc(
-        '. Open the client state/*.json (source of truth) and mental_model (narrative), '
-        'check related sources (Telegram/email/Finkoper) and reconcile the links. '
-        'First update the model with the new signal, then suggest a concrete next action. '
-        'Make any state change via mm_update (with my approval); send nothing outward without my OK.',
-        '. Открой state/*.json клиента (источник истины) и mental_model (нарратив), '
-        'проверь связанные источники (Telegram/почта/Finkoper) и сверь связи. '
-        'Сначала обнови модель новым сигналом, затем предложи конкретное следующее действие. '
-        'Правки state — через mm_update (с моим аппрувом); наружу ничего не отправляй без моего «ок».'))
+    .replace('__TS_INTERNAL_JSON__', _ts_internal_json())
+    .replace('__DISC_PRE__', _loc('Break down and act on the task "', 'Разбери и выполни задачу «'))
+    .replace('__DISC_MID__', _loc('" for client ', '» для клиента '))
+    .replace('__DISC_CTX__', _loc('Situation: ', 'Ситуация: '))
+    .replace('__DISC_NEXT__', _loc('Planned next step: ', 'Следующий шаг: '))
+    .replace('__DISC_SPEC__', _loc('Specifics: ', 'Детали: '))
+    .replace('__DISC_BLOCK__', _loc('Blocked by: ', 'Блокирует: '))
+    .replace('__DISC_DONE__', _loc('Already done: ', 'Уже сделано: '))
+    .replace('__DISC_HYP__', _loc('Working hypothesis: ', 'Гипотеза: '))
+    .replace('__DISC_INSTR__', _loc(
+        'Use this as your starting point — do not re-derive what is given. Resolve the jurisdiction of this '
+        'client and follow the matching checklist (jurisdictions/<code>/checklists/). Fetch the missing input '
+        'and verify anything material or stale (ground truth: state/*.json, mental_model, linked docs). Propose '
+        'the concrete next action in the tax system of this client, then apply via mm_update (with my approval); '
+        'send nothing outward without my OK.',
+        'Используй это как отправную точку — не выводи заново то, что уже дано. Определи юрисдикцию этого '
+        'клиента и используй подходящий чек-лист (jurisdictions/<code>/checklists/). Добери недостающее и '
+        'перепроверь всё существенное или устаревшее (источник истины: state/*.json, mental_model, связанные '
+        'документы). Предложи конкретное следующее действие в налоговой системе этого клиента, затем применяй '
+        'через mm_update (с моим аппрувом); наружу ничего не отправляй без моего «ок».'))
 )

@@ -4,14 +4,25 @@
 
 ## What this project is
 
-**Saldo** is an AI-native operations cockpit for a bookkeeping/accounting practice: one practice = one instance, managing many client entities. State (structured JSON per client) is the single source of truth; a deterministic Python generator renders static HTML dashboards from it; an AI agent keeps state current and drafts client-facing work under a strict human-approval safety model.
+**Saldo** is an AI-native operations cockpit for a bookkeeping/accounting practice: one practice = one instance, managing many client entities. State (structured JSON per client) is the single source of truth; the **runtime is an AI agent** (Cowork): it reads the rules in `policies/` and `workflows/` plus per-client state, then reasons, drafts client-facing work, and drives the browser under a strict human-approval safety model. A deterministic Python generator renders static HTML dashboards as a **derived view** of that same state.
 
 This repo is **two things at once**, and both must stay true:
 
 1. **A public engineering showcase** — FSL-1.1-MIT licensed, English-facing (README, docs, license). It must be clean, self-contained, and contain **zero real data**.
-2. **The future production engine** — the live practice in the sibling `accountant` repo will migrate onto it. So it must preserve **feature parity** with that system and stay genuinely runnable for real work.
+2. **The production engine, already in use** — the operator runs this engine on her own machine: she pulls it from GitHub, her real data/state lives in a separate folder **outside the repo** (`config/instance.yaml → data.dir`), and Cowork connects to both. The migration off the legacy `accountant` system is **done, not pending**, so this must stay genuinely runnable for real work.
 
-The engine here was **extracted** from `accountant` (the bespoke, Russian-language, live-production system). Treat `accountant` as the reference for parity and intent — but **never copy real data, names, or secrets out of it into this repo**.
+The engine here was **extracted** from `accountant` — the bespoke, Russian-language predecessor that bundled engine and real data together. `accountant` is now **fully legacy**, superseded by this engine plus the operator's external data folder; keep it only as historical / rollback context, not something to consult routinely. **Never copy real data, names, or secrets out of it into this repo.**
+
+## 🔴 Invariant 0 — The runtime is the AI; `policies/` + `workflows/` are the program
+
+The most important and most easily missed fact about how Saldo works. Saldo is **not** a Python static-site generator with an AI assistant bolted on — it is the inverse. The **execution engine is the AI agent (Cowork)**. When the operator asks "what does this client owe this month", "post this payment", "draft the filing", the agent *executes the markdown* in `policies/` and `workflows/` against per-client state to reason and act. The Python in `engine/` only renders a **derived view** (dashboards) afterward; it is not where the behaviour lives.
+
+Two consequences, both binding:
+
+1. **Changing how the system behaves is primarily a change to what the runtime reads** (`policies/`, `workflows/`, checklist-selection rules, terminology, tax authorities) — not to Python. Touch Python only when the rendered *view* must change.
+2. **"Done" is defined by runtime behaviour, not by HTML rendering.** A byte-identical dashboard is necessary but **not sufficient**. A behaviour change is unfinished until checked by scenario: tag a client, ask the agent a representative question, and confirm it loads the right rules and reasons in the right tax system — not by RF reflex. Most of the system's RF-specificity (FTS, KBK, USN, 1C, OFD, the workflow-selection table in `policies/INSTRUCTIONS.md`) lives in this runtime layer, so it is exactly what a refactor must not skip.
+
+**Behavioural-change rule (parallels the migration rule):** just as a state-shape change ships a migration, a change to a rule / procedure / term / authority / portal-choice must (a) update the markdown the runtime reads and (b) be verified by scenario that the runtime now behaves correctly. Without that, the change is incomplete even when `generate.py`, `state_lint`, and `system_integrity_check` are all green.
 
 ## 🔴 Invariant 1 — No real data, ever
 
@@ -51,7 +62,7 @@ cp config/instance.example.yaml config/instance.yaml   # points at instances/exa
 python3 engine/generate.py                             # renders dashboards from synthetic data
 ```
 
-A clean run prints `OK: …` for every page and ends with **LINT OK**. The generator is fault-tolerant by design: a missing or malformed source degrades to an empty panel + a status dot, never a traceback. If you changed any state, also run `python3 engine/state_lint.py` and `python3 engine/system_integrity_check.py` and confirm they're clean before considering the work done.
+A clean run prints `OK: …` for every page and ends with **LINT OK**. The generator is fault-tolerant by design: a missing or malformed source degrades to an empty panel + a status dot, never a traceback. If you changed any state, also run `python3 engine/state_lint.py` and `python3 engine/system_integrity_check.py` and confirm they're clean before considering the work done. But these gates cover only the rendered view and state integrity — per **Invariant 0**, a change to *runtime behaviour* is not done until verified by scenario (tag a client, ask the agent, check the reasoning), not by a clean render alone.
 
 `config/instance.yaml` is a local pointer and must never be committed (it should be git-ignored — currently it isn't; see Known gaps).
 
@@ -60,11 +71,11 @@ A clean run prints `OK: …` for every page and ends with **LINT OK**. The gener
 ```
 engine/        Reusable Python: dashboard generation, state I/O, lint, integrity. No client-specific knowledge.
 connectors/    Pluggable integrations (finkoper, email, tg, tbank, alfabank, ofd, egrul, websbor, news, mm_update). Enable/disable in config.
-workflows/     Reusable checklists + message templates (configurable content).
-policies/      Operating instructions, safety rules, brand & tone, system map, analytics/updater rules, handoffs.
+workflows/     The runtime's procedures: checklists + message templates the AI executes. RF-specific, jurisdiction-bound (Invariant 0).
+policies/      The runtime's program: workflow/checklist selection, safety rules, brand & tone, system map. RF-specific, jurisdiction-bound (Invariant 0).
 config/        instance.example.yaml — locale, brand, enabled connectors, schedule, data.dir. Copy to instance.yaml (git-ignored).
 instances/     Self-contained example instance with SYNTHETIC data only. Real instances live outside the repo.
-docs/          ARCHITECTURE, USAGE, MIGRATION, CONNECTORS, CLIENT-PROFILES, ROADMAP, pipeline proposal.
+docs/          ARCHITECTURE, USAGE, MIGRATION, CONNECTORS, CLIENT-PROFILES, ROADMAP, DESIGN-SYSTEM (operator-dashboard view layer), pipeline proposal.
 tools/         migrate_legacy_instance.py, seed_demo_instance.py.
 ```
 
@@ -74,6 +85,7 @@ Key engine modules: `generate.py` (orchestrator), `_loaders.py` (state → rende
 
 - Backup before substantive edits (`*.bak_*` naming, git-ignored); the repo already carries a few stray `.bak_*` files — don't commit them.
 - Keep `docs/` and `policies/` consistent with the code. When you change behavior, update the doc that describes it in the same change. The README is the contract for what works "out of the box".
+- Dashboard styling lives in tokens (`engine/_css.py → DESIGN_TOKENS_CSS`), not scattered hex. Follow `docs/DESIGN-SYSTEM.md` for colour roles, the accent vs semantic split, and the established component patterns (filter banner, expanded-container, removable focus highlight) — and update that doc in the same change.
 - Don't introduce a runtime server — this is a static generator by design.
 - New connector/workflow = config-driven drop-in behind the common interface (`docs/CONNECTORS.md`), not a hardcoded special case.
 
@@ -84,10 +96,12 @@ Fixed 2026-06-20: `.gitignore` now ships the synthetic `instances/example` data 
 Still open (re-audited 2026-06-20):
 
 - **Demo config points at a dead path** — `config/instance.yaml` (git-ignored, local) currently sets `data.dir` to a stale ephemeral session path (`/sessions/.../Saldo-data-clean`). The repo's own demo won't render until `data.dir` is repointed at `../instances/example/data` (as in `instance.example.yaml`). Re-copy the example config on a fresh checkout.
-- **`engine/_LINT.json` is tracked** — it's generated `state_lint.py` output and shouldn't be version-controlled; add it to `.gitignore` and `git rm --cached` it.
+- (resolved 2026-06-22) `engine/_LINT.json` is **not** tracked — it is git-ignored (`.gitignore` line 57) and absent from `git ls-files`. The earlier "is tracked" note was stale.
 - **README images** (`docs/demo.gif`, `docs/screenshot-*.png`) are tracked but have uncommitted modifications — commit them so GitHub renders the README; otherwise the working tree stays dirty.
 - (resolved 2026-06-21) the internal `policies/roadmap.md` and the `policies/HANDOFF_*.md` migration artifacts carried ported client specifics — removed from the engine (practice specifics belong in the instance data, not the public engine).
 
-## Relationship to the `accountant` repo
+## Relationship to the `accountant` repo (legacy)
 
-`accountant` (sibling folder) is the **live production practice** with real client data and the original Russian system. It is the **source of the extraction and the parity reference**. Read it to understand intended behavior. Do **not** import its data, names, or secrets here, and do not edit it from this project's tasks unless explicitly asked.
+`accountant` is the **fully-legacy predecessor** — the original system where the old engine and real client data lived together. It was the starting point and the source of the extraction, nothing more: **not** a live practice, **not** an ongoing parity target, do not consult it routinely.
+
+**The live system today is a triple:** this Saldo engine (pulled from GitHub) + the operator's own `data.dir` (real state on their machine) + Cowork connected to both. That is the whole system; nothing else is required to run it. Keep `accountant` only as historical / rollback context; never import its data, names, or secrets, and do not edit it from this project's tasks unless explicitly asked.

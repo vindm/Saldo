@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.1",
+  "client_id": "melati",
+  "last_updated": "2026-06-20T00:00:00+08:00",
+  "bank_accounts": [
+    {
+      "id": "main",
+      "bank_name": "Example Bank ID",
+      "bik": null,
+      "account": "1370000000001",
+      "purpose": "primary",
+      "is_primary": true,
+      "since": "2025-01-12",
+      "closed_at": null,
+      "notes": "Synthetic IDR account."
+    }
+  ],
+  "foreign_accounts": [],
+  "kassas": [],
+  "acquiring_channels": [],
+  "ofd": null,
+  "bank_access": {
+    "primary_bank": "Example Bank ID",
+    "access_level": "full",
+    "lk_url": "bank-id.example",
+    "is_ausn_partner": false,
+    "statements_source": "client_sends",
+    "note": "Synthetic."
+  },
+  "quick_access": [
+    {
+      "service": "coretax",
+      "label": "Coretax (DJP)",
+      "icon": "building-estate",
+      "url": "https://coretax.example/login",
+      "login": null,
+      "password": null,
+      "cred_status": "na",
+      "status": "active",
+      "note": "Login under client NPWP."
+    },
+    {
+      "service": "bank",
+      "label": "Example Bank ID",
+      "icon": "building-bank",
+      "url": "https://bank-id.example/login",
+      "login": null,
+      "password": null,
+      "cred_status": "na",
+      "status": "active",
+      "note": "Sample."
+    }
+  ]
+}

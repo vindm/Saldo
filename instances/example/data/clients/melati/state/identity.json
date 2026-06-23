@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "client_id": "melati",
+  "last_updated": "2026-06-20T00:00:00+08:00",
+  "name": {
+    "short": "Melati Spa",
+    "full": "Melati Sari (synthetic)",
+    "in_1c": "Melati Spa",
+    "uncertainty": null
+  },
+  "inn": null,
+  "ogrnip": null,
+  "npwp": "09.254.294.3-407.000 (synthetic 16-digit)",
+  "reg_date": "2025-01-10",
+  "reg_started_year": 2025,
+  "addr": {
+    "city": "Ubud, Bali",
+    "full": "Ubud, Bali (synthetic)",
+    "region_pill": "Bali"
+  },
+  "ifns": null,
+  "tax_office": {
+    "authority": "DJP",
+    "kpp_office": "KPP Pratama Gianyar (synthetic)"
+  },
+  "okved": {
+    "main": {
+      "code": "96121",
+      "name": "Beauty / face-massage spa (KBLI, synthetic)",
+      "confirmed_at": "2025-01-10",
+      "confirmed_by": "sample_data",
+      "history": []
+    },
+    "additional": []
+  },
+  "contacts": {
+    "phone": "+62000000001",
+    "email": "hello@melati.example",
+    "telegram": null,
+    "whatsapp": "+62000000001"
+  }
+}

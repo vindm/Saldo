@@ -47,6 +47,26 @@ DASHBOARD_DIR = (
 )
 
 
+# ── Per-instance config that travels WITH the data dir (DATA_DIR/instance.yaml).
+#    Carries this practice's identity (locale + brand) so a data snapshot is
+#    SELF-DESCRIBING and cannot be rendered under the wrong locale by accident.
+#    Precedence for locale/brand:  env  ->  DATA_DIR/instance.yaml  ->  repo
+#    config/instance.yaml  ->  defaults.
+def _load_instance_cfg(data_dir):
+    try:
+        import yaml
+        p = os.path.join(data_dir, "instance.yaml")
+        if os.path.isfile(p):
+            with open(p, encoding="utf-8") as f:
+                return yaml.safe_load(f) or {}
+    except Exception:
+        pass
+    return {}
+
+
+_ICFG = _load_instance_cfg(DATA_DIR)
+
+
 # ── Brand (config-driven; was hardcoded in the engine). Resolution order:
 #    env vars  ->  config/instance.yaml [brand]  ->  neutral defaults.
 def _load_brand():
@@ -55,6 +75,10 @@ def _load_brand():
     name = b.get("name", name)
     tagline = b.get("tagline", tagline)
     monogram = b.get("monogram", monogram)
+    ib = (_ICFG.get("brand") or {})          # data-dir instance.yaml overrides the repo config
+    name = ib.get("name", name)
+    tagline = ib.get("tagline", tagline)
+    monogram = ib.get("monogram", monogram)
     name = os.environ.get("ABA_BRAND_NAME", name)
     tagline = os.environ.get("ABA_BRAND_TAGLINE", tagline)
     monogram = os.environ.get("ABA_BRAND_MONOGRAM", monogram)
@@ -68,6 +92,7 @@ BRAND_NAME, BRAND_TAGLINE, BRAND_MONOGRAM = _load_brand()
 #    env ABA_LOCALE  ->  config/instance.yaml [instance].locale  ->  'en'.
 def _load_locale():
     locale = (_CFG.get("instance") or {}).get("locale", "en")
+    locale = (_ICFG.get("instance") or {}).get("locale", locale)   # data-dir overrides repo
     locale = os.environ.get("ABA_LOCALE", locale)
     locale = (locale or "en").strip().lower()
     if locale not in ("en", "ru"):

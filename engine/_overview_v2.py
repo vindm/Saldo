@@ -763,29 +763,13 @@ def _track_last_event(tr):
     return hist[best]
 
 
-# status -> (en, ru, bg, fg) for the right-corner pill
-_STATUS_SPEC = {
-    'active': ('active', 'активен', '#EAF3DE', '#3D6107'),
-    'awaiting': ('waiting', 'ждём', '#E6F1FB', '#185FA5'),
-    'awaiting_external': ('waiting', 'ждём', '#E6F1FB', '#185FA5'),
-    'blocked': ('blocked', 'заблокирован', '#FCEBEB', '#9B1C1C'),
-    'done': ('closed', 'закрыт', '#ECEBE6', '#5F5E5A'),
-    'completed': ('closed', 'закрыт', '#ECEBE6', '#5F5E5A'),
-    'closed': ('closed', 'закрыт', '#ECEBE6', '#5F5E5A'),
-    'resolved': ('resolved', 'решён', '#ECEBE6', '#5F5E5A'),
-    'cancelled': ('cancelled', 'отменён', '#F1EFE8', '#888780'),
-    'dismissed': ('dismissed', 'снят', '#F1EFE8', '#888780'),
-    'dropped': ('dropped', 'снят', '#F1EFE8', '#888780'),
-    'deferred': ('deferred', 'отложен', '#F1EFE8', '#888780'),
-}
-
-
 def _status_spec(tr):
-    st = ((tr.get('_full_track') or {}).get('status') or tr.get('status') or '').lower()
-    s = _STATUS_SPEC.get(st)
-    if s:
-        return (tp(s[0], s[1]), s[2], s[3])
-    return (st, '#F1EFE8', '#5F5E5A') if st else None
+    """Right-corner status pill (label, bg, fg). Delegates to the single shared
+    source (_status.status_pill) so home + plan + modal stay identical and any
+    free-form status is normalized + localized the same way everywhere."""
+    from _status import status_pill
+    st = (tr.get('_full_track') or {}).get('status') or tr.get('status') or ''
+    return status_pill(st)
 
 
 def _build_modal_attrs(tr):

@@ -1,0 +1,28 @@
+name: CI
+
+# Regression gate. Runs the engine self-test on every push and pull request so a
+# change that breaks rendering, linting, or integrity cannot land unnoticed.
+# selftest.py renders the bundled SYNTHETIC example instance only — no real data,
+# no config needed (it sets ABA_DATA_DIR/ABA_DASHBOARD_DIR itself).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Engine self-test (renders example, asserts LINT OK + integrity)
+        run: python3 engine/selftest.py

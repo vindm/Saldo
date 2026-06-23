@@ -21,7 +21,7 @@ FACT → state/*.json (edited by hand, source of truth)
 | File | Owns (what goes here) |
 |---|---|
 | `identity.json` | INN, OGRNIP, full name, address, tax office, OKVED activity codes, contacts, tax residency |
-| `regime.json` | tax regime (USN/AUSN/Patent), object/rate, patents[], signature, filing, accounting_system |
+| `regime.json` | **jurisdiction** (pack code, default `ru`), tax regime + object/rate (regime enums are **pack-scoped** — RU: USN/AUSN/OSNO/PSN, see `jurisdictions/<code>/regimes.yaml`), patents[], signature, filing, accounting_system |
 | `accounts.json` | bank_accounts[], foreign_accounts[], kassas[] (cash registers), acquiring_channels[], bank_access, kkt_mode, **quick_access[]** (access registry: links/logins/passwords/identifiers for the client's services) |
 | `financials.json` | turnover/income by period, taxes, tax_calendar, personal_taxes |
 | `counterparties.json` | counterparties (b2b/b2c/self-employed/agents), INN, income shares, contracts |
@@ -67,7 +67,7 @@ Reusable Python, no client-specific knowledge. Data dir + dashboard dir come fro
 > **Group, not track.** Client grouping is dynamic: each client carries a `group` field; sidebar items and group dashboards are derived from the distinct values (no hardcoded team/direct).
 
 ### `policies/`
-INSTRUCTIONS.md (process, 8 steps) · safety-rules.md (boundaries + §5b chain) · system-map.md (this file) · workflows/<domain>/ (finkoper, email, news, tg, ofd, tbank, alfabank, egrul, websbor, mm_update, one_c[paused]) · checklists/ · templates/ · brand-and-tone.md (style of client documents) · secrets/ (NOT in git/snapshots)
+INSTRUCTIONS.md (process, 8 steps) · safety-rules.md (boundaries + §5b chain) · system-map.md (this file) · workflows/<domain>/ (finkoper, email, news, tg, ofd, tbank, alfabank, egrul, websbor, mm_update, one_c[paused]) · jurisdictions/<code>/checklists/ · templates/ · brand-and-tone.md (style of client documents) · secrets/ (NOT in git/snapshots)
 
 ### `journal/`
 operator_decisions.md (**append-only audit narrative** of "what/why/when"; NOT a source of truth — dismissed items live in `state/risks.json:dismissed[]`, facts in `state/*.json`; markdown parsing of dismissed items retired 2026-06-07) · inbox/ (collector-daemon reports: finkoper/email/news/tg by date)
@@ -83,7 +83,7 @@ Columns: **Owner** (you edit by hand) · **Links** (check/close) · **Guard** (l
 |---|---|---|---|
 | **New/changed account** | `accounts.json:bank_accounts[]` | close the `Q-*` track about the account in tasks; risks: AUSN-single-bank; counterparties if the account is tied to acquiring | primary, acct_fmt, bik_fmt, dup_acct, ausn_one_bank, tbank_bik |
 | **Registration details** (INN/OGRNIP/address/tax office/OKVED) | `identity.json` | tasks: Q about the detail; reconcile with the company registry (EGRIP) | inn_csum, ogrnip, inn |
-| **Regime change / patent** | `regime.json` (primary/patents) | tasks: Q about regime/patent; risks; financials.tax_calendar | usn_rate, ausn_rate, ausn_partner |
+| **Regime change / patent** | `regime.json` (primary/patents/**jurisdiction**) | tasks: Q about regime/patent; risks; financials.tax_calendar | regime invariants are **pack-scoped** (`jurisdictions/<code>/lint.yaml` — RU: usn_rate, ausn_rate, ausn_partner, account_format) |
 | **Counterparty / INN / shares** | `counterparties.json` | tasks: Q-cp-inns; risks (schemes) | cp_inn_csum, cp_inn(cross) |
 | **Cash register/OFD/acquiring** | `accounts.json:kassas/acquiring_channels` + `kkt_mode` | tasks: Q-kkt; risks (cash / Federal Law 54-FZ) | — |
 | **Access/link to a client service** (Finkoper, bank portal, FTS portal, 1C base, payment provider, OFD) | `accounts.json:quick_access[]` | sync with acquiring_channels.url / regime.fresh_base_url; render on the card = the "Quick access" section; pull it in work via `_loaders.get_access(client_id, service)` | — |

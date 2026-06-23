@@ -309,6 +309,33 @@ UI = {
         '💬 Draft reply to client': '💬 Готовый ответ клиенту',
         '🔍 Break down': '🔍 Разобрать',
 
+        # ── _track_attrs.py — task_type chip labels (localized via t()) ───
+        'waiting externally': 'ждём внешнего',
+        'regime question': 'вопрос по режиму',
+        'investigation': 'разбор',
+        'infrastructure': 'инфраструктура',
+        'conversation with the team': 'разговор с командой',
+        'long-term track': 'долгий трек',
+        'wait externally, then act': 'ждём внешнее, потом действие',
+        'multi-step preparation': 'многошаговая подготовка',
+        'access request': 'запрос доступа',
+        'data export': 'выгрузка данных',
+        'strategic decision': 'стратегическое решение',
+        'client departure': 'уход клиента',
+        'preparation': 'подготовка',
+        'documentation': 'документирование',
+        'monitoring': 'мониторинг',
+        'Coretax billing': 'начисление Coretax',
+        'turnover collection': 'сбор оборота',
+        'control': 'контроль',
+        'reconciliation': 'сверка',
+        'review checkpoint': 'контрольная проверка',
+        'tax calc': 'расчёт налога',
+        'tax reconciliation': 'сверка по налогу',
+        # ── _status.py — canonical status labels not already in the catalog ─
+        'deferred': 'отложено',
+        'archived': 'в архиве',
+
         # ── _track_attrs.py — status-badge display values ─────────────────
         'routine': 'рутина',
         'waiting': 'ждём',

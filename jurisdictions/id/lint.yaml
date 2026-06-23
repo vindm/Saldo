@@ -1,0 +1,5 @@
+# ID regime invariants for state_lint section H. Synthetic demo.
+regime_rules:
+  UMKM_FINAL:
+    # UMKM final PPh is 0.5% of gross turnover; warn on any other rate.
+    turnover_rate_expected: [0.5]

@@ -1,0 +1,25 @@
+# ID jurisdiction — authorities, portal, terminology, currency. Synthetic demo.
+code: id
+name: "Indonesia"
+currency: "IDR"
+currency_symbol: "Rp"
+period_income_label: "Income (turnover)"
+
+tax_authority: "DJP (Direktorat Jenderal Pajak)"
+social_authority: "BPJS"
+statistics_authority: "BPS"
+
+filing_systems: ["Coretax"]
+accounting_system: "(client-kept books / spreadsheet)"
+fiscal_data_operator: null
+company_registry: "AHU / OSS"
+practice_management: null
+direct_bank_portals: []
+
+term_map:
+  tax_account: "billing (kode billing) + NTPN receipt"
+  classifier_code: "kode billing / MAP-KJS code"
+  primary_doc: "invoice / nota"
+  income_ledger: "peredaran bruto record (gross turnover)"
+  tax_return: "SPT (SPT Masa monthly, SPT Tahunan annual)"
+  statistics_report: "BPS survey (if sampled)"

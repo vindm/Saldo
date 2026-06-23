@@ -10,6 +10,7 @@ import json
 import os
 from datetime import datetime
 from _strings import t
+from _status import normalize_status, status_label as _status_label
 
 # Name-collision guard: build_track_data_attrs() takes a param named `t` (the
 # track dict). Alias the localization helper to `_t` so it stays reachable
@@ -17,52 +18,65 @@ from _strings import t
 _t = t
 
 
-_TASK_TYPE_RU = {
-    'bank_check': '🏦 bank check',
-    'kudir_posting': '📒 KUDIR posting',
-    'pp_to_form': '💳 create payment order',
-    'awaiting_external': '⏳ waiting externally',
-    'client_followup': '📞 ask the client',
-    'regime_question': '⚙️ regime question',
-    'open_question': '❓ open question',
-    'investigation': '🔍 investigation',
-    'regulatory_action': '📜 regulatory',
-    'regulatory_watch': '👁 regulatory monitoring',
-    'infrastructure': '🛠 infrastructure',
-    'regular_check': '🔄 routine check',
-    'recovery_period': '⏪ period recovery',
+# task_type token -> a clean English label that is ALSO a key in the _strings.py
+# t() catalog, so the chip localizes with the rest of the chrome. No emoji here
+# (the UI uses monochrome icons; t() would strip them anyway). Unknown tokens
+# fall back to a humanized form ("foo_bar" -> "foo bar") routed through t().
+_TASK_TYPE_LABEL = {
+    'bank_check': 'bank check',
+    'kudir_posting': 'KUDIR posting',
+    'pp_to_form': 'prepare payment order',
+    'awaiting_external': 'waiting externally',
+    'client_followup': 'client follow-up',
+    'regime_question': 'regime question',
+    'open_question': 'open question',
+    'investigation': 'investigation',
+    'regulatory_action': 'regulatory',
+    'regulatory_watch': 'regulatory monitoring',
+    'infrastructure': 'infrastructure',
+    'regular_check': 'routine check',
+    'recovery_period': 'period recovery',
     'other': '·',
-    'month_close': '📅 month close',
-    'month_audit': '🔎 month audit',
-    'kkt_check': '🧾 cash register check',
-    'finkoper_recurring': '🔄 recurring task',
-    'primary_collection': '📂 source-document collection',
-    'team_conversation_required': '💬 conversation with the team',
-    'technical_1c': '🛠 technical in 1C',
-    'ausn_reconciliation': '⚖️ AUSN reconciliation',
-    'regulatory_monitoring': '👁 regulatory monitoring',
-    'balance_reconciliation': '⚖️ balance reconciliation',
-    'long_term_parallel': '⏳ long-term track',
-    'awaiting_external_then_action': '⏳ wait externally, then act',
-    'multi_step_preparation': '📋 multi-step preparation',
-    'client_action': '👤 client action',
-    'email_action_required': '✉️ reply to email',
-    'access_request': '🔑 access request',
-    'ausn_markup_review': '⚙️ AUSN markup review',
-    'ndfl_register': '📄 NDFL register',
-    'ens_reconciliation': '⚖️ ENS reconciliation',
-    'acquiring_reconciliation': '💳 acquiring reconciliation',
-    'extraction': '📤 data export',
-    'regulatory': '📜 regulatory',
-    'period_close': '📅 period close',
-    'strategic_decision': '🎯 strategic decision',
-    'client_departure': '🚪 client departure',
-    'sz_checks_reconciliation': '⚖️ self-employed receipts reconciliation',
-    'preparation': '📋 preparation',
-    'ausn_bank_marking': '🏦 AUSN bank marking',
-    'documentation': '📄 documentation',
-    'monitoring': '👁 monitoring',
-    'ausn_monthly': '📅 AUSN monthly',
+    'month_close': 'month close',
+    'month_audit': 'month audit',
+    'kkt_check': 'cash register check',
+    'finkoper_recurring': 'recurring task',
+    'primary_collection': 'source documents collection',
+    'team_conversation_required': 'conversation with the team',
+    'technical_1c': 'technical in 1C',
+    'ausn_reconciliation': 'AUSN reconciliation',
+    'regulatory_monitoring': 'regulatory monitoring',
+    'balance_reconciliation': 'balance reconciliation',
+    'long_term_parallel': 'long-term track',
+    'awaiting_external_then_action': 'wait externally, then act',
+    'multi_step_preparation': 'multi-step preparation',
+    'client_action': 'client action',
+    'email_action_required': 'reply to email',
+    'access_request': 'access request',
+    'ausn_markup_review': 'AUSN markup review',
+    'ndfl_register': 'NDFL register',
+    'ens_reconciliation': 'ENS reconciliation',
+    'acquiring_reconciliation': 'acquiring reconciliation',
+    'extraction': 'data export',
+    'regulatory': 'regulatory',
+    'period_close': 'period close',
+    'strategic_decision': 'strategic decision',
+    'client_departure': 'client departure',
+    'sz_checks_reconciliation': 'self-employed receipts reconciliation',
+    'preparation': 'preparation',
+    'ausn_bank_marking': 'AUSN bank marking',
+    'documentation': 'documentation',
+    'monitoring': 'monitoring',
+    'ausn_monthly': 'AUSN monthly',
+    'coretax_billing': 'Coretax billing',
+    'pp_sign': 'sign payment order',
+    'service_payment': 'client service payment',
+    'turnover_collection': 'turnover collection',
+    'control': 'control',
+    'reconciliation': 'reconciliation',
+    'review_checkpoint': 'review checkpoint',
+    'tax_calc': 'tax calc',
+    'tax_reconciliation': 'tax reconciliation',
 }
 
 
@@ -194,9 +208,16 @@ def build_track_data_attrs(
     title = base.get('title') or base.get('what') or ''
 
     status_raw = base.get('status') or ''
+    # Normalize the free-form status to a canonical, localizable token for the
+    # chip (specifics like "blocked_by_anastasia" collapse to "blocked"; the
+    # detail lives in context/history, not in the status enum).
+    status_canon = normalize_status(status_raw)
+    status_disp = _status_label(status_raw)
     priority = base.get('priority') or 'normal'
     task_type_raw = base.get('task_type') or base.get('type') or ''
-    task_type_ru = _TASK_TYPE_RU.get(task_type_raw, task_type_raw)
+    # Localize the chip: known token -> catalog label, unknown -> humanized; both
+    # routed through t() so it renders Russian under ru like the rest of the chrome.
+    task_type_ru = _t(_TASK_TYPE_LABEL.get(task_type_raw) or task_type_raw.replace('_', ' ')) if task_type_raw else ''
     assignee = base.get('owner') or base.get('assignee') or ''
     labels = base.get('labels') or base.get('anchors') or []
     blocked_by = base.get('blocked_by') or []
@@ -310,6 +331,8 @@ def build_track_data_attrs(
         ' data-track-title="' + esca(title) + '"',
         ' data-track-status="' + esca(status_label) + '"',
         ' data-track-status-raw="' + esca(status_raw) + '"',
+        ' data-track-status-disp="' + esca(status_disp) + '"',
+        ' data-track-status-canon="' + esca(status_canon) + '"',
         ' data-track-badge="' + esca(badge_text) + '"',
         ' data-track-context="' + esca(context) + '"',
         ' data-track-next="' + esca(next_action) + '"',

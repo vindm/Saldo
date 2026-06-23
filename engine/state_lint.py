@@ -21,6 +21,9 @@ sys.path.insert(0, HERE)
 from state_ops import CLIENT_FOLDERS, _client_dir  # single source of the client list
 from _helpers import track_stale_days  # R8
 import _vocab
+from _status import CANON_LABEL  # canonical track-status vocabulary
+from _track_modal import _TS_RU_LOC, INTERNAL_TS_KEYS  # type_specific label coverage
+from _track_attrs import _TASK_TYPE_LABEL  # task_type label coverage
 
 REPLACEMENT = '�'
 # NOTE: these markers are LOGIC KEYS — they are matched against data values in
@@ -153,11 +156,17 @@ def lint_client(cid, _xclient=None):
         prim = [a for a in accts if a.get('is_primary')]
         if len(prim) != 1:
             _v(viols, 'error', cid, 'primary', f'accounts: is_primary must be exactly 1, found {len(prim)}')
+        try:
+            import _jurisdiction as _J
+            _af = (_J.load_jurisdiction((states.get('regime') or {}).get('jurisdiction')).lint or {}).get('account_format')
+        except Exception:
+            _af = None
+        _aflen = int(_af.get('length', 20)) if _af else 20
         for a in accts:
             ac = a.get('account')
-            if ac is not None and not (str(ac).startswith('...') or '*' in str(ac)) \
-               and not re.fullmatch(r'\d{20}', str(ac)):
-                _v(viols, 'warn', cid, 'acct_fmt', f'accounts: account {a.get("id")} is not 20 digits: {ac}')
+            if _af and ac is not None and not (str(ac).startswith('...') or '*' in str(ac)) \
+               and not re.fullmatch(r'\d{%d}' % _aflen, str(ac)):
+                _v(viols, 'warn', cid, 'acct_fmt', f'accounts: account {a.get("id")} is not {_aflen} digits: {ac}')
             bik = a.get('bik')
             if bik and not re.fullmatch(r'\d{9}', str(bik)):
                 _v(viols, 'warn', cid, 'bik_fmt', f'accounts: BIK {a.get("id")} is not 9 digits: {bik}')
@@ -186,6 +195,32 @@ def lint_client(cid, _xclient=None):
         if c > 1:
             _v(viols, 'error', cid, 'dup_id', f'duplicated task id: {tid} x{c}')
 
+    # E2. STATUS VOCABULARY — flag non-canonical task statuses (info). The
+    # dashboard normalizes for display, but stored statuses should be canonical
+    # (run tools/migrate_normalize_statuses.py). Once the data is migrated this
+    # list is empty and the level can be raised to 'warn' to prevent creep.
+    for t in tasks:
+        st = t.get('status')
+        if st and st not in CANON_LABEL:
+            _v(viols, 'info', cid, 'status_noncanon',
+               f'{t.get("id")}: non-canonical status "{st}" -> normalize to canonical (run: python3 engine/migrate.py up --apply)')
+
+    # E3. i18n COVERAGE — every operator-facing label must be localizable, so a
+    # missing translation surfaces here at build time instead of on screen. Flags
+    # task_type values and type_specific keys that have no label (and aren't
+    # internal plumbing). Info-level: free-form/bespoke keys (dates/ids baked into
+    # the key) show up here as a nudge to normalize the data, not as a hard fail.
+    _ts_known, _ts_internal = set(_TS_RU_LOC), set(INTERNAL_TS_KEYS)
+    for t in tasks:
+        tt = t.get('task_type')
+        if tt and tt not in _TASK_TYPE_LABEL:
+            _v(viols, 'info', cid, 'i18n_task_type',
+               f'{t.get("id")}: task_type "{tt}" has no label (add to _TASK_TYPE_LABEL)')
+        for k in (t.get('type_specific') or {}):
+            if k not in _ts_known and k not in _ts_internal:
+                _v(viols, 'info', cid, 'i18n_ts_key',
+                   f'{t.get("id")}: type_specific key "{k}" has no label (add to _TS_RU_LOC or INTERNAL_TS_KEYS)')
+
     # F. RISKS -> linked_tasks point to existing tasks
     risks = (states.get('risks') or {}).get('risks', [])
     for r in risks:
@@ -193,22 +228,35 @@ def lint_client(cid, _xclient=None):
             if lt not in ids:
                 _v(viols, 'warn', cid, 'risk_link', f'risk {r.get("id")}: linked_task not found: {lt}')
 
-    # H. REGIME: USN/AUSN rate + AUSN invariants
+    # H. REGIME invariants — thresholds come from the client's jurisdiction pack
+    # (jurisdictions/<code>/lint.yaml). Runs a rule only if the pack defines it,
+    # so a non-RU client never gets USN/AUSN warnings. (Phase 2 / D3.)
     reg = states.get('regime') or {}
     prim = reg.get('primary') or {}
     rtype, robj, rrate = prim.get('type'), prim.get('object'), prim.get('rate')
-    if rtype == 'USN' and robj == 'income' and rrate not in (6, None):
-        _v(viols, 'warn', cid, 'usn_rate', f'regime: USN "Income", rate {rrate} (expected 6 — no regional rates)')
+    try:
+        import _jurisdiction as _J
+        _regime_rules = (_J.load_jurisdiction(reg.get('jurisdiction')).lint or {}).get('regime_rules') or {}
+    except Exception:
+        _regime_rules = {}
+    _rule = _regime_rules.get(rtype) or {}
+    if rtype == 'USN' and robj == 'income':
+        _exp = _rule.get('income_rate_expected')
+        if _exp and rrate not in (tuple(_exp) + (None,)):
+            _v(viols, 'warn', cid, 'usn_rate', f'regime: USN "Income", rate {rrate} (expected {" or ".join(map(str, _exp))} — no regional rates)')
     if rtype == 'AUSN':
-        if rrate not in (8, 20, None):
-            _v(viols, 'warn', cid, 'ausn_rate', f'regime: AUSN rate {rrate} (expected 8 or 20)')
-        ba = (states.get('accounts') or {}).get('bank_access') or {}
-        if ba.get('is_ausn_partner') is False:
-            _v(viols, 'warn', cid, 'ausn_partner', 'regime=AUSN, but accounts.bank_access.is_ausn_partner=False')
-        act = [a for a in accts if a.get('closed_at') is None and str(a.get('purpose', '')).startswith(_vocab.get('purpose_primary_prefix'))]
-        banks = {a.get('bank_name') for a in act if a.get('bank_name')}
-        if len(banks) > 1:
-            _v(viols, 'error', cid, 'ausn_one_bank', f'AUSN requires ONE bank, active current accounts in: {sorted(banks)}')
+        _exp = _rule.get('rate_expected')
+        if _exp and rrate not in (tuple(_exp) + (None,)):
+            _v(viols, 'warn', cid, 'ausn_rate', f'regime: AUSN rate {rrate} (expected {" or ".join(map(str, _exp))})')
+        if _rule.get('require_partner_flag'):
+            ba = (states.get('accounts') or {}).get('bank_access') or {}
+            if ba.get('is_ausn_partner') is False:
+                _v(viols, 'warn', cid, 'ausn_partner', 'regime=AUSN, but accounts.bank_access.is_ausn_partner=False')
+        if _rule.get('require_one_bank'):
+            act = [a for a in accts if a.get('closed_at') is None and str(a.get('purpose', '')).startswith(_vocab.get('purpose_primary_prefix'))]
+            banks = {a.get('bank_name') for a in act if a.get('bank_name')}
+            if len(banks) > 1:
+                _v(viols, 'error', cid, 'ausn_one_bank', f'AUSN requires ONE bank, active current accounts in: {sorted(banks)}')
 
     # I. INN — checksum
     if inn and _inn_valid(inn) is False:

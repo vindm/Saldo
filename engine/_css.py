@@ -8,19 +8,31 @@ from _strings import t
 
 DESIGN_TOKENS_CSS = (
     ":root{"
-    "--bg-page:#FBFBFA;--bg-card:#FFFFFF;--bg-canvas:#F2F0EA;--border:#EAE8E2;"
-    "--text-primary:#171717;--text-secondary:#2E2E2E;--text-muted:#474744;"
-    "--accent-red:#C0392B;--accent-yellow:#D98324;--accent-green:#5E8B49;--accent-blue:#3A6CA8;"
-    "--red-bg:#FBE6E0;--yellow-bg:#FBEFD4;--green-bg:#EAF3DE;--blue-bg:#E6F0FB;"
+    # Cool, neutral surfaces (Linear-grade) — replaces the warm cream palette.
+    "--bg-page:#F1F2F5;--bg-card:#FFFFFF;--bg-canvas:#F5F6F8;--bg-subtle:#F7F8FA;"
+    "--border:#E6E8EC;--border-strong:#D7DAE0;"
+    "--text-primary:#16161A;--text-secondary:#3A3A42;--text-muted:#71717A;"
+    # Indigo accent system — the primary interactive colour (active states,
+    # focus, primary buttons, links). --accent-blue is repointed to indigo so
+    # every existing interactive use follows it without per-rule edits.
+    "--accent:#5E6AD2;--accent-hover:#4F58C4;--accent-active:#4048B0;"
+    "--accent-soft:#EEEDFB;--accent-soft-border:#C9C5F3;--accent-text:#3C3489;"
+    "--accent-blue:#5E6AD2;--blue-bg:#EEEDFB;"
+    # Semantic colours (health / severity / readiness / due) kept stable.
+    "--accent-red:#C0392B;--accent-yellow:#D98324;--accent-green:#5E8B49;"
+    "--red-bg:#FBE6E0;--yellow-bg:#FBEFD4;--green-bg:#EAF3DE;"
     "--font:-apple-system,\"Segoe UI\",\"Helvetica Neue\",system-ui,sans-serif;"
     "--fs-base:15px;--fs-meta:13px;--fs-h2:22px;--fs-h1:28px;--fs-number:28px;--fs-number-large:40px;"
     "--space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;"
-    "--radius-card:8px;--radius-btn:4px;--radius-badge:2px;"
-    "--shadow-card:0 1px 2px rgba(17,17,17,0.03);--transition:150ms ease;}"
+    "--radius-card:10px;--radius-btn:6px;--radius-badge:4px;"
+    "--shadow-card:0 1px 2px rgba(16,16,26,0.04);"
+    "--shadow-pop:0 6px 20px rgba(94,106,210,0.18);--transition:150ms ease;}"
     "*{box-sizing:border-box}"
     "body{margin:0;padding:var(--space-lg);background:var(--bg-canvas);color:var(--text-primary);"
     "font-family:var(--font);font-size:var(--fs-base);line-height:1.6}"
     "a{color:inherit;text-decoration:none}a:hover{color:var(--accent-blue)}"
+    "button:focus-visible,a:focus-visible,summary:focus-visible,.wave-toggle:focus-visible{"
+    "outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius-btn)}"
     ".card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-card);"
     "padding:var(--space-md);box-shadow:var(--shadow-card)}"
     ".muted{color:var(--text-muted)}.secondary{color:var(--text-secondary)}"
@@ -197,8 +209,8 @@ DESIGN_TOKENS_CSS = (
     "transition:background var(--transition,.15s),border-color var(--transition,.15s),color var(--transition,.15s);"
     "display:inline-flex;align-items:center;gap:6px}"
     ".tm-btn:hover{border-color:var(--accent-blue);background:var(--blue-bg);color:var(--accent-blue)}"
-    ".tm-btn-primary{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue)}"
-    ".tm-btn-primary:hover{background:#3a5c8f;color:#fff;border-color:#3a5c8f}"
+    ".tm-btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}"
+    ".tm-btn-primary:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}"
     ".tm-btn-success{background:var(--accent-green);color:#fff;border-color:var(--accent-green)}"
     ".tm-btn-success:hover{background:#557546;color:#fff;border-color:#557546}"
     ".tm-btn-warn{background:var(--accent-yellow);color:#fff;border-color:var(--accent-yellow)}"

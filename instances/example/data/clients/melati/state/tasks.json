@@ -1,0 +1,151 @@
+{
+  "schema_version": "2.0",
+  "client_id": "melati",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "melati_to05",
+      "title": "Collect May 2026 turnover (peredaran bruto)",
+      "task_type": "turnover_collection",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-06-01",
+      "due_date": "2026-06-12",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Need May gross turnover from bank + cash to compute the 0.5% final PPh.",
+      "next_action": "Pull May inflows and cash takings; reconcile.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Period opened for May.",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05"
+      },
+      "assist": {
+        "hypothesis": "May turnover not yet collected; the 0.5% final PPh and the Coretax billing (melati_pph05) both wait on this figure. Likely from May bank inflows + cash takings.",
+        "confidence": "medium",
+        "updated_at": "2026-06-20",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Pull May turnover",
+            "recommended": true,
+            "prompt": "For Melati Spa (Indonesia, UMKM final 0.5%): get May 2026 gross turnover (peredaran bruto) = bank inflows + cash takings for the month, reconcile against the client's own records, and record it for period 2026-05. You already have the task context — the only missing input is the May statement + cash figure; pull those, sanity-check they look complete, then record via mm_update with my approval. Follow jurisdictions/id/checklists/monthly-turnover.md. This unblocks the 0.5% PPh + Coretax billing (melati_pph05)."
+          },
+          {
+            "label": "Ask the client",
+            "prompt": "Draft a short WhatsApp to Melati Spa asking for the May cash takings (to complete gross turnover alongside the bank inflows). Draft for my review — do not send."
+          }
+        ]
+      }
+    },
+    {
+      "id": "melati_pph05",
+      "title": "May final PPh 0.5% — billing code + pay (Coretax)",
+      "task_type": "coretax_billing",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-06-01",
+      "due_date": "2026-06-15",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [
+        "melati_to05"
+      ],
+      "labels": [],
+      "context": "After turnover is known: create kode billing on Coretax for UMKM final PPh, pay, record NTPN.",
+      "next_action": "Generate billing code under client NPWP once turnover confirmed.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Task created (synthetic seed).",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05"
+      },
+      "assist": {
+        "hypothesis": "Blocked on the May turnover figure (melati_to05). Once known: PPh = 0.5% x turnover (IDR); then a Coretax billing code under the client's NPWP, pay, record NTPN.",
+        "confidence": "medium",
+        "updated_at": "2026-06-20",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Compute + draft billing",
+            "recommended": true,
+            "prompt": "For Melati Spa (Indonesia, UMKM final 0.5%): once May turnover is confirmed (melati_to05), compute final PPh = 0.5% x gross turnover in IDR, then prepare the Coretax billing per jurisdictions/id/checklists/coretax-final-tax-payment.md — kode billing under the client's 16-digit NPWP, correct masa, amount = computed PPh. The regime/threshold are already on the card (UMKM 0.5%, under PKP) — no need to re-verify them; do double-check the turnover figure if it looks off. Stop before paying: surface amount + billing for my approval; nothing submitted without my OK."
+          }
+        ]
+      }
+    },
+    {
+      "id": "melati_q1",
+      "title": "Confirm employees? (PPh 21 applicability)",
+      "task_type": "open_question",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-06-01",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "If the salon has employees, PPh 21 withholding applies — confirm.",
+      "next_action": "Ask the client.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Question opened (synthetic seed).",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "no_auto_resolve": true
+      },
+      "assist": {
+        "hypothesis": "Open: whether the salon has employees. If yes -> monthly PPh 21 withholding applies on top of the UMKM 0.5%; if no -> only the final 0.5%.",
+        "confidence": "low",
+        "updated_at": "2026-06-20",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Ask the client",
+            "recommended": true,
+            "prompt": "Draft a short WhatsApp to Melati Spa asking whether the salon has any employees on payroll (decides if PPh 21 withholding applies). Draft for my review — do not send. If yes, open a monthly PPh 21 track for this client."
+          }
+        ]
+      }
+    }
+  ]
+}

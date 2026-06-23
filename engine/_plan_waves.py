@@ -154,13 +154,33 @@ _OP_KEYWORDS = [
 ]
 
 
-def _stage_of_token(tok):
-    """If an operation token (task_type OR keyword-inferred) belongs to a pipeline
-    stage, return 'stage:<code>', else None."""
+_JURIS_CACHE = {}
+
+
+def _client_jurisdiction(client_id):
+    """Resolve a client's tax jurisdiction (regime.jurisdiction, default 'ru'), cached."""
+    if not client_id:
+        return "ru"
+    if client_id in _JURIS_CACHE:
+        return _JURIS_CACHE[client_id]
+    j = "ru"
+    try:
+        import _loaders
+        reg = _loaders.load_client_state_regime(client_id) or {}
+        j = (reg.get("jurisdiction") or "ru").strip().lower() or "ru"
+    except Exception:
+        j = "ru"
+    _JURIS_CACHE[client_id] = j
+    return j
+
+
+def _stage_of_token(tok, jurisdiction="ru"):
+    """If an operation token belongs to a pipeline stage in the given jurisdiction,
+    return 'stage:<code>', else None."""
     try:
         import _pipeline as _P
-        si = _P.stage_index_of((tok or '').strip())
-        return ('stage:' + _P.stages()[si]['code']) if si is not None else None
+        si = _P.stage_index_of((tok or '').strip(), jurisdiction)
+        return ('stage:' + _P.stages(jurisdiction)[si]['code']) if si is not None else None
     except Exception:
         return None
 
@@ -204,7 +224,8 @@ def _op_canonical(t):
     # "close April" and "close May" are distinct, batchable waves. Off-pipeline ops
     # fall through: task_type(+alias) -> keyword token -> text key.
     raw = (t.get('task_type') or '').strip()
-    s = _stage_of_token(raw)
+    juris = _client_jurisdiction(t.get('client_id'))
+    s = _stage_of_token(raw, juris)
     if s:
         per = _period_of(t)
         return s + ('|' + per if per else '')
@@ -214,7 +235,7 @@ def _op_canonical(t):
     txt = _clean_op_text(t.get('what') or '')
     for rx, token in _OP_KEYWORDS:
         if rx.search(txt):
-            st = _stage_of_token(token)
+            st = _stage_of_token(token, juris)
             if st:
                 per = _period_of(t)
                 return st + ('|' + per if per else '')
@@ -282,7 +303,8 @@ def _op_label(members):
         except Exception:
             loc = 'ru'
         code, _, per = tok[len('stage:'):].partition('|')
-        title = _P.stage_title(code, loc)
+        juris = _client_jurisdiction(members[0].get('client_id')) if members else 'ru'
+        title = _P.stage_title(code, loc, juris)
         if per:
             title += ' · ' + _fmt_period(per, loc)
         return _capf(title)
@@ -296,7 +318,11 @@ def _op_icon(members):
     from _icons import icon
     tok = _wave_op_token(members)
     if isinstance(tok, str) and tok.startswith('stage:'):
-        return icon(tok[len('stage:'):].split('|')[0])
+        code = tok[len('stage:'):].split('|')[0]
+        juris = _client_jurisdiction(members[0].get('client_id')) if members else 'ru'
+        import _pipeline as _P
+        ic = _P.stage_attr(code, juris, 'icon')
+        return icon(ic) if ic else icon(code)
     if tok in _OP_RU:
         return icon(tok)
     return icon('dot')
@@ -316,7 +342,7 @@ def _wave_due_badge(dl):
         return '<span class="wave-due due-today">' + t('today') + '</span>'
     if dl <= 7:
         return '<span class="wave-due due-soon">' + t('in {}d').format(dl) + '</span>'
-    return '<span class="wave-due due-plan">{}d</span>'.format(dl)
+    return '<span class="wave-due due-plan">' + t('{}d').format(dl) + '</span>'
 
 
 # ---- readiness / anomalies (from open tasks, no writes) ----
@@ -491,16 +517,20 @@ def _render_wave(members, esc, htitle):
     anomaly_html = ''
 
     batch_prompt = _attr(tp(
-        'Process the wave "{op}": {clients}. For each client open state/*.json (source of truth) and '
-        'mental_model, check the linked sources and reconcile the links. First update the model with the '
-        'new signals. Give a status per client and an overall wave plan: what to batch now, where we wait, '
-        'where it is blocked. Make state changes via mm_update (with my approval); draft any outward message '
-        'for my review — do not send.',
-        'Обработай волну «{op}»: {clients}. По каждому клиенту открой state/*.json (источник истины) и '
-        'mental_model, проверь связанные источники и сверь связи. Сначала обнови модель новыми сигналами. '
-        'Дай статус по каждому и общий план волны: что сделать пачкой сейчас, где ждём, где блок. Правки '
-        'state — через mm_update (с моим аппрувом); сообщения наружу — черновиком мне на проверку, не '
-        'отправляй.').format(op=op, clients=clients))
+        'Process the wave "{op}": {clients}. For EACH client first resolve its jurisdiction '
+        '(state/regime.json) and use the checklist matching this operation in that client\'s pack '
+        '(jurisdictions/<code>/) — do NOT assume RF (INSTRUCTIONS \u00a70); clients may be in different '
+        'jurisdictions. Open state/*.json (source of truth) and mental_model, check the linked sources and '
+        'reconcile the links. Update the model with the new signals. Give a status per client and an overall '
+        'wave plan in each client\'s own tax system: what to batch now, where we wait, where it is blocked. '
+        'Make state changes via mm_update (with my approval); draft any outward message for my review — do not send.',
+        'Обработай волну «{op}»: {clients}. По КАЖДОМУ клиенту сначала определи его юрисдикцию '
+        '(state/regime.json) и используй чек-лист под эту операцию из пакета клиента (jurisdictions/<code>/) '
+        '— НЕ предполагай РФ (INSTRUCTIONS \u00a70); клиенты могут быть в разных юрисдикциях. Открой '
+        'state/*.json (источник истины) и mental_model, проверь связанные источники и сверь связи. Обнови '
+        'модель новыми сигналами. Дай статус по каждому и общий план волны в налоговой системе самого '
+        'клиента: что сделать пачкой сейчас, где ждём, где блок. Правки state — через mm_update (с моим '
+        'аппрувом); сообщения наружу — черновиком мне на проверку, не отправляй.').format(op=op, clients=clients))
 
     actions = (
         '<span class="wave-acts">'
@@ -578,7 +608,7 @@ WAVES_CSS = (
     '.wave-head{display:flex;align-items:center;gap:10px;padding:8px var(--space-md) 8px 5px;'
     'border-bottom:1px solid var(--border);background:transparent;cursor:pointer;'
     'user-select:none;transition:background 120ms}'
-    '.wave-head:hover{background:var(--bg-card)}'
+    '.wave-head:hover{background:var(--bg-page)}'
     '.wave-head:hover .wave-op{color:var(--accent-blue)}'
     '.wave.collapsed .wave-head{border-bottom:none}'
     '.wave.collapsed .wave-sub{display:none}'
@@ -673,6 +703,10 @@ _WAVES_JS_TEMPLATE = """
         else { w.classList.add('collapsed'); if(id) delete s[id]; }
       });
       save(s); syncBtn();
+      if(!expand){
+        Array.prototype.forEach.call(document.querySelectorAll('.wave-focus'), function(x){ x.classList.remove('wave-focus'); });
+        if(location.hash){ history.replaceState(null,'',location.pathname+location.search); }
+      }
       return;
     }
     // other buttons/links (incl. "Process" with data-prompt) — do not collapse
@@ -684,6 +718,10 @@ _WAVES_JS_TEMPLATE = """
     wave.classList.toggle('collapsed');
     var id = wave.getAttribute('data-wave-id');
     if(id){ var s2 = load(); if(wave.classList.contains('collapsed')){ delete s2[id]; } else { s2[id]=1; } save(s2); }
+    if(wave.classList.contains('collapsed') && wave.classList.contains('wave-focus')){
+      wave.classList.remove('wave-focus');
+      if(location.hash){ history.replaceState(null,'',location.pathname+location.search); }
+    }
     syncBtn();
   });
 })();
@@ -704,7 +742,7 @@ _STAGE_JUMP_JS = (
     'var per=mp?decodeURIComponent(mp[1]):"";var needle="stage:"+st+(per?"|"+per:"");'
     'var first=null;[].slice.call(document.querySelectorAll(".wave[data-stage]")).forEach(function(w){'
     'if((w.getAttribute("data-stage")||"").indexOf(needle)>=0){w.classList.remove("collapsed");'
-    'w.style.boxShadow="inset 0 0 0 2px var(--accent-blue)";if(!first)first=w;}});'
+    'w.classList.add("wave-focus");if(!first)first=w;}});'
     'if(first)setTimeout(function(){first.scrollIntoView({behavior:"smooth",block:"center"});},80);})();</script>'
 )
 WAVES_JS = WAVES_JS + _STAGE_JUMP_JS
@@ -739,6 +777,37 @@ WAVES_CSS = WAVES_CSS + (
     '.plan-wait>summary::-webkit-details-marker{display:none}'
     '.plan-wait[open]>summary{border-bottom:1px dashed var(--border)}'
     '.plan-wait .plan-item{opacity:.85}'
+)
+
+
+# ── Expanded wave = a calm, clearly-bounded card (Version A direction) ────────
+# An open wave lifts into its own white card: a thin indigo left-rail, a soft
+# lavender header, a light shadow and a full border. That makes the start and
+# end of the wave unambiguous without the loud full-indigo bar.
+WAVES_CSS = WAVES_CSS + (
+    # the row wrapper must not clip the lifted, rounded container
+    '.plan-item:has(> .wave:not(.collapsed)){overflow:visible;'
+    'border-bottom-color:transparent;background:transparent;padding:5px 0}'
+    '.plan-item:has(> .wave:not(.collapsed)):hover{background:transparent}'
+    '.wave:not(.collapsed){background:var(--bg-card);border:1px solid var(--accent-soft-border);'
+    'border-left:3px solid var(--accent);border-radius:var(--radius-card);overflow:hidden;'
+    'box-shadow:0 4px 14px rgba(94,106,210,0.12);margin:4px 0}'
+    # soft lavender header (not a solid indigo bar)
+    '.wave:not(.collapsed) .wave-head{background:var(--accent-soft);'
+    'border-bottom:1px solid var(--accent-soft-border)}'
+    '.wave:not(.collapsed) .wave-head:hover{background:var(--accent-soft)}'
+    '.wave:not(.collapsed) .wave-op,'
+    '.wave:not(.collapsed) .wave-head:hover .wave-op{color:var(--accent-text)}'
+    '.wave:not(.collapsed) .wave-ic,'
+    '.wave:not(.collapsed) .wave-chevron,'
+    '.wave:not(.collapsed) .wave-head:hover .wave-chevron{color:var(--accent)}'
+    '.wave:not(.collapsed) .wave-count{background:#E3E0FA;color:var(--accent-text)}'
+    # readiness / action row stays light; Process-wave button keeps its outline
+    '.wave:not(.collapsed) .wave-sub{background:var(--bg-subtle);'
+    'border-bottom:1px solid var(--border)}'
+    # Periods→Plan focus ring (a CSS class, not an inline style, so it can be
+    # cleared by collapsing the wave). outline does not fight the card box-shadow.
+    '.wave.wave-focus{outline:2px solid var(--accent);outline-offset:-2px}'
 )
 
 

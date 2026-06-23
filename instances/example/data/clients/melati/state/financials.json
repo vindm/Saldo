@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.1",
+  "client_id": "melati",
+  "last_updated": "2026-06-20T01:00:00+00:00",
+  "periods": [
+    {
+      "period": "2025",
+      "period_type": "year",
+      "turnover_idr": 540000000,
+      "income_usn": null,
+      "expenses": null,
+      "patent_income": null,
+      "taxes": {
+        "final_pph": 2700000
+      },
+      "declaration_status": "submitted_accepted",
+      "status": "archive",
+      "notes": "Synthetic year close (0.5% of 540M IDR)."
+    }
+  ],
+  "yearly_pace_2026": {
+    "estimated_annual_turnover_idr": 600000000,
+    "pkp_threshold_idr": 4800000000,
+    "pkp_warning": false,
+    "pkp_warning_reason": "Synthetic — well under PKP threshold.",
+    "notes": "Synthetic pace."
+  },
+  "tax_calendar_2026": [],
+  "monthly_close": {
+    "month": "May 2026",
+    "deadline": "2026-06-15",
+    "today": "2026-06-20",
+    "blocker": null
+  }
+}

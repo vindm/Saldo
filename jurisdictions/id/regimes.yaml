@@ -1,0 +1,14 @@
+# ID jurisdiction — tax-regime display rules. Synthetic demo (2026-06-23).
+regimes:
+  UMKM_FINAL:
+    label: "UMKM final"
+    show_rate: true
+    objects:
+      turnover: "UMKM final (turnover)"
+  PPh21:
+    label: "PPh 21 (payroll)"
+    show_rate: false
+# Indonesia has no patent regime.
+patent:
+  active_status: "active"
+  suffix: ""

@@ -27,65 +27,88 @@ DONE_STATUSES = {"done", "completed", "cancelled", "dropped", "dismissed", "clos
 _CACHE = {}
 
 
-def _config_path():
+def _pipeline_path(jurisdiction):
     here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.abspath(os.path.join(here, "..", "config", "pipelines", "monthly_close.yaml"))
+    return os.path.abspath(os.path.join(here, "..", "jurisdictions", jurisdiction, "pipeline.yaml"))
 
 
-def stages():
-    """Ordered list of stage dicts: {code, title:{ru,en}, task_types:[...]}."""
-    if "stages" in _CACHE:
-        return _CACHE["stages"]
+def _norm(j):
+    return ((j or "ru").strip().lower() or "ru")
+
+
+def stages(jurisdiction="ru"):
+    """Ordered stage dicts {code,title,task_types} for a jurisdiction's pipeline.
+    Reads jurisdictions/<j>/pipeline.yaml; the embedded RU fallback applies only
+    to 'ru' (other jurisdictions with no pipeline.yaml get [] -> their tasks are
+    all off-pipeline)."""
+    j = _norm(jurisdiction)
+    key = "stages:" + j
+    if key in _CACHE:
+        return _CACHE[key]
     st = None
     try:
         import yaml
-        with open(_config_path(), encoding="utf-8") as f:
+        with open(_pipeline_path(j), encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         if data.get("stages"):
-            st = [{"code": s["code"], "title": s.get("title") or {}, "task_types": s.get("task_types") or []}
+            st = [{"code": s["code"], "title": s.get("title") or {}, "task_types": s.get("task_types") or [],
+                   "icon": s.get("icon"), "glyph": s.get("glyph")}
                   for s in data["stages"]]
     except Exception:
         st = None
-    _CACHE["stages"] = st or _DEFAULT_STAGES
-    return _CACHE["stages"]
+    if st is None:
+        st = _DEFAULT_STAGES if j == "ru" else []
+    _CACHE[key] = st
+    return st
 
 
-def _type_to_stage():
-    if "t2s" in _CACHE:
-        return _CACHE["t2s"]
+def _type_to_stage(jurisdiction="ru"):
+    j = _norm(jurisdiction)
+    key = "t2s:" + j
+    if key in _CACHE:
+        return _CACHE[key]
     m = {}
-    for i, s in enumerate(stages()):
+    for i, s in enumerate(stages(j)):
         for tt in s["task_types"]:
             m[tt] = i
-    _CACHE["t2s"] = m
+    _CACHE[key] = m
     return m
 
 
-def stage_index_of(task_type):
+def stage_index_of(task_type, jurisdiction="ru"):
     """Index of the stage a task_type belongs to, or None if off-pipeline."""
-    return _type_to_stage().get((task_type or "").strip())
+    return _type_to_stage(jurisdiction).get((task_type or "").strip())
 
 
-def stage_title(code_or_idx, locale="ru"):
-    st = stages()
+def stage_attr(code, jurisdiction="ru", key="icon", default=None):
+    """A stage's declared attribute (e.g. icon/glyph) from the pack, or default.
+    RU stages declare none -> default, preserving the engine's icon-map fallback."""
+    for s in stages(jurisdiction):
+        if s.get("code") == code:
+            return s.get(key) if s.get(key) is not None else default
+    return default
+
+
+def stage_title(code_or_idx, locale="ru", jurisdiction="ru"):
+    st = stages(jurisdiction)
     s = st[code_or_idx] if isinstance(code_or_idx, int) else next((x for x in st if x["code"] == code_or_idx), None)
     if not s:
         return ""
     return (s.get("title") or {}).get(locale) or (s.get("title") or {}).get("en") or s["code"]
 
 
-def client_pipeline(tasks):
+def client_pipeline(tasks, jurisdiction="ru"):
     """For one client's task list, return:
       {'stages': [{code,title_ru,title_en,total,open,done,status}], 'current': idx|None,
        'on_pipeline': [tasks...], 'off_pipeline': [tasks...]}.
     status per stage: 'done' (has tasks, all terminal), 'active' (has open),
     'pending' (no tasks yet — earlier/later), computed over the whole list.
     """
-    st = stages()
+    st = stages(jurisdiction)
     buckets = [{"total": 0, "open": 0, "done": 0} for _ in st]
     on, off = [], []
     for t in tasks or []:
-        idx = stage_index_of(t.get("task_type"))
+        idx = stage_index_of(t.get("task_type"), jurisdiction)
         if idx is None:
             off.append(t)
             continue
@@ -109,7 +132,7 @@ def client_pipeline(tasks):
             if current is None:
                 current = i
         out_stages.append({
-            "code": s["code"], "title_ru": stage_title(i, "ru"), "title_en": stage_title(i, "en"),
+            "code": s["code"], "title_ru": stage_title(i, "ru", jurisdiction), "title_en": stage_title(i, "en", jurisdiction),
             "total": b["total"], "open": b["open"], "done": b["done"], "status": status,
         })
     return {"stages": out_stages, "current": current, "on_pipeline": on, "off_pipeline": off}

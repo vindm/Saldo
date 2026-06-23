@@ -522,39 +522,17 @@ def apply_regime_to_client(c, regime):
     if not regime:
         return c
 
-    # Build the regime string for the existing renderer
+    c['jurisdiction'] = (regime.get('jurisdiction') or 'ru')
+
+    # Build the regime string via the client's jurisdiction pack (Phase 2).
+    # Behaviour for RU clients is unchanged; the if/elif table now lives in
+    # jurisdictions/<code>/regimes.yaml. Jurisdiction defaults to "ru" when the
+    # field is absent (legacy clients) — see engine/_jurisdiction.py.
+    from _jurisdiction import load_jurisdiction, render_regime_label
     primary = regime.get('primary') or {}
-    rtype = primary.get('type')
-    obj = primary.get('object')
-    rate = primary.get('rate')
-    parts = []
-    if rtype == 'USN':
-        if obj == 'income':
-            parts.append('USN Income')
-        elif obj == 'income_minus_expense':
-            parts.append('USN Income−Expenses')
-        else:
-            parts.append('USN')
-        if rate is not None:
-            parts.append(str(rate) + '%')
-    elif rtype == 'AUSN':
-        parts.append('AUSN')
-        if obj == 'income':
-            parts.append('Income')
-        if rate is not None:
-            parts.append(str(rate) + '%')
-    elif rtype == 'OSNO':
-        parts.append('OSNO')
-    else:
-        parts.append(rtype or '')
-
-    # If there are active patents — add "+PSN"
     patents = regime.get('patents') or []
-    if any(p.get('status') == 'active' for p in patents):
-        parts.append('+ PSN')
-
-    if parts:
-        c['regime'] = ' '.join(parts).strip()
+    pack = load_jurisdiction(regime.get('jurisdiction'))
+    c['regime'] = render_regime_label(pack, primary, patents)
 
     # patent_active boolean
     c['patent_active'] = bool(any(p.get('status') == 'active' for p in patents))

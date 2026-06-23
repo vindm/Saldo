@@ -1,0 +1,13 @@
+# ID jurisdiction — pack manifest (synthetic demo, salon-scoped). 2026-06-23.
+code: id
+name: "Indonesia"
+authorities: authorities.yaml
+regimes: regimes.yaml
+pipeline: pipeline.yaml
+workflow_domains: [coretax, email, bank]
+checklists:
+  monthly_turnover:           checklists/monthly-turnover.md
+  compute_final_pph:          checklists/coretax-final-tax-payment.md
+  coretax_final_tax_payment:  checklists/coretax-final-tax-payment.md
+  single_tax_payment_order:   checklists/coretax-final-tax-payment.md
+  new_client:                 checklists/new-client-id.md

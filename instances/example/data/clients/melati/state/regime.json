@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.1",
+  "client_id": "melati",
+  "last_updated": "2026-06-20T00:00:00+08:00",
+  "jurisdiction": "id",
+  "primary": {
+    "type": "UMKM_FINAL",
+    "object": "turnover",
+    "rate": 0.5,
+    "since": "2025-01-10"
+  },
+  "scenario": null,
+  "scenario_name": "UMKM final 0.5%",
+  "patents": [],
+  "auto_simplified": null,
+  "signature": {
+    "holder": "client",
+    "type": null
+  },
+  "filing": {
+    "submission_method": "coretax",
+    "declarations": "SPT Masa monthly + SPT Tahunan annual",
+    "declarations_note": "Synthetic.",
+    "contracts_edo": null
+  },
+  "accounting_system": "client-kept books",
+  "business_description": "Fabricated Indonesian micro client on UMKM final 0.5%. No real data."
+}

@@ -1,0 +1,14 @@
+# RU regime invariants for state_lint section H. Extracted verbatim 2026-06-23.
+# state_lint runs these only for clients whose jurisdiction pack defines them;
+# a non-RU client never gets AUSN/USN warnings.
+regime_rules:
+  USN:
+    income_rate_expected: [6]      # warn if object=income and rate not in set (None allowed)
+  AUSN:
+    rate_expected: [8, 20]         # warn if rate not in set (None allowed)
+    require_partner_flag: true     # warn if accounts.bank_access.is_ausn_partner is False
+    require_one_bank: true         # error if >1 active primary-purpose bank
+
+# Bank account format (RU settlement accounts are 20 digits).
+account_format:
+  length: 20

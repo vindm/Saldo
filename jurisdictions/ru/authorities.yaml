@@ -1,0 +1,32 @@
+# RU jurisdiction — authorities, portals, terminology, currency.
+# Extracted from policies/INSTRUCTIONS.md, safety-rules.md, system-map.md (2026-06-23).
+# This is the runtime's lookup table: shared checklists/templates refer to
+# {{authority}}, {{currency}}, {{term:...}} etc. and resolve them HERE, so no RF
+# name is hardcoded in shared text. Instruction layer is English (locale-independent);
+# the RU rendering the operator sees is produced by the locale layer, not here.
+
+code: ru
+name: "Russian Federation"
+currency: "RUB"
+currency_symbol: "₽"
+period_income_label: "USN income"
+
+tax_authority: "FTS (Federal Tax Service)"
+social_authority: "Social Fund (SFR)"
+statistics_authority: "Rosstat"
+
+filing_systems: ["Kontur.Extern", "SBIS", "direct"]
+accounting_system: "1C:Fresh"
+fiscal_data_operator: "OFD"
+company_registry: "EGRUL / EGRIP"
+practice_management: "Finkoper"
+direct_bank_portals: ["T-Bank Business", "Alfa-Business"]
+
+# Abstract concept -> the term used in the (English) instruction layer.
+term_map:
+  tax_account: "ENP / ENS (single tax payment / single tax account)"
+  classifier_code: "KBK"
+  primary_doc: "UPD"
+  income_ledger: "KUDIR"
+  tax_return: "declaration (SPT has no RU analogue; RU files per-tax returns)"
+  statistics_report: "websbor / Rosstat report"

@@ -152,7 +152,7 @@ Apply nothing. The `tg_<date>.md` file and the heartbeat are still written by th
 
 ## D. Related skills and files
 
-- `policies/checklists/tg_communication.md` — the standard for working with a client in TG
+- `jurisdictions/ru/checklists/telegram-communication.md` — the RU pack's standard for working with a client in TG
 - `engine/_aggregator.py` (source `tg`) — parses `journal/inbox/tg_*.md`
 - `journal/tg_state.json` — the single source of truth for "read up to"
 

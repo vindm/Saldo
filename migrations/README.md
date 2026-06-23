@@ -13,6 +13,11 @@ paths, or per-client business logic belong in a migration** (engine invariant).
 
 ## For a practice operator (running migrations on your data)
 
+> On a Windows laptop, the operator does **not** run these by hand — a single
+> desktop icon does pull + migrate + regenerate + open. See
+> [`docs/DEPLOY-WINDOWS.md`](../docs/DEPLOY-WINDOWS.md). The commands below are the
+> equivalent manual flow (what the icon automates).
+
 This is the text flow to hand to Cowork after pulling the latest engine:
 
 ```bash
@@ -74,6 +79,14 @@ migration.
 - `0002_bank_statement_note.py` — behavior: `bank_statement_frequency_note` →
   `bank_statement_notes` (free-text note only; the distinct `*_frequency` and
   `*_trigger` value fields are left alone).
+- `0003_track_event_ts.py` — tasks: optional `ts` (timestamp) on track history
+  events; additive, no back-fill.
+- `0004_regime_jurisdiction.py` — regime: add `jurisdiction` (default `ru`) where
+  absent; additive, behaviour-preserving (Phase 2 multi-jurisdiction).
+- `0005_normalize_task_status.py` — tasks: collapse free-form track `status` to the
+  canonical vocabulary (`engine/_status.py`); the original is preserved in
+  `status_legacy`. Pairs with the display-time normalizer + the `state_lint`
+  `status_noncanon` check.
 
 ## Known follow-ups needing a content decision (not yet migrations)
 

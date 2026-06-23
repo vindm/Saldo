@@ -47,5 +47,12 @@
     "name_full": "Jamal Idris",
     "folder": "clients/vertex",
     "group": "team"
+  },
+  {
+    "id": "melati",
+    "name_short": "Melati Spa",
+    "name_full": "Melati Sari",
+    "folder": "clients/melati",
+    "group": "direct"
   }
 ]

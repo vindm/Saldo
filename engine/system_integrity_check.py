@@ -80,7 +80,7 @@ for arch in ARCHIVED:
         warn('Pointers', f'{arch} reappeared in _data/ (should be archived)')
 
 # --- 4. Orphan _data modules ---
-ENTRYPOINTS = {'generate','state_lint','snapshot','safe_edit','system_integrity_check','rotate_baks'}
+ENTRYPOINTS = {'generate','state_lint','snapshot','safe_edit','system_integrity_check','rotate_baks','selftest','migrate'}
 mods = [os.path.basename(f)[:-3] for f in glob.glob(os.path.join(HERE, '*.py'))]
 srcs = {m: open(os.path.join(HERE, m + '.py'), encoding='utf-8').read() for m in mods}
 for m in mods:

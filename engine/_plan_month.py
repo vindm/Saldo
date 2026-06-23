@@ -25,7 +25,7 @@ from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS
 from _aggregator import aggregate_by_day, aggregate_tasks, get_loose_tasks
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _track_attrs import build_track_data_attrs
-from _plan_waves import cluster_tasks, _op_title
+from _plan_waves import cluster_tasks, _op_title, horizon_counts
 
 
 DOW_RU = [t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat'), t('Sun')]
@@ -87,7 +87,9 @@ def render_plan_month():
     by_day = aggregate_by_day(days=max(horizon, 30), today=today)
     all_groups = aggregate_tasks(today)
 
-    n_hot = len(all_groups['hot'])
+    # Sidebar Plan badge: tasks due in the next 7 days (incl. overdue) — same
+    # window as the Plan page summary "{N} in the next 7 days", so they match.
+    n_hot = horizon_counts(all_groups['all'])['near']
 
     # How many tasks in this month
     month_tasks_count = sum(

@@ -7,9 +7,12 @@ Excludes: secrets, backups (.bak/.tmp/.corrupted/.broken/.before_rerun), __pycac
 Writes to <root>/Archive/snapshots/brain_<ts>.tar.gz
 
 Usage:
-  python3 snapshot.py [label]      # create a snapshot
-  python3 snapshot.py --list       # list existing snapshots
-Restore (manually): tar -xzf <snapshot> -C <target>
+  python3 snapshot.py [label]                      # create a snapshot
+  python3 snapshot.py --list                       # list existing snapshots
+  python3 snapshot.py --restore <snap> [target]    # restore a snapshot (default target: project root)
+  python3 snapshot.py --restore <snap> --dry-run   # list what would be restored, change nothing
+<snap> may be a full path or a bare filename found in Archive/snapshots/.
+Restore overwrites files in place; it does NOT delete files created after the snapshot.
 """
 import os, sys, tarfile
 from datetime import datetime
@@ -54,8 +57,55 @@ def lst():
         if f.endswith('.tar.gz'):
             print(f, '—', os.path.getsize(os.path.join(SNAP_DIR, f))//1024, 'KB')
 
+def _resolve_snapshot(snap):
+    """Accept a full path or a bare filename living in Archive/snapshots/."""
+    if os.path.exists(snap):
+        return snap
+    cand = os.path.join(SNAP_DIR, snap)
+    if os.path.exists(cand):
+        return cand
+    return None
+
+def restore(snap, target=None, dry_run=False):
+    """Extract a snapshot tar.gz over `target` (default: project ROOT).
+
+    Overwrites files in place. Does not delete files created since the snapshot.
+    Guards against path-traversal (members must stay inside target).
+    """
+    path = _resolve_snapshot(snap)
+    if not path:
+        print(f'snapshot not found: {snap}')
+        print('(try `python3 snapshot.py --list` to see available snapshots)')
+        sys.exit(1)
+    target = os.path.abspath(target or ROOT)
+    with tarfile.open(path, 'r:gz') as tar:
+        members = tar.getmembers()
+        # path-traversal guard: every member must resolve inside `target`
+        for m in members:
+            dest = os.path.abspath(os.path.join(target, m.name))
+            if dest != target and not dest.startswith(target + os.sep):
+                print(f'ABORT: unsafe path in archive: {m.name}')
+                sys.exit(1)
+        if dry_run:
+            for m in members:
+                print(m.name)
+            print(f'\n(dry run) {len(members)} files would be restored into {target} — nothing changed')
+            return
+        tar.extractall(target)
+    print(f'restored {len(members)} files into {target}')
+    print('NOTE: existing files were overwritten in place; files added since the snapshot were left untouched.')
+
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == '--list':
+    args = sys.argv[1:]
+    if args and args[0] == '--list':
         lst()
+    elif args and args[0] == '--restore':
+        if len(args) < 2:
+            print('usage: snapshot.py --restore <snapshot> [target_dir] [--dry-run]')
+            sys.exit(2)
+        dry = '--dry-run' in args
+        tgt = next((a for a in args[2:] if not a.startswith('--')), None)
+        restore(args[1], tgt, dry_run=dry)
     else:
-        make(sys.argv[1] if len(sys.argv) > 1 else 'snapshot')
+        label = args[0] if (args and not args[0].startswith('--')) else 'snapshot'
+        make(label)

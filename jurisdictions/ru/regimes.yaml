@@ -1,0 +1,32 @@
+# RU jurisdiction — tax-regime display rules.
+# Extracted verbatim from engine/_loaders.py:apply_regime_to_client (2026-06-23).
+# The engine reads this; it invents nothing. Display string is built by joining
+# the matched base token + optional rate token + optional patent suffix with " ".
+#
+# Algorithm (see engine/_jurisdiction.render_regime_label):
+#   base = regimes[type].objects[object]  OR  regimes[type].label  OR  raw type
+#   if regimes[type].show_rate and rate is not None: append f"{rate}%"
+#   if any active patent: append patent_suffix
+#
+# `object` keys are matched exactly; an unmatched object falls back to `label`.
+
+regimes:
+  USN:
+    label: "USN"
+    show_rate: true
+    objects:
+      income: "USN Income"
+      income_minus_expense: "USN Income−Expenses"
+  AUSN:
+    label: "AUSN"
+    show_rate: true
+    objects:
+      income: "AUSN Income"
+  OSNO:
+    label: "OSNO"
+    show_rate: false
+
+# Patents (PSN) — appended when at least one patent has this status.
+patent:
+  active_status: "active"
+  suffix: "+ PSN"

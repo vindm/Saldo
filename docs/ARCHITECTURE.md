@@ -37,6 +37,14 @@ The architectural rule is *one skill, many executors*: the operator invokes an a
 
 ## Configuration boundary (the product change)
 
+> **Self-describing instances.** Locale and brand can travel WITH the data: an
+> `instance.yaml` at the root of the data dir (`DATA_DIR/instance.yaml`) overrides
+> the repo `config/instance.yaml` for `instance.locale` and `brand.*` (env still
+> wins). This keeps a practice's identity attached to its data, so a snapshot
+> cannot be rendered under the wrong locale by accident (see Invariant 4 in
+> `CLAUDE.md`).
+
+
 The original system hardcoded the client→folder map and resolved data paths relative to the code. The product moves both into configuration:
 
 - `config/instance.yaml` declares locale, brand, enabled connectors, schedule, and **`data.dir`** — the path to the practice's data directory.
@@ -70,6 +78,10 @@ Daemons keep tracks current inline (no approval) but never close them — a clos
 ## Localization
 
 `instance.locale` (`ru`/`en`) drives both the dashboard UI strings (`_strings.py`, via `t()`) and the data-value tokens the loaders match (`_vocab.py`). The English port was done as a deliberate i18n pass — UI text and data-token matching were separated — so Russian-language data keeps behaving identically while the chrome renders in either language. Any change to engine string handling must be checked against **Russian-data output**, not only the English demo, because locale-coupled parsing is easy to break silently.
+
+## Multi-jurisdiction
+
+Tax-system-specific behaviour lives in **jurisdiction packs** (`jurisdictions/<code>/`), not in the engine. A client binds to a pack via `state/regime.json → jurisdiction` (default `ru`). A pack declares the regimes, the monthly pipeline, the tax authority / portal / currency / terminology, the regime-lint rules, and the per-task-type checklists. `engine/_jurisdiction.py` loads it (`load_jurisdiction(code)`; unknown code is a hard error, never a silent RF fallback), and the renderers (`_pipeline`, `_plan_waves`, `_periods`, `_client_dashboard_v2`) and `state_lint` read it instead of assuming RF. The runtime resolves and applies the pack per `policies/INSTRUCTIONS.md §0`. Adding a jurisdiction is pure data — see `jurisdictions/README.md`. Jurisdiction is **independent of locale**: locale drives the operator-facing UI language; jurisdiction drives tax content (a RU operator can serve an `id` client — RU dashboard, Indonesian filings).
 
 ## Safety model
 

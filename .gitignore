@@ -55,3 +55,8 @@ __pycache__/
 *.doc
 
 engine/_LINT.json
+
+# Local full-system snapshots (engine/snapshot.py output) — contain real state
+# when run on a real instance; never commit. (Archive/dead_modules/ stays tracked.)
+Archive/snapshots/
+*.tar.gz

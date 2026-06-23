@@ -13,8 +13,18 @@ ICON_CSS = (
 
 _MAP = {'clock': 'clock', 'home': 'home', 'plan': 'list-checks', 'calendar': 'calendar', 'periods': 'calendar-clock', 'users': 'users', 'building': 'building-2', 'guide': 'book-open', 'brief': 'compass', 'questions': 'circle-help', 'analysis': 'sparkles', 'top5': 'target', 'digest': 'inbox', 'chevron': 'chevron-right', 'arrow': 'arrow-right', 'search': 'search', 'chat': 'message-circle', 'month_close': 'calendar-check', 'period_close': 'calendar-check', 'month_audit': 'search', 'posting_1c': 'database', 'kudir_posting': 'database', 'technical_1c': 'wrench', 'tax_pp': 'file-text', 'pp_to_form': 'file-text', 'notification': 'bell', 'ausn_monthly': 'calendar', 'sign_pay': 'signature', 'pp_sign': 'signature', 'primary_collection': 'folder', 'bank_check': 'landmark', 'kkt_check': 'receipt', 'acquiring_reconciliation': 'credit-card', 'acquiring': 'credit-card', 'ausn_reconciliation': 'scale', 'ens_reconciliation': 'scale', 'balance_reconciliation': 'scale', 'sz_checks_reconciliation': 'scale', 'ausn_markup_review': 'search', 'ausn_bank_marking': 'landmark', 'client_followup': 'users', 'client_action': 'users', 'service_payment': 'coins', 'regulatory_watch': 'eye', 'regulatory_monitoring': 'eye', 'monitoring': 'eye', 'regulatory_action': 'file-text', 'regular_check': 'refresh-cw', 'finkoper_recurring': 'refresh-cw', 'email_action_required': 'mail', 'ndfl_register': 'file-text', 'recovery_period': 'rotate-ccw', 'declaration': 'file-text', 'patent': 'file-text', 'statreport': 'chart-bar', 'egrul': 'folder', 'wallet': 'wallet', 'review_checkpoint': 'eye', 'awaiting_external': 'clock', 'dot': 'circle', 'alert': 'alert-triangle', 'pencil': 'pen-line'}
 
+_SPRITE = set(_MAP.values())  # lucide ids present in the generated symbol sprite
+
+
 def icon(name, cls='', size=None):
-    f = _MAP.get(name, 'dot')
+    # Accept a semantic key (mapped to its lucide id) OR a lucide id already in
+    # the sprite (so jurisdiction packs can declare real icon names directly).
+    if name in _MAP:
+        f = _MAP[name]
+    elif name in _SPRITE:
+        f = name
+    else:
+        f = 'dot'
     st = (' style="width:%s;height:%s"' % (size, size)) if size else ''
     c = ('ic ' + cls).strip()
     return '<svg class="%s"%s aria-hidden="true"><use href="#i-%s"></use></svg>' % (c, st, f)

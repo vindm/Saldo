@@ -36,7 +36,7 @@ After collecting the snapshot, the LLM agent **immediately applies `mm_update` i
 - **Reading** — no approval needed (like finkoper / mail)
 - **Downloading an attachment** — no approval needed, into `CLIENTS/<client>/<month>/`
 - **Writing to a client** — only with an explicit "send" in the Cowork chat
-- See also `policies/checklists/tg_communication.md`
+- See also `jurisdictions/ru/checklists/telegram-communication.md` (the RU pack's TG checklist)
 
 ## Known technical nuances
 

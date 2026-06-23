@@ -4,7 +4,19 @@ This is the detailed working procedure for the assistant. The base rules, projec
 
 > **Path & layout conventions.** All per-client paths below are relative to the instance's data directory (`config/instance.yaml → data.dir`): `data.dir/clients/<id>/state/*.json`, `…/mental_model.md`, `…/history.jsonl`; shared collector output lives under `data.dir/journal/` (`journal/inbox/<type>_<date>.json`, `journal/finkoper_state/latest/*.json`). A few names carried over from the original system are **legacy fallbacks, superseded by `state/*.json`**: `clients_data.json` (replaced by per-client `state/`), the `registries/` folder and `Consolidated_calendar` spreadsheet (deadlines now live in `state/financials.tax_calendar`; request/reporting logs move under the instance data dir). Treat them as read-only fallbacks, not the source of truth.
 
+## 0. Jurisdiction discovery — do this BEFORE selecting any procedure
+
+Saldo serves clients in more than one tax jurisdiction (see `saldo/CLAUDE.md` Invariant 0 — you, the runtime, execute these rules; do not assume RF). Before you pick any checklist, authority, portal, term, deadline or currency, resolve the client's jurisdiction and load its pack:
+
+1. Read `state/regime.json → jurisdiction` (default `ru` if the field is absent).
+2. Load `jurisdictions/<jurisdiction>/manifest.yaml` — the index for that jurisdiction: its tax authority and filing systems (`authorities.yaml`), tax regimes (`regimes.yaml`), the monthly pipeline, the operation vocabulary, and the checklist for each task type.
+3. Every authority name, term, currency, portal, deadline rule and checklist you use MUST come from that pack. **Do not assume the Russian Federation.** If the client's jurisdiction has no pack, or the pack lists no checklist for the task type, STOP and surface it — never silently fall back to RF procedures.
+
+The §1 and §1.5-step-8 tables below are the **RU pack's** resolution (the default jurisdiction). Read them as `jurisdictions/ru/…`, not as global truth: a client in another jurisdiction resolves a different pack with different authorities, portals and checklists.
+
 ## 1. What to open at the start of a new task
+
+> *RU pack (resolved when `regime.jurisdiction = ru`). Other jurisdictions resolve their own manifest — see §0.*
 
 | Task type | What to open in addition |
 |---|---|
@@ -58,7 +70,7 @@ The algorithm is mandatory — **do not respond to the content of the task witho
 
 7. **Only then** — if specifics require detail — the collector reports for today, the Finkoper task chat. (Client_card.md, history.md, clients_data.json — DEPRECATED, do not read; the source of truth is state.)
 
-8. **Invoke a workflow** (if the trigger requires fresh data from an external system):
+8. **Invoke a workflow** (if the trigger requires fresh data from an external system). The data-collection portals below are the **RU pack's** (`jurisdictions/ru/manifest.yaml → workflow_domains`); a client in another jurisdiction drives that pack's portals instead (e.g. Coretax, not T-Bank/OFD) — resolve via §0 first:
 
 | Trigger | Workflow | Parameters |
 |---|---|---|

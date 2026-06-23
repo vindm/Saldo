@@ -1,0 +1,37 @@
+# RU jurisdiction — pack manifest (the index the runtime + engine read).
+# The runtime resolves a client's jurisdiction (regime.json -> jurisdiction,
+# default "ru"), loads THIS file, and takes every authority/term/portal/checklist
+# from the pack. The §1 and §1.5-step-8 tables in policies/INSTRUCTIONS.md are this
+# pack's resolution (the default jurisdiction); another jurisdiction resolves another pack.
+
+code: ru
+name: "Russian Federation"
+
+authorities: authorities.yaml
+regimes: regimes.yaml
+# pipeline / operations / lint / vocab / icons are extracted in D3 (engine view);
+# until then the engine still reads the legacy RF locations. Listed here as the
+# pack's eventual home so the manifest is the single index.
+pipeline: pipeline.yaml          # PENDING D3 (from config/pipelines/monthly_close.yaml)
+operations: operations.yaml      # PENDING D3 (from engine/_plan_waves._OP_KEYWORDS)
+
+# Data-collection workflow domains available in this jurisdiction (INSTRUCTIONS §1.5 step 8).
+workflow_domains: [finkoper, email, news, tg, ofd, tbank, alfabank, egrul, websbor, mm_update]
+
+# Task type -> checklist. Paths are the CURRENT locations (workflows/checklists/);
+# D2 relocates them under jurisdictions/ru/checklists/ and updates these paths.
+# A task type absent here does NOT apply in this jurisdiction (surface it; never RF-fallback).
+checklists:
+  monthly_primary_docs:          checklists/monthly-primary-documents.md
+  posting_primary_docs_1c:       checklists/posting-primary-docs-1c.md
+  load_bank_statement:           checklists/load-bank-statement-1c.md
+  quarterly_reporting:           checklists/quarterly-reporting.md
+  single_tax_payment_order:      checklists/single-tax-payment-order.md
+  reply_to_tax_authority:        checklists/reply-to-tax-authority.md
+  acquiring_ofd_reconciliation:  checklists/acquiring-ofd-reconciliation.md
+  new_client:                    checklists/new-client.md
+  change_task_status:            checklists/change-task-status-finkoper.md
+  client_reminder:               checklists/client-reminder.md
+  anomaly_triage:                checklists/anomaly-triage.md
+  file_intake:                   checklists/file-intake.md
+  telegram_communication:        checklists/telegram-communication.md

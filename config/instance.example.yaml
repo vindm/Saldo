@@ -7,6 +7,10 @@
 instance:
   name: "Example Bookkeeping Practice"
   locale: en                 # en | ru — drives dashboard UI language and connector parsing tokens
+  # Tip: locale + brand can also live in a per-instance `instance.yaml` placed at
+  # the ROOT of the data dir (DATA_DIR/instance.yaml). It overrides this file for
+  # those fields, so a practice's data is self-describing and renders in the right
+  # locale/brand on any machine. Resolution: env -> DATA_DIR/instance.yaml -> this file.
   timezone: Europe/Lisbon
 
 data:

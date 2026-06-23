@@ -418,10 +418,17 @@ def render_client_risks(risks_data, tasks_lookup=None):
     )
 
 
-def render_client_financials(fin, tasks_lookup=None):
+def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
     """💰 Financial model and calendar — from state/financials.json. Iter 19b (R4/R5/R6), 2026-05-25."""
     if not fin:
         return ''
+    try:
+        import _jurisdiction as _J
+        _auth = _J.load_jurisdiction(jurisdiction).authorities
+    except Exception:
+        _auth = {}
+    cur = _auth.get('currency_symbol') or '₽'
+    inc_label = _auth.get('period_income_label') or 'USN income'
     periods = fin.get('periods') or []
     cal = fin.get('tax_calendar_2026') or []
     yp = fin.get('yearly_pace_2026') or {}
@@ -480,7 +487,7 @@ def render_client_financials(fin, tasks_lookup=None):
         gx = yp.get('growth_vs_prev_year_x')
         bits = []
         if ea:
-            bits.append('~' + _fmt_money(ea) + ' ₽ annual')
+            bits.append('~' + _fmt_money(ea) + ' ' + cur + ' annual')
         if gx:
             bits.append('growth ×' + str(gx))
         if bits:
@@ -509,14 +516,14 @@ def render_client_financials(fin, tasks_lookup=None):
             status_ru = _t(_PERIOD_STATUS_RU.get(status_raw, status_raw))
             rows.append(
                 '<tr><td class="fin-period">' + _esc(per) + '</td>'
-                '<td class="fin-income">' + _esc(inc + ' ₽' + est) + '</td>'
+                '<td class="fin-income">' + _esc(inc + ' ' + cur + est) + '</td>'
                 '<td class="fin-tax">' + _esc(tax_s) + '</td>'
                 '<td class="fin-status">' + _esc(status_ru) + '</td></tr>'
             )
         periods_html = (
             '<div class="fin-subtitle">' + _t('📊 Periods') + '</div>'
             '<table class="fin-table">'
-            '<thead><tr><th>' + _t('Period') + '</th><th>' + _t('USN income') + '</th><th>' + _t('Taxes') + '</th><th>' + _t('Status') + '</th></tr></thead>'
+            '<thead><tr><th>' + _t('Period') + '</th><th>' + _t(inc_label) + '</th><th>' + _t('Taxes') + '</th><th>' + _t('Status') + '</th></tr></thead>'
             '<tbody>' + ''.join(rows) + '</tbody></table>'
         )
 
@@ -531,9 +538,9 @@ def render_client_financials(fin, tasks_lookup=None):
             amt = ev.get('amount')
             amt_est = ev.get('amount_estimated')
             if amt is not None:
-                amt_s = _fmt_money(amt) + ' ₽'
+                amt_s = _fmt_money(amt) + ' ' + cur
             elif amt_est is not None:
-                amt_s = '~' + _fmt_money(amt_est) + ' ₽ (forecast)'
+                amt_s = '~' + _fmt_money(amt_est) + ' ' + cur + ' (forecast)'
             else:
                 amt_s = '—'
             st_raw = ev.get('status', '')
@@ -1266,7 +1273,7 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
                               load_client_state_accounts, load_client_state_behavior)
         _f = load_client_state_financials(c['id'])
         if _f:
-            financials_html = render_client_financials(_f, tasks_lookup=_tasks_lookup)
+            financials_html = render_client_financials(_f, tasks_lookup=_tasks_lookup, jurisdiction=c.get('jurisdiction') or 'ru')
         _cp = load_client_state_counterparties(c['id'])
         if _cp:
             counterparties_html = render_client_counterparties(_cp)

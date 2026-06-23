@@ -69,63 +69,86 @@ def _period_sort_key(p):
 def render_periods():
     today = TODAY
     all_tasks = aggregate_tasks(today).get('all', [])
-    stages = P.stages()
-    # period -> stage_code -> {'open': set(clients), 'all': set(clients), 'over': bool}
+    # data[juris][period][stage_code] -> {open,all,over}; cohort[juris][period]
     data = {}
     cohort = {}
     for tk in all_tasks:
         op = PW._op_canonical(tk)
         if not isinstance(op, str) or not op.startswith('stage:'):
             continue
+        juris = PW._client_jurisdiction(tk.get('client_id'))
         code, _, per = op[len('stage:'):].partition('|')
         if not per:
             per = '—'
         cid = tk.get('client_id') or '?'
-        d = data.setdefault(per, {}).setdefault(code, {'open': set(), 'all': set(), 'over': False})
+        d = data.setdefault(juris, {}).setdefault(per, {}).setdefault(code, {'open': set(), 'all': set(), 'over': False})
         d['all'].add(cid)
-        cohort.setdefault(per, set()).add(cid)
+        cohort.setdefault(juris, {}).setdefault(per, set()).add(cid)
         st = (tk.get('status') or '').lower()
         if st not in _DONE:
             d['open'].add(cid)
             if (tk.get('days_left') is not None and tk['days_left'] < 0):
                 d['over'] = True
 
-    periods = sorted(data.keys(), key=_period_sort_key)
-    cards = []
-    for per in periods:
-        coh = len(cohort.get(per, set()))
-        chips = []
-        for i, s in enumerate(stages):
-            code = s['code']
-            info = data.get(per, {}).get(code)
-            title = P.stage_title(code, _LOC)
-            icon = PW._STAGE_ICON.get(code, '•')
-            if not info or not info['all']:
-                cls, num = 's-none', '—'
-            else:
-                openc = len(info['open'])
-                if openc == 0:
-                    cls, num = 's-done', t('done')
+    def _juris_cards(juris):
+        stages = P.stages(juris)
+        jdata = data.get(juris, {})
+        jcohort = cohort.get(juris, {})
+        cards = []
+        for per in sorted(jdata.keys(), key=_period_sort_key):
+            coh = len(jcohort.get(per, set()))
+            chips = []
+            for i, s in enumerate(stages):
+                code = s['code']
+                info = jdata.get(per, {}).get(code)
+                title = P.stage_title(code, _LOC, juris)
+                icon = P.stage_attr(code, juris, 'glyph') or PW._STAGE_ICON.get(code, '•')
+                if not info or not info['all']:
+                    cls, num = 's-none', '—'
                 else:
-                    cls = 's-over' if info['over'] else 's-active'
-                    num = str(openc) + ' ' + t('in progress')
-            if i:
-                chips.append('<span class="pp-arrow">→</span>')
-            inner = ('<span class="pp-stname">' + icon + ' ' + _esc(title) + '</span>'
-                     '<span class="pp-stnum">' + _esc(num) + '</span>')
-            if cls in ('s-active', 's-over'):
-                href = 'plan_today.html#stage=' + code + '&period=' + (per if per != '—' else '')
-                chips.append('<a class="pp-stage ' + cls + ' pp-link" href="' + href + '">' + inner + '</a>')
-            else:
-                chips.append('<div class="pp-stage ' + cls + '">' + inner + '</div>')
-        cards.append(
-            '<section class="pp-period"><div class="pp-head">'
-            '<h3>' + _esc(_fmt(per)) + '</h3>'
-            '<span class="pp-cohort">' + str(coh) + ' ' + t('clients') + '</span></div>'
-            '<div class="pp-flow">' + ''.join(chips) + '</div></section>'
-        )
+                    openc = len(info['open'])
+                    if openc == 0:
+                        cls, num = 's-done', t('done')
+                    else:
+                        cls = 's-over' if info['over'] else 's-active'
+                        num = str(openc) + ' ' + t('in progress')
+                if i:
+                    chips.append('<span class="pp-arrow">→</span>')
+                inner = ('<span class="pp-stname">' + icon + ' ' + _esc(title) + '</span>'
+                         '<span class="pp-stnum">' + _esc(num) + '</span>')
+                if cls in ('s-active', 's-over'):
+                    href = 'plan_today.html#stage=' + code + '&period=' + (per if per != '—' else '')
+                    chips.append('<a class="pp-stage ' + cls + ' pp-link" href="' + href + '">' + inner + '</a>')
+                else:
+                    chips.append('<div class="pp-stage ' + cls + '">' + inner + '</div>')
+            cards.append(
+                '<section class="pp-period"><div class="pp-head">'
+                '<h3>' + _esc(_fmt(per)) + '</h3>'
+                '<span class="pp-cohort">' + str(coh) + ' ' + t('clients') + '</span></div>'
+                '<div class="pp-flow">' + ''.join(chips) + '</div></section>'
+            )
+        return cards
 
-    body = ''.join(cards) if cards else '<div class="pp-sub">' + t('No monthly-cycle tasks.') + '</div>'
+    # RU first with NO jurisdiction header (byte-identical to the single-pipeline
+    # layout); other jurisdictions follow under a labelled block.
+    blocks = []
+    ru_cards = _juris_cards('ru')
+    if ru_cards:
+        blocks.append(''.join(ru_cards))
+    for juris in sorted(j for j in data.keys() if j != 'ru'):
+        jc = _juris_cards(juris)
+        if not jc:
+            continue
+        try:
+            import _jurisdiction as _J
+            jname = _J.load_jurisdiction(juris).manifest.get('name') or juris.upper()
+        except Exception:
+            jname = juris.upper()
+        blocks.append('<h2 class="pp-juris-head" style="margin:28px 0 6px;font-size:14px;'
+                      'font-weight:600;color:var(--text-muted);text-transform:uppercase;'
+                      'letter-spacing:.04em;">' + _esc(jname) + '</h2>' + ''.join(jc))
+
+    body = ''.join(blocks) if blocks else '<div class="pp-sub">' + t('No monthly-cycle tasks.') + '</div>'
     head = render_header()
     title = t('Periods')
     return (

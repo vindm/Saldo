@@ -14,6 +14,7 @@ from generate import (
 )
 from _helpers import _format_date_ru, _translate_tech_terms
 from _strings import t
+from _status import status_pill as _status_pill
 _t = t  # alias: several local helpers bind `t` to the task dict, shadowing the import
 from _track_attrs import build_track_data_attrs, build_mm_tracks_index
 from _overview_v2 import OVERVIEW_V2_CSS
@@ -34,8 +35,14 @@ SCENARIO_RU = {
 }
 
 
+def _human_date(d):
+    """Compact, locale-aware human date: '5 июля' (ru) / '5 July' (en). No weekday."""
+    from _strings import MONTHS_GEN
+    return f"{d.day} {MONTHS_GEN[d.month - 1]}"
+
+
 def _format_due(t):
-    """Due-date format for the task row."""
+    """Due-date format for the task row (locale-aware; every label via t())."""
     dl = t.get('days_left')
     due = t.get('due_date')
     if dl is None:
@@ -45,10 +52,10 @@ def _format_due(t):
     if dl == 0:
         return '<span class="due-today">' + _t('today') + '</span>'
     if dl <= 3:
-        return '<span class="due-soon">' + _t('in {}d · {}').format(dl, due.strftime("%d.%m")) + '</span>'
+        return '<span class="due-soon">' + _t('in {}d · {}').format(dl, _human_date(due)) + '</span>'
     if due:
-        return f'<span class="due-plan">{due.strftime("%d.%m")} · {dl}d</span>'
-    return f'<span class="due-plan">{dl}d</span>'
+        return '<span class="due-plan">' + _t('{} · {}d').format(_human_date(due), dl) + '</span>'
+    return '<span class="due-plan">' + _t('{}d').format(dl) + '</span>'
 
 
 def _track_meta(t):
@@ -114,10 +121,10 @@ def _due_text(t):
         return _t('today')
     if dl <= 3:
         if due:
-            return _t('in {}d · {}').format(dl, due.strftime('%d.%m'))
+            return _t('in {}d · {}').format(dl, _human_date(due))
         return _t('in {}d').format(dl)
     if due:
-        return _t('{} · {}d').format(due.strftime('%d.%m'), dl)
+        return _t('{} · {}d').format(_human_date(due), dl)
     return _t('{}d').format(dl)
 
 
@@ -138,6 +145,13 @@ def _render_task_row(t, mm_index=None):
     what_raw = t.get('what', '')
     what = _esc(_translate_tech_terms(what_raw))
     due_html = _format_due(t)
+    # Status pill (same shared source + style as the home page event rows).
+    _sp = _status_pill(t.get('status'))
+    status_html = ''
+    if _sp:
+        _lab, _bg, _fg = _sp
+        status_html = ('<span class="task-status" style="background:' + _bg + ';color:' + _fg + '">'
+                       + _esc(_lab) + '</span>')
     pill_html = _pill_for(t)
     cid = t.get('client_id') or ''
 
@@ -210,7 +224,7 @@ def _render_task_row(t, mm_index=None):
         + sub_html
         + next_inline_html +
         '</div>'
-        '<div class="task-meta">' + due_html + '</div>'
+        '<div class="task-meta">' + status_html + due_html + '</div>'
         '<div class="task-actions">' + dashboard_link + '</div>'
         '</div>'
         '</div>'
@@ -265,7 +279,6 @@ def render_plan_today():
     except Exception:
         mm_index = {}
 
-    n_hot = len(groups['hot'])
     n_total = len(groups['all'])
 
     head = render_header()
@@ -344,6 +357,8 @@ def render_plan_today():
         'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
         '.task-meta{display:flex;gap:8px;align-items:center;font-size:13px;'
         'flex-shrink:0;font-weight:500}'
+        '.task-status{font-size:11.5px;padding:2px 8px;border-radius:9px;'
+        'white-space:nowrap;font-weight:600;letter-spacing:.01em}'
         '.pill{font-size:15px;padding:2px 8px;border-radius:10px;font-weight:600;'
         'border:1px solid transparent;white-space:nowrap;letter-spacing:.02em}'
         '.pill-team{background:var(--bg-page);color:var(--text-secondary);'
@@ -384,7 +399,7 @@ def render_plan_today():
         '<div class="layout-shell">'
         + render_sidebar(
             active='plan_today',
-            counts={'plan_today': n_hot}
+            counts={'plan_today': _near}
         )
         + '<main class="main-content">'
         + head
@@ -439,6 +454,7 @@ PLAN_BLOCK_CSS = (
     '.task-next-inline{font-size:12.5px;color:var(--text-muted);margin-top:2px;'
     'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     '.task-meta{display:flex;gap:8px;align-items:center;font-size:13px;flex-shrink:0;font-weight:500}'
+    '.task-status{font-size:11.5px;padding:2px 8px;border-radius:9px;white-space:nowrap;font-weight:600;letter-spacing:.01em}'
     '.pill{font-size:14px;padding:2px 8px;border-radius:10px;font-weight:600;border:1px solid transparent;white-space:nowrap}'
     '.pill-team{background:var(--bg-page);color:var(--text-secondary);border-color:var(--border)}'
     '.pill-direct{background:#E6F1FB;color:#0C447C;border-color:#B5D4F4}'
