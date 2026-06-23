@@ -46,9 +46,9 @@ result (and screenshot it for Dima if anything looks off).
 
 ## Notes / gotchas
 
-- **GitHub access**: the remote is SSH (`git@github.com:vindm/Saldo`). Since she
-  already pulls in Git Bash, the key is set up; `cmd` uses the same key. If the
-  key has a passphrase and no agent is running, the window may ask for it once.
+- **GitHub access**: the clone uses **HTTPS** (`https://github.com/vindm/Saldo.git`),
+  the same way this laptop already pulls. Cached GitHub credentials are reused, so
+  it usually does not prompt; if it does, sign in once. (No SSH key is required.)
 - **Nothing is destructive**: migrations only reshape state with backups; the
   generator only writes derived `*.html`. `config/instance.yaml` and her data are
   never touched by `git pull` (both are git-ignored / outside the repo).

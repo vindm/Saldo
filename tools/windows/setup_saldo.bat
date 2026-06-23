@@ -16,7 +16,9 @@ title Saldo setup
 set "DEST=C:\Saldo"
 set "REPO=%DEST%\Saldo-engine"
 set "OLD=%USERPROFILE%\Documents\Saldo\Saldo-engine"
-set "URL=git@github.com:vindm/Saldo.git"
+rem HTTPS (matches how this laptop already pulls; no SSH key needed - cached
+rem GitHub credentials are reused). For SSH instead: git@github.com:vindm/Saldo.git
+set "URL=https://github.com/vindm/Saldo.git"
 
 where git >nul 2>nul || (echo [!] Git not found. Install Git for Windows, then run this again. & pause & exit /b 1)
 where py  >nul 2>nul && (set "PY=py -3") || (set "PY=python")
@@ -28,14 +30,17 @@ if exist "%REPO%\.git" (
   echo A copy already exists at %REPO% - it will just be updated.
 ) else (
   if not exist "%DEST%" mkdir "%DEST%"
-  echo Cloning a fresh copy - this can take a minute. You may be asked for your SSH key passphrase once.
+  if exist "%REPO%" rd /s /q "%REPO%"
+  echo Cloning a fresh copy - this can take a minute. You may be asked to sign in to GitHub once.
   git clone "%URL%" "%REPO%" || (echo [!] Clone failed - check internet / GitHub access. & pause & exit /b 1)
 )
 
-rem Carry over the existing configuration (data.dir, locale) from the old folder.
-if exist "%OLD%\config\instance.yaml" if not exist "%REPO%\config\instance.yaml" (
-  copy /y "%OLD%\config\instance.yaml" "%REPO%\config\instance.yaml" >nul
-  echo Copied your config\instance.yaml from the old Documents folder.
+rem Carry over the existing configuration. port_config.py rewrites any RELATIVE
+rem data.dir / dashboards_dir to absolute (anchored at the old config folder) so
+rem the data still resolves after the move; it won't overwrite an existing config.
+if exist "%OLD%\config\instance.yaml" (
+  echo Porting your config from the old folder ^(making data paths absolute^) ...
+  %PY% "%REPO%\tools\port_config.py" "%OLD%\config\instance.yaml" "%REPO%\config\instance.yaml"
 )
 if not exist "%REPO%\config\instance.yaml" (
   echo.
