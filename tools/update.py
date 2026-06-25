@@ -110,6 +110,28 @@ def main():
             say("  (could not install Python packages - if there is an error below, run: pip install -r requirements.txt)",
                 "  (не удалось установить пакеты Python - при ошибке ниже выполните: pip install -r requirements.txt)")
 
+    # 2b. SAFETY: never silently rebuild the bundled DEMO on an operator machine.
+    #     If there is no config/instance.yaml with a data.dir (and no ABA_DATA_DIR
+    #     override), STOP - the engine would otherwise fall back to instances/example.
+    if not os.environ.get("ABA_DATA_DIR"):
+        cfg = os.path.join(REPO, "config", "instance.yaml")
+        ddir = None
+        if os.path.exists(cfg):
+            try:
+                import yaml
+                ddir = ((yaml.safe_load(open(cfg, encoding="utf-8")) or {}).get("data") or {}).get("dir")
+            except Exception:
+                ddir = None
+        if not ddir:
+            say("STOP: no config\\instance.yaml with data.dir - refusing to build the demo.",
+                "СТОП: нет config\\instance.yaml с data.dir - чтобы не собрать демо вместо ваших данных.")
+            say("  Create it (copy config\\instance.example.yaml, set data.dir + locale: ru) and re-run.",
+                "  Создайте его (скопируйте config\\instance.example.yaml, укажите data.dir и locale: ru) и повторите.")
+            if "--no-pause" not in args:
+                try: input()
+                except EOFError: pass
+            return 1
+
     # 3. Apply pending data migrations (backup + atomic + ledger handled by migrate.py).
     ok_mig = run([py, os.path.join(ENGINE, "migrate.py"), "up", "--apply"],
                  "Applying data migrations", "Применяю миграции данных")

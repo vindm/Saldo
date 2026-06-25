@@ -33,7 +33,7 @@ Audience: someone who is **not** the original practice and wants to adopt the pr
 Open **How to use** in the dashboard for the full version. In short:
 
 - **Morning:** open **Dashboard** (stats, brief, open questions, top-5, digest) → open **Plan** → work the top **Operations** (a whole operation can be processed as one batch) → tell the assistant "close / defer / do this".
-- **Start / end of month:** open **Periods** to see where each reporting month stands across the 6 pipeline stages; click a lagging stage to jump to that operation on the Plan. Use **Calendar** for tax dates.
+- **Start / end of month:** open **Periods** to see where each reporting month stands across the 6 pipeline stages; click a lagging stage to jump to that operation on the Plan. Use **Calendar** for tax dates — a grouped operation chip (e.g. «ПП на 30.06 · 2») links to that operation on the Plan, an individual-task chip opens the task in place.
 - **During the day:** signals (Telegram/email) appear in the digest; a thought about a client → **Dictate** → paste into the assistant chat.
 
 What is **not** a task (so the Plan stays clean):
@@ -44,6 +44,13 @@ What is **not** a task (so the Plan stays clean):
 ---
 
 ## 3. Updating to a new version (pull + re-integrate)
+
+> **For the operator there is no terminal.** `generate.py` checks GitHub for a
+> newer engine inline at render time (`engine/_updater.py`), and when one exists a
+> gold **"Доступно обновление"** item appears in the dashboard sidebar. Clicking it
+> copies a prompt; pasting it into the Cowork chat runs the guarded, pause-for-OK
+> upgrade in `connectors/update/SKILL.md` (which delegates the actual work to
+> `tools/update.py`). The manual CLI steps below are the same thing for developers.
 
 Because **data lives outside the repo**, upgrading the engine never touches your data.
 

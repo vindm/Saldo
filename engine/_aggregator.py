@@ -252,6 +252,7 @@ def aggregate_tasks(today=None):
             'source_ref': track_id,
             'group': ft_grp,
             'details': det,
+            'blocked_by': ft.get('blocked_by') or tr.get('blocked_by') or [],
             'assist': ft.get('assist') or tr.get('assist') or {},
             '_history': history_list,
         })

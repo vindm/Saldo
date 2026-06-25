@@ -57,10 +57,15 @@ When editing files that may contain Cyrillic data (or scripts that round-trip it
 ## How to run
 
 ```bash
-pip install pyyaml
+pip install -r requirements.txt                       # PyYAML (the only dependency)
 cp config/instance.example.yaml config/instance.yaml   # points at instances/example
 python3 engine/generate.py                             # renders dashboards from synthetic data
 ```
+
+On an **operator** machine the whole pull → migrate → regenerate → open cycle is one
+command, `python3 tools/update.py` (behind a Windows desktop icon — see
+`docs/DEPLOY-WINDOWS.md`). It refuses to run if there is no `config/instance.yaml`
+with a `data.dir`, so it never silently rebuilds the bundled demo over real data.
 
 A clean run prints `OK: …` for every page and ends with **LINT OK**. The generator is fault-tolerant by design: a missing or malformed source degrades to an empty panel + a status dot, never a traceback. If you changed any state, also run `python3 engine/state_lint.py` and `python3 engine/system_integrity_check.py` and confirm they're clean before considering the work done. But these gates cover only the rendered view and state integrity — per **Invariant 0**, a change to *runtime behaviour* is not done until verified by scenario (tag a client, ask the agent, check the reasoning), not by a clean render alone.
 
@@ -70,26 +75,42 @@ A clean run prints `OK: …` for every page and ends with **LINT OK**. The gener
 
 ```
 engine/        Reusable Python: dashboard generation, state I/O, lint, integrity. No client-specific knowledge.
-connectors/    Pluggable integrations (finkoper, email, tg, tbank, alfabank, ofd, egrul, websbor, news, mm_update). Enable/disable in config.
+connectors/    Pluggable integrations + daemons. Collectors: finkoper, email(multi-account), tg/whatsapp/max(by-chat), documents(gdrive/yandexdisk/local), news(multi-jurisdiction), tbank/alfabank, ofd, egrul, websbor. Monitors (derive from state): deadline/staleness/threshold/counterparty. Plus question_resolver, scheduler, mm_update. Shared: _sources, _chat_collector, _chat_actions, _ui_playbook. Per-provider UI mechanics: <x>/ui_playbook.md. Enable/disable in config.
 workflows/     The runtime's procedures: checklists + message templates the AI executes. RF-specific, jurisdiction-bound (Invariant 0).
 policies/      The runtime's program: workflow/checklist selection, safety rules, brand & tone, system map. RF-specific, jurisdiction-bound (Invariant 0).
 config/        instance.example.yaml — locale, brand, enabled connectors, schedule, data.dir. Copy to instance.yaml (git-ignored).
 instances/     Self-contained example instance with SYNTHETIC data only. Real instances live outside the repo.
-docs/          ARCHITECTURE, USAGE, MIGRATION, CONNECTORS, CLIENT-PROFILES, ROADMAP, DESIGN-SYSTEM (operator-dashboard view layer), pipeline proposal.
-tools/         migrate_legacy_instance.py, seed_demo_instance.py.
+docs/          ARCHITECTURE, USAGE, MIGRATION, CONNECTORS, CLIENT-PROFILES, ROADMAP, DESIGN-SYSTEM (dashboard view layer), DEPLOY-WINDOWS (operator one-click), pipeline proposal.
+migrations/    Versioned state migrations (NNNN_slug.py, run by engine/migrate.py); ledger lives with the data.
+tools/         update.py (operator one-click: pull+migrate+regenerate+open), port_config.py (relocate config, relative→absolute paths), windows/ (.bat + shortcut), migrate_legacy_instance.py, seed_demo_instance.py.
+requirements.txt  The single Python dependency list (PyYAML). tools/update.py installs from it.
 ```
 
 Key engine modules: `generate.py` (orchestrator), `_loaders.py` (state → render model), `_aggregator.py` (plan), `_plan_waves.py` (plan render), `_overview_v2.py` / `_client_dashboard_v2.py` (views), `_pipeline.py` + `_periods.py` (monthly close), `state_ops.py` (atomic state I/O), `state_lint.py` / `system_integrity_check.py` (gates).
+
+## Data-aggregation layer & self-evolving skills (2026-06-25)
+
+The runtime's inputs and upkeep are scheduled **collectors** (fetch an external channel → state) and **monitors** (derive risk from state already present), both feeding `mm_update`. Declared in `config → schedule`, reconciled to real OS jobs by `connectors/scheduler/SKILL.md`, mapped in `docs/COVERAGE-MAP.md`. **Daily order (correctness = this order, not the wall-clock):**
+
+> collectors (news, documents[cloud+local], email[multi-account], tg/whatsapp/max[by-chat], practice_management) → `question_resolver` (residue only — runs AFTER collectors so it never re-does what they closed) → monitors (deadline / staleness / threshold·weekly / counterparty·monthly) → `dashboards` (unconditional render).
+
+- **Multi-account / multi-provider** fan-out + which-account-from-where: `connectors/_sources.md` (operator accounts in `config → sources`, client accounts in `quick_access`; per-account watermark, verify-before-read, `access: auto|human_gated`). Coverage + the cadence-by-cost rule: `docs/COVERAGE-MAP.md`.
+- **Atomic operator actions** (read a chat, send a message, pull/upload a file, reply to mail) sit next to the collectors with the outbound approval gate — what the operator invokes ad-hoc, not just the daemons.
+- **Self-evolving skills:** protocol/safety is shared and **immutable**; per-provider UI mechanics live in `connectors/<x>/ui_playbook.md` (engine canonical) and learn via `policies/skill-evolution.md` — the running instance writes Field notes to `<data.dir>/journal/playbook_notes/<provider>.md` (**never engine code**); corroborated lessons are curated upstream by the developer and ship via pull.
 
 ## Working norms
 
 - Backup before substantive edits (`*.bak_*` naming, git-ignored); the repo already carries a few stray `.bak_*` files — don't commit them.
 - Keep `docs/` and `policies/` consistent with the code. When you change behavior, update the doc that describes it in the same change. The README is the contract for what works "out of the box".
 - Dashboard styling lives in tokens (`engine/_css.py → DESIGN_TOKENS_CSS`), not scattered hex. Follow `docs/DESIGN-SYSTEM.md` for colour roles, the accent vs semantic split, and the established component patterns (filter banner, expanded-container, removable focus highlight) — and update that doc in the same change.
+- Every operator-facing string goes through `t()` (`engine/_strings.py`); enum-like data values are chrome too — `task_type` and track `status` are localized via label maps and normalized to a canonical set (`engine/_status.py`). `state_lint` enforces coverage (`i18n_task_type`, `i18n_ts_key`, `status_noncanon`), so a missing label surfaces at build time. See the i18n section of `docs/DESIGN-SYSTEM.md`.
+- A new canonical/enum value reshaping stored data ships a migration (e.g. `0005_normalize_task_status.py`) AND a `state_lint` check — never just a code change.
 - Don't introduce a runtime server — this is a static generator by design.
 - New connector/workflow = config-driven drop-in behind the common interface (`docs/CONNECTORS.md`), not a hardcoded special case.
 
 ## Known gaps (as of 2026-06-20 — verify before relying)
+
+Fixed 2026-06-23 (operator rollout hardening): timezone setup no longer hard-depends on the `tzdata` package — `engine/generate.py` falls back to fixed offsets (Bali UTC+8 / MSK UTC+3, both DST-free) when `zoneinfo` has no DB (Windows); `tools/update.py` is the one-click updater (non-interactive git, self-heal `reset --hard @{u}` + `clean -fd`, installs `requirements.txt`) and **refuses to build the demo when config/data.dir is absent**; `tools/port_config.py` relocates a config making relative `data.dir` absolute; Windows `.bat`s in `tools/windows/` (`setup_saldo`, `update_saldo`, `install_shortcut`, `fix_config`). Operator reality: Windows + OneDrive-synced `Documents` makes `git pull` hit the "could not delete folder" retry loop — durable fix is relocating the clone to a non-synced path (`C:\Saldo`); see `docs/DEPLOY-WINDOWS.md`.
 
 Fixed 2026-06-20: `.gitignore` now ships the synthetic `instances/example` data (generated `*.html`/`*.bak_*` stay ignored) and ignores `config/instance.yaml`; `docs/ROADMAP.md` reconciled to reality; `policies/INSTRUCTIONS.md` legacy path/schedule references scrubbed to the `instances/<id>/data/` layout.
 

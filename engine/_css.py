@@ -8,27 +8,29 @@ from _strings import t
 
 DESIGN_TOKENS_CSS = (
     ":root{"
-    # Cool, neutral surfaces (Linear-grade) — replaces the warm cream palette.
-    "--bg-page:#F1F2F5;--bg-card:#FFFFFF;--bg-canvas:#F5F6F8;--bg-subtle:#F7F8FA;"
-    "--border:#E6E8EC;--border-strong:#D7DAE0;"
-    "--text-primary:#16161A;--text-secondary:#3A3A42;--text-muted:#71717A;"
-    # Indigo accent system — the primary interactive colour (active states,
-    # focus, primary buttons, links). --accent-blue is repointed to indigo so
-    # every existing interactive use follows it without per-rule edits.
-    "--accent:#5E6AD2;--accent-hover:#4F58C4;--accent-active:#4048B0;"
-    "--accent-soft:#EEEDFB;--accent-soft-border:#C9C5F3;--accent-text:#3C3489;"
-    "--accent-blue:#5E6AD2;--blue-bg:#EEEDFB;"
-    # Semantic colours (health / severity / readiness / due) kept stable.
-    "--accent-red:#C0392B;--accent-yellow:#D98324;--accent-green:#5E8B49;"
-    "--red-bg:#FBE6E0;--yellow-bg:#FBEFD4;--green-bg:#EAF3DE;"
-    "--font:-apple-system,\"Segoe UI\",\"Helvetica Neue\",system-ui,sans-serif;"
+    # Cool, neutral surfaces (Linear-grade).
+    "--bg-page:#F6F7F9;--bg-card:#FFFFFF;--bg-canvas:#F6F7F9;--bg-subtle:#EEF1F4;"
+    "--border:#E8EAEE;--border-strong:#D8DCE2;"
+    "--text-primary:#15171C;--text-secondary:#565B66;--text-muted:#8A909C;"
+    # Brand-navy accent system (S-tier v2). ONE accent = brand navy; gold is a
+    # thin secondary; semantics muted. --accent-blue is repointed to navy so every
+    # existing interactive use (buttons, links, focus, hovers) follows it.
+    "--accent:#1F4E79;--accent-hover:#19405F;--accent-active:#143049;"
+    "--accent-soft:#EAF1F7;--accent-soft-border:#CBDBEA;--accent-text:#1F4E79;"
+    "--accent-blue:#1F4E79;--blue-bg:#EAF1F7;"
+    "--gold:#B79257;--gold-soft:#F7F1E6;"
+    # Semantic colours — muted/modern (health / severity / readiness / due).
+    "--accent-red:#C24A3D;--accent-yellow:#A8782B;--accent-green:#3E8E5E;"
+    "--red-bg:#FBEEEC;--yellow-bg:#F7F0E1;--green-bg:#E9F4ED;"
+    "--font:'Inter','SF Pro Text',-apple-system,\"Segoe UI\",system-ui,sans-serif;"
     "--fs-base:15px;--fs-meta:13px;--fs-h2:22px;--fs-h1:28px;--fs-number:28px;--fs-number-large:40px;"
     "--space-xs:4px;--space-sm:8px;--space-md:16px;--space-lg:24px;--space-xl:32px;"
-    "--radius-card:10px;--radius-btn:6px;--radius-badge:4px;"
+    "--radius-card:12px;--radius-btn:8px;--radius-badge:4px;"
     "--shadow-card:0 1px 2px rgba(16,16,26,0.04);"
-    "--shadow-pop:0 6px 20px rgba(94,106,210,0.18);--transition:150ms ease;}"
+    "--shadow-pop:0 6px 20px rgba(31,78,121,0.16);--transition:150ms ease;}"
     "*{box-sizing:border-box}"
-    "body{margin:0;padding:var(--space-lg);background:var(--bg-canvas);color:var(--text-primary);"
+    "@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:0.01ms!important;animation-duration:0.01ms!important}}"
+    "body{margin:0;padding:0;background:var(--bg-canvas);color:var(--text-primary);"
     "font-family:var(--font);font-size:var(--fs-base);line-height:1.6}"
     "a{color:inherit;text-decoration:none}a:hover{color:var(--accent-blue)}"
     "button:focus-visible,a:focus-visible,summary:focus-visible,.wave-toggle:focus-visible{"
@@ -37,19 +39,28 @@ DESIGN_TOKENS_CSS = (
     "padding:var(--space-md);box-shadow:var(--shadow-card)}"
     ".muted{color:var(--text-muted)}.secondary{color:var(--text-secondary)}"
     ".meta{font-size:var(--fs-meta);color:var(--text-muted)}"
+    # THE shared due-date badge (engine/_components.due_badge) — one definition,
+    # used by the client hero and the plan rows. Relative + urgency-coloured.
+    ".due-badge{flex-shrink:0;display:inline-block;font-size:12.5px;font-weight:600;"
+    "border-radius:6px;padding:3px 9px;white-space:nowrap;font-variant-numeric:tabular-nums}"
+    ".due-badge-overdue,.due-badge-today{background:var(--red-bg);color:var(--accent-red)}"
+    ".due-badge-soon{background:var(--yellow-bg);color:var(--accent-yellow)}"
+    ".due-badge-far{background:var(--bg-subtle);color:var(--text-secondary)}"
+    # no deadline — clearly de-emphasised (muted, lighter weight)
+    ".due-badge-none{background:var(--bg-subtle);color:var(--text-muted);font-weight:500}"
 
     # === Rich-badges and Risks ===
     ".rich-badges{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px}"
     ".rich-badge{font-size:15px;padding:2px 8px;border-radius:10px;"
-    "background:#F0EBE3;color:var(--text-secondary);font-weight:500;letter-spacing:.02em}"
-    ".rich-badge.prio-high{background:#FCE4DE;color:var(--accent-red);font-weight:600}"
-    ".rich-badge.prio-low{background:#EEEEEC;color:var(--text-muted)}"
-    ".rich-badge.blocked-by{background:#FBF1DC;color:#8A6730}"
-    ".rich-badge.comments{background:#E8EEEA;color:var(--accent-green)}"
+    "background:var(--bg-subtle);color:var(--text-secondary);font-weight:500;letter-spacing:.02em}"
+    ".rich-badge.prio-high{background:var(--red-bg);color:var(--accent-red);font-weight:600}"
+    ".rich-badge.prio-low{background:var(--bg-subtle);color:var(--text-muted)}"
+    ".rich-badge.blocked-by{background:var(--yellow-bg);color:var(--accent-yellow)}"
+    ".rich-badge.comments{background:var(--green-bg);color:var(--accent-green)}"
     # .track-prio-high: overrides the existing ::before (no double border)
     # risks
     ".risks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));"
-    "gap:var(--space-md);margin-bottom:var(--space-lg)}"
+    "gap:var(--space-md);margin-bottom:var(--space-lg);align-items:start}"
     ".risk-card{background:var(--bg-card);border:1px solid var(--border);"
     "border-radius:var(--radius-card);padding:var(--space-md);border-left:4px solid var(--border);"
     "display:flex;flex-direction:column}"
@@ -64,7 +75,7 @@ DESIGN_TOKENS_CSS = (
     ".risk-meta{font-size:15px;color:var(--text-muted);text-transform:uppercase;"
     "letter-spacing:.04em;margin-bottom:6px}"
     ".risk-desc{font-size:15px;color:var(--text-secondary);line-height:1.5;margin:6px 0}"
-    ".risk-next{font-size:15px;color:var(--text-primary);background:#F8F5EF;"
+    ".risk-next{font-size:15px;color:var(--text-primary);background:var(--accent-soft);"
     "padding:6px 10px;border-radius:6px;margin-top:8px}"
     ".risk-next::before{content:''}"
     ".risk-linked-tasks{font-size:15px;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono,monospace)}"
@@ -91,13 +102,13 @@ DESIGN_TOKENS_CSS = (
     # === Financials + Counterparties ===
     ".fin-section{background:var(--bg-card);border:1px solid var(--border);"
     "border-radius:var(--radius-card);padding:16px 20px;margin-bottom:14px}"
-    ".fin-pace{font-size:15px;color:var(--text-primary);background:#F8F5EF;"
+    ".fin-pace{font-size:15px;color:var(--text-primary);background:var(--bg-subtle);"
     "padding:8px 12px;border-radius:6px;margin-bottom:var(--space-md)}"
     ".fin-subtitle{font-size:15px;text-transform:uppercase;letter-spacing:.04em;"
     "color:var(--text-muted);font-weight:500;margin:var(--space-md) 0 6px}"
     ".fin-table{width:100%;border-collapse:collapse;background:var(--bg-card);"
     "border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden;font-size:15px}"
-    ".fin-table th{text-align:left;padding:8px 12px;background:#F0EBE3;"
+    ".fin-table th{text-align:left;padding:8px 12px;background:var(--bg-subtle);"
     "font-weight:500;font-size:15px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}"
     ".fin-table td{padding:8px 12px;border-top:1px solid var(--border);color:var(--text-secondary)}"
     ".fin-table .fin-period{font-weight:600;color:var(--text-primary)}"
@@ -105,7 +116,7 @@ DESIGN_TOKENS_CSS = (
     ".fin-table .cal-amt{font-family:var(--font-mono,monospace);font-size:15px;color:var(--text-primary)}"
     ".fin-cal-table tr.cal-st-past{opacity:.5}"
     ".fin-cal-table tr.cal-st-future td.cal-date{color:var(--accent-blue);font-weight:500}"
-    ".cal-task code{font-size:15px;background:#F0EBE3;padding:2px 6px;border-radius:4px}"
+    ".cal-task code{font-size:15px;background:var(--bg-subtle);padding:2px 6px;border-radius:4px}"
     "details.cal-past{margin-top:6px}"
     "details.cal-past>summary{cursor:pointer;list-style:none;font-size:15px;color:var(--text-muted);font-weight:500;padding:4px 0}"
     "details.cal-past>summary::-webkit-details-marker{display:none}"
@@ -121,30 +132,30 @@ DESIGN_TOKENS_CSS = (
     ".cp-meta{font-size:15px;color:var(--text-muted);text-transform:uppercase;"
     "letter-spacing:.04em;margin-bottom:8px}"
     ".cp-inn{font-size:15px;color:var(--text-secondary);margin-bottom:6px}"
-    ".cp-inn code{font-family:var(--font-mono,monospace);background:#F0EBE3;padding:2px 6px;border-radius:4px;font-size:15px}"
+    ".cp-inn code{font-family:var(--font-mono,monospace);background:var(--bg-subtle);padding:2px 6px;border-radius:4px;font-size:15px}"
     ".cp-req{font-size:15px;color:var(--text-secondary);margin:6px 0;padding:6px 10px;"
-    "background:#F8F5EF;border-radius:6px}"
+    "background:var(--bg-subtle);border-radius:6px}"
     ".cp-tags{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}"
-    ".cp-tag{font-size:15px;padding:2px 8px;border-radius:10px;background:#E8EEEA;"
+    ".cp-tag{font-size:15px;padding:2px 8px;border-radius:10px;background:var(--green-bg);"
     "color:var(--accent-green);font-weight:500}"
     ".cp-notes{font-size:15px;color:var(--text-secondary);line-height:1.5;margin-top:8px;"
     "padding-top:8px;border-top:1px dashed var(--border)}"
     ".cp-linked{font-size:15px;color:var(--text-muted);margin-top:6px;font-family:var(--font-mono,monospace)}"
-    ".cp-linked code{background:#F0EBE3;padding:1px 5px;border-radius:3px}"
+    ".cp-linked code{background:var(--bg-subtle);padding:1px 5px;border-radius:3px}"
 
     # === UX fix #1: Focus-band (what matters today) ===
-    ".focus-band{background:linear-gradient(135deg,#FBF1DC,#F8E5C8);"
+    ".focus-band{background:linear-gradient(135deg,var(--yellow-bg),#F8E5C8);"
     "border:1px solid #E8C99E;border-radius:var(--radius-card);"
     "padding:var(--space-md);margin:0 0 var(--space-lg)}"
     ".focus-band-label{font-size:15px;text-transform:uppercase;letter-spacing:.06em;"
-    "color:#8A6730;font-weight:600;margin-bottom:8px}"
+    "color:var(--accent-yellow);font-weight:600;margin-bottom:8px}"
     ".focus-band-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}"
     ".focus-card{background:rgba(255,255,255,.7);border-radius:8px;padding:8px 10px;"
     "border:1px solid rgba(232,201,158,.5)}"
     ".focus-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}"
     ".focus-icon{font-size:14px}"
     ".focus-tag{font-size:15px;text-transform:uppercase;letter-spacing:.04em;"
-    "color:#8A6730;font-weight:600;background:rgba(232,201,158,.4);"
+    "color:var(--accent-yellow);font-weight:600;background:rgba(232,201,158,.4);"
     "padding:2px 6px;border-radius:8px}"
     ".focus-title{font-size:15px;font-weight:600;color:var(--text-primary);line-height:1.3;margin-bottom:2px}"
     ".focus-sub{font-size:15px;color:var(--text-secondary);line-height:1.4}"
@@ -173,19 +184,19 @@ DESIGN_TOKENS_CSS = (
     ".acc-row.acc-st-closed{opacity:.5}"
     ".acc-bank{font-weight:500;color:var(--text-primary)}"
     ".acc-num{font-family:var(--font-mono,monospace);font-size:15px;color:var(--text-primary);"
-    "background:#F0EBE3;padding:2px 6px;border-radius:4px}"
+    "background:var(--bg-subtle);padding:2px 6px;border-radius:4px}"
     ".acc-bik{font-family:var(--font-mono,monospace);font-size:15px;color:var(--text-muted)}"
     ".acc-purpose{font-size:15px;color:var(--text-muted)}"
     ".acc-status{font-size:15px;text-transform:uppercase;color:var(--accent-yellow);font-weight:500}"
-    ".acc-note{font-size:15px;color:var(--text-secondary);background:#F8F5EF;"
+    ".acc-note{font-size:15px;color:var(--text-secondary);background:var(--bg-subtle);"
     "padding:6px 10px;border-radius:6px;margin-top:4px;width:100%;font-style:italic}"
     # Behavior
     ".beh-section{margin-bottom:var(--space-lg);background:var(--bg-card);"
     "border:1px solid var(--border);border-radius:var(--radius-card);padding:var(--space-md)}"
     ".beh-block{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}"
-    ".beh-ch-primary{font-size:15px;font-weight:600;background:#FBF1DC;"
-    "padding:4px 10px;border-radius:14px;color:#8A6730}"
-    ".beh-ch-secondary{font-size:15px;background:#F0EBE3;padding:3px 8px;"
+    ".beh-ch-primary{font-size:15px;font-weight:600;background:var(--yellow-bg);"
+    "padding:4px 10px;border-radius:14px;color:var(--accent-yellow)}"
+    ".beh-ch-secondary{font-size:15px;background:var(--bg-subtle);padding:3px 8px;"
     "border-radius:12px;color:var(--text-secondary)}"
     ".beh-tz{font-size:15px;color:var(--text-muted);padding:3px 8px}"
     ".beh-style{font-size:15px;color:var(--text-secondary);margin-bottom:8px}"
@@ -194,11 +205,11 @@ DESIGN_TOKENS_CSS = (
     ".beh-prefs{display:flex;flex-direction:column;gap:4px;font-size:15px}"
     ".beh-likes{color:var(--accent-green)}"
     ".beh-dislikes{color:#8B4F3C}"
-    ".beh-asks{color:var(--text-secondary);background:#F8F5EF;padding:6px 10px;border-radius:6px;margin-top:4px}"
+    ".beh-asks{color:var(--text-secondary);background:var(--bg-subtle);padding:6px 10px;border-radius:6px;margin-top:4px}"
 
-    # === UX-fix #7: client-actions row (Discuss + Dictate) ===
-    # Buttons use the shared .btn-mini class (as on track cards and in modals)
-    ".client-actions{display:flex;gap:6px;margin-top:10px}"
+    # === client-actions row: one "Разобрать" (tm-btn-outline) + the report link ===
+    # The separate Dictate button was dropped (dictation lives in the shared modal).
+    ".client-actions{display:flex;gap:10px;margin-top:20px}"
 
     # === UX-fix #8: unified button design system (tm-btn-*) ===
     # Used everywhere: client header, track modal, any future action zone.
@@ -207,8 +218,23 @@ DESIGN_TOKENS_CSS = (
     "background:var(--bg-card);color:var(--text-primary);border-radius:var(--radius-btn);"
     "cursor:pointer;font-weight:500;font-family:inherit;"
     "transition:background var(--transition,.15s),border-color var(--transition,.15s),color var(--transition,.15s);"
-    "display:inline-flex;align-items:center;gap:6px}"
+    # line-height + text-decoration normalised so the class renders IDENTICALLY on
+    # <button> and <a> (a <button> defaults to line-height:normal, an <a> inherits
+    # the body's 1.6 — without this they'd be different heights).
+    "display:inline-flex;align-items:center;justify-content:center;gap:6px;"
+    "line-height:1.2;text-decoration:none;vertical-align:middle}"
+    # SIZE modifiers — size is a modifier on the one base, never a per-instance
+    # override. Default (no class) = medium. Color modifiers below change only
+    # colour, never size; the two axes compose (e.g. tm-btn tm-btn-outline tm-btn-sm).
+    ".tm-btn-sm{padding:8px 14px;font-size:13px}"
+    ".tm-btn-lg{padding:14px 26px;font-size:16px}"
     ".tm-btn:hover{border-color:var(--accent-blue);background:var(--blue-bg);color:var(--accent-blue)}"
+    # primary-outline: accent border + accent text, light fill — highlighted but
+    # not heavy. The shared look for every "Разобрать" action across the app.
+    # Compound selector (.tm-btn.tm-btn-outline) so it outranks any later plain
+    # .tm-btn{border:…} rule that would otherwise reset the accent border.
+    ".tm-btn.tm-btn-outline{border-color:var(--accent);color:var(--accent)}"
+    ".tm-btn.tm-btn-outline:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}"
     ".tm-btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}"
     ".tm-btn-primary:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}"
     ".tm-btn-success{background:var(--accent-green);color:#fff;border-color:var(--accent-green)}"
@@ -418,13 +444,26 @@ PROMPT_MODAL_CSS = (
     ".prompt-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:10001;"
     "display:none;align-items:center;justify-content:center;padding:var(--space-md)}"
     ".prompt-modal.open{display:flex}"
-    ".prompt-modal-box{background:var(--bg-card);border-radius:var(--radius-card);"
-    "padding:var(--space-lg);max-width:600px;width:100%;border:1px solid var(--border);"
-    "box-shadow:0 4px 16px rgba(0,0,0,0.1)}"
-    ".prompt-modal-title{font-size:var(--fs-h2);font-weight:500;margin-bottom:var(--space-sm)}"
-    ".prompt-modal textarea{width:100%;min-height:140px;padding:var(--space-sm) var(--space-md);"
-    "border:1px solid var(--border);border-radius:var(--radius-btn);font-family:inherit;"
+    ".prompt-modal-box{background:var(--bg-card);border-radius:14px;"
+    "padding:28px 30px;max-width:620px;width:100%;border:1px solid var(--border);"
+    "box-shadow:0 24px 64px -16px rgba(16,16,26,0.30),0 4px 12px rgba(16,16,26,0.06)}"
+    ".prompt-modal-title{font-size:18px;font-weight:600;margin-bottom:4px;letter-spacing:-0.01em}"
+    ".prompt-modal-sub{font-size:14px;color:var(--text-muted);margin-bottom:14px;line-height:1.5}"
+    ".prompt-modal-ctx{display:none;background:var(--bg-subtle);border:1px solid var(--border);"
+    "border-left:3px solid var(--accent);border-radius:8px;padding:9px 13px;margin-bottom:10px}"
+    ".prompt-modal-ctx.show{display:block}"
+    ".prompt-modal-ctx-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;"
+    "color:var(--text-muted);font-weight:600;margin-bottom:5px}"
+    ".prompt-modal-ctx-body{white-space:pre-wrap;font-size:13px;color:var(--text-secondary);"
+    "line-height:1.5;max-height:150px;overflow-y:auto}"
+    ".prompt-modal textarea{width:100%;min-height:150px;padding:12px 14px;"
+    "border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box;"
     "font-size:var(--fs-base);resize:vertical;background:var(--bg-page);line-height:1.6}"
+    ".prompt-modal textarea:focus{outline:none;border-color:var(--accent);background:var(--bg-card)}"
+    ".prompt-modal-hint{font-size:13px;color:var(--text-muted);margin-top:12px;padding-top:11px;"
+    "border-top:1px solid var(--border);line-height:1.55}"
+    ".prompt-modal-hint kbd{background:var(--bg-page);border:1px solid var(--border-strong);"
+    "border-radius:4px;padding:1px 6px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12px}"
     ".prompt-modal-status{font-size:var(--fs-meta);margin-top:var(--space-sm);font-weight:500}"
     ".prompt-modal-status.ok{color:var(--accent-green)}"
     ".prompt-modal-status.warn{color:var(--accent-yellow)}"
@@ -434,18 +473,26 @@ PROMPT_MODAL_CSS = (
     "border:1px solid var(--border);background:var(--bg-page);color:var(--text-primary);"
     "border-radius:var(--radius-btn);cursor:pointer;font-family:inherit}"
     ".prompt-modal-actions button:hover{border-color:var(--accent-blue);color:var(--accent-blue)}"
+    "#prompt-copy-btn{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:500}"
+    "#prompt-copy-btn:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}"
 )
 
 PROMPT_MODAL_HTML = (
     '<div id="prompt-modal" class="prompt-modal">'
-    '<div class="prompt-modal-box">'
+    '<div class="prompt-modal-box" onclick="event.stopPropagation()">'
     '<div class="prompt-modal-title">Prompt ready</div>'
-    '<textarea id="prompt-text" readonly></textarea>'
+    '<div class="prompt-modal-sub">Edit or dictate (Win+H) below, then paste into Cowork.</div>'
+    '<div id="prompt-ctx" class="prompt-modal-ctx">'
+    '<div class="prompt-modal-ctx-h">Task context · always included</div>'
+    '<div id="prompt-ctx-body" class="prompt-modal-ctx-body"></div>'
+    '</div>'
+    '<textarea id="prompt-text" placeholder="Write your own prompt or dictate (Win+H)…"></textarea>'
     '<div id="prompt-status" class="prompt-modal-status">—</div>'
     '<div class="prompt-modal-actions">'
     '<button id="prompt-copy-btn">Copy again</button>'
     '<button id="prompt-close-btn">Close</button>'
     '</div>'
+    '<div class="prompt-modal-hint">Tip: <kbd>Win</kbd>+<kbd>H</kbd> is the built-in Windows dictation — it works in any text field, including this one.</div>'
     '</div>'
     '</div>'
 )
@@ -456,30 +503,42 @@ PROMPT_MODAL_JS = (
     'var modal=document.getElementById("prompt-modal");'
     'var ta=document.getElementById("prompt-text");'
     'var status=document.getElementById("prompt-status");'
-    'function openPrompt(txt){'
-    'ta.value=txt;modal.classList.add("open");'
-    'setTimeout(function(){ta.focus();ta.select();'
-    'try{var ok=document.execCommand("copy");'
+    'var ctxBox=document.getElementById("prompt-ctx");'
+    'var ctxBody=document.getElementById("prompt-ctx-body");'
+    'var ctxStore="";'
+    # the copied prompt = immutable context + whatever is in the editable field
+    'function fullText(){var b=ta.value.trim();return ctxStore?(b?ctxStore+"\\n\\n"+b:ctxStore):b;}'
+    'function copyText(str){var tmp=document.createElement("textarea");tmp.value=str;'
+    'tmp.style.position="fixed";tmp.style.left="-9999px";tmp.style.opacity="0";'
+    'document.body.appendChild(tmp);tmp.focus();tmp.select();'
+    'var ok=false;try{ok=document.execCommand("copy");}catch(e){ok=false;}'
+    'document.body.removeChild(tmp);return ok;}'
+    'function doCopy(){var ok=copyText(fullText());'
     'status.className="prompt-modal-status "+(ok?"ok":"warn");'
     'status.textContent=ok?"✓ Copied — paste into Cowork (Ctrl+V)":'
-    '"Failed — select and press Ctrl+C, then Ctrl+V in Cowork";'
-    '}catch(e){status.className="prompt-modal-status warn";'
-    'status.textContent="Select the text and press Ctrl+C, then Ctrl+V in Cowork";}'
+    '"Failed — select and press Ctrl+C, then Ctrl+V in Cowork";ta.focus();}'
+    'function openPrompt(txt,opts){'
+    'opts=opts||{};'
+    'ctxStore=opts.ctx||"";'
+    'ta.value=txt||"";'
+    'if(ctxBox&&ctxBody){if(ctxStore){ctxBody.textContent=ctxStore;ctxBox.classList.add("show");}'
+    'else{ctxBox.classList.remove("show");ctxBody.textContent="";}}'
+    'modal.classList.add("open");'
+    'setTimeout(function(){ta.focus();'
+    'if(opts.dictate){var L=ta.value.length;try{ta.setSelectionRange(L,L);}catch(e){}'
+    'status.className="prompt-modal-status";status.textContent="Press Win+H to dictate, then Copy";}'
+    'else{ta.select();doCopy();}'
     '},20);}'
+    'window.openPromptModal=openPrompt;'
     'function closeModal(){modal.classList.remove("open");}'
     'document.addEventListener("click",function(e){'
     'var btn=e.target.closest("button[data-prompt]");'
-    'if(btn){e.preventDefault();openPrompt(btn.dataset.prompt);return;}'
+    'if(btn){e.preventDefault();openPrompt(btn.dataset.prompt,{ctx:btn.getAttribute("data-prompt-ctx")||""});return;}'
     'if(e.target===modal){closeModal();}});'
     'document.getElementById("prompt-close-btn").addEventListener("click",closeModal);'
-    'document.getElementById("prompt-copy-btn").addEventListener("click",function(){'
-    'ta.focus();ta.select();'
-    'try{var ok=document.execCommand("copy");'
-    'status.className="prompt-modal-status "+(ok?"ok":"warn");'
-    'status.textContent=ok?"✓ Copied":"Ctrl+C to copy";'
-    '}catch(e){status.textContent="Ctrl+C to copy";}});'
+    'document.getElementById("prompt-copy-btn").addEventListener("click",doCopy);'
     'document.addEventListener("keydown",function(e){'
-    'if(e.key==="Escape")closeModal();});})();'
+    'if(e.key==="Escape"&&modal.classList.contains("open"))closeModal();});})();'
     '</script>'
 )
 
@@ -489,6 +548,14 @@ PROMPT_MODAL_HTML = (
     .replace('>Prompt ready</div>', '>' + t('Prompt ready') + '</div>')
     .replace('>Copy again</button>', '>' + t('Copy again') + '</button>')
     .replace('>Close</button>', '>' + t('Close') + '</button>')
+    .replace('Edit or dictate (Win+H) below, then paste into Cowork.',
+             t('Edit or dictate (Win+H) below, then paste into Cowork.'))
+    .replace('>Task context · always included</div>',
+             '>' + t('Task context · always included') + '</div>')
+    .replace('placeholder="Write your own prompt or dictate (Win+H)…"',
+             'placeholder="' + t('Write your own prompt or dictate (Win+H)…') + '"')
+    .replace('Tip: <kbd>Win</kbd>+<kbd>H</kbd> is the built-in Windows dictation — it works in any text field, including this one.',
+             t('Tip: <kbd>Win</kbd>+<kbd>H</kbd> is the built-in Windows dictation — it works in any text field, including this one.'))
 )
 PROMPT_MODAL_JS = (
     PROMPT_MODAL_JS
@@ -500,4 +567,5 @@ PROMPT_MODAL_JS = (
              '"' + t('Select the text and press Ctrl+C, then Ctrl+V in Cowork') + '"')
     .replace('"✓ Copied"', '"' + t('✓ Copied') + '"')
     .replace('"Ctrl+C to copy"', '"' + t('Ctrl+C to copy') + '"')
+    .replace('"Press Win+H to dictate, then Copy"', '"' + t('Press Win+H to dictate, then Copy') + '"')
 )

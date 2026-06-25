@@ -1,6 +1,14 @@
 # Skills for the `email` domain
 
-> All procedures for working with Yandex.Mail as reusable infrastructure. Atomic operations — read_message, read_thread, list_messages. Composites — morning_full_scan, incremental_update.
+> ⚠️ **Multi-account.** `email` is **not** one mailbox. It fans out over the operator's own
+> accounts (`config → sources.email`: team Yandex.Mail + personal Gmail) **and** each client's
+> mailbox in `quick_access` (e.g. `melati`'s Gmail, where its Mandiri/Coretax mail
+> arrives). Enumerate via `connectors/_sources.md` (`enumerate_sources("email")`), one
+> incremental pass per account with its own watermark, dedup across accounts, route shared
+> inboxes by correspondent. The procedures below are the **per-account** operations; the
+> composites run them once per source in the working set.
+>
+> All procedures for working with a mailbox as reusable infrastructure. Atomic operations — read_message, read_thread, list_messages. Composites — morning_full_scan, incremental_update.
 >
 > **Who calls these skills:**
 > - The `Scheduled/email/SKILL.md` daemon — in the morning (`morning_full_scan`)
@@ -14,6 +22,7 @@
 | [`read_message.md`](read_message.md) | Read **one** email in full: headers + body + attachments | `message_id_or_url`, `read_attachments` |
 | [`read_thread.md`](read_thread.md) | Read a **thread** (the whole chain of related emails) | `thread_id_or_subject`, `message_count` |
 | [`list_messages.md`](list_messages.md) | List emails by filter (sender, date, folder, label) | `from`, `since`, `folder`, `label` |
+| [`reply_message.md`](reply_message.md) | 🔴 **Outbound** — reply to / send an email; approval-gated, multi-account-aware | `thread/recipient`, `from_account`, `text` |
 
 ## Composite skills
 
@@ -31,6 +40,34 @@
 | "which emails from Sber in May" | `list_messages.md` | `from=*@sberbank.ru, since=2026-05-01` |
 | "what's new in the mail" | `incremental_update.md` | `since=last_run` |
 | "rebuild the mail" | `morning_full_scan.md` | — |
+
+## Account switching (per provider)
+
+The morning sweep runs once **per source** in `enumerate_sources("email")` (operator Yandex.Mail
++ personal Gmail + each client's Gmail). Make the account active per its `switch` mode, then
+**verify before reading** (read back the active login; on mismatch — stop and flag).
+
+**Yandex.Mail** (`provider: yandex`, browser-driven via Claude-in-Chrome):
+- Preferred — a **dedicated Chrome profile per Yandex account** (`switch: chrome_profile:<name>`);
+  open the mailbox in that profile, no in-session switching.
+- Otherwise — Yandex multi-login: top-right avatar → choose the account, or open
+  `https://mail.yandex.ru/?login=<login>`.
+- **Verify:** the active login shown in the avatar/menu == the source `handle`.
+
+**Gmail** (`provider: gmail`):
+- If a **Gmail API connector** is authorized per Google account (`switch: cred/connection`):
+  select the connection bound to that account — **no UI**. Verify via the connector's
+  profile/whoami (the connected address).
+- If **browser-driven**: a dedicated Chrome profile per Google account, or the account switcher
+  (avatar → choose), or the `authuser` index (`https://mail.google.com/mail/u/<n>/`). **Verify:**
+  the account email in the avatar == the source `handle`.
+- Client Gmails (e.g. `melati`'s) are reached either by the client sharing delegated
+  access to the operator's account, or by a separate authorized connection/profile — respect
+  `cred_status` and skip+flag if not connected.
+
+> Provider mechanics only — the registry, watermark, routing and dedup rules are in
+> `connectors/_sources.md`. WhatsApp/Telegram are single-account/`switch: none` and have no such
+> section (clients are chats, not accounts).
 
 ## Known correspondents (filter for full_scan)
 
@@ -60,7 +97,7 @@ Analogous to `finkoper/`:
 
 ## Security
 
-All atomic skills are **read-only**. Per `security_rules.md §3` (updated 2026-05-16): opening an email, downloading attachments into `Downloads/` — no approval needed. Sending an email / creating a draft (with sending) / marking as read / deleting — NEVER in these skills. Creating a draft **without** sending is allowed (via an explicit approval from the operator: "make a draft").
+The **read** atomic skills (`read_message`, `read_thread`, `list_messages`) are **read-only** — per `security_rules.md §3`: opening an email, downloading attachments into `Downloads/` — no approval; marking as read / deleting — never. **Sending** is the one outbound action and lives in its own skill, `reply_message.md` — compose → show the draft → send **only on the operator's explicit "send"** (`safety-rules.md` `external_sends`). Daemons never send; the read skills never send.
 
 ## History
 

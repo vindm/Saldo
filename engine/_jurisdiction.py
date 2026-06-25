@@ -93,11 +93,19 @@ def render_regime_label(pack, primary, patents):
     Faithful re-implementation of the if/elif block previously inlined in
     _loaders.apply_regime_to_client: base token (by type, then object, then raw),
     optional rate token, optional patent suffix; joined by single spaces.
+    The base token and patent suffix are localised via t() (operator surface);
+    the rate ("6%") is locale-neutral.
     """
     primary = primary or {}
     rtype = primary.get("type")
     obj = primary.get("object")
     rate = primary.get("rate")
+
+    # Pack tokens are English (engine source language); localise them to the
+    # operator's locale here, at the render boundary, so the dashboard surface
+    # is fully translated. t() falls back to the English token when the active
+    # locale has no entry, so partial catalogs degrade gracefully.
+    from _strings import t as _loc
 
     parts = []
     spec = pack.regimes.get(rtype)
@@ -108,7 +116,7 @@ def render_regime_label(pack, primary, patents):
         base = objects.get(obj)
         if base is None:
             base = spec.get("label") or (rtype or "")
-        parts.append(base)
+        parts.append(_loc(base) if base else base)
         if spec.get("show_rate") and rate is not None:
             parts.append(str(rate) + "%")
 
@@ -116,6 +124,6 @@ def render_regime_label(pack, primary, patents):
     active_status = pat.get("active_status", "active")
     suffix = pat.get("suffix")
     if suffix and any((p.get("status") == active_status) for p in (patents or [])):
-        parts.append(suffix)
+        parts.append(_loc(suffix))
 
     return " ".join([p for p in parts if p]).strip()

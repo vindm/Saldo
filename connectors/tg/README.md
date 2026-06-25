@@ -3,6 +3,15 @@
 Reading Telegram chats with direct clients via `web.telegram.org/k/`.
 A source of tasks for the direct circuit (track="direct") in the dashboard.
 
+> **Atomic actions:** `read_chat.md` (here) reads one chat. For `list_chats` and the
+> outbound `send_message` (approval-gated), use the shared `connectors/_chat_actions.md`
+> with the tg deltas (`web.telegram.org/a/`, `@username`/peer id). The daemon never sends.
+>
+> **UI mechanics:** `connectors/tg/ui_playbook.md` (jump-to-chat via `#peer_id`, scroll, send,
+> download), which already folds in the key lesson — the `/a/` session is logged in, `/k/` is
+> **not**. It self-corrects via the loop; learned notes → `journal/playbook_notes/tg.md`
+> (`policies/skill-evolution.md`).
+
 ## One skill
 
 **`sync.md`** — universal sync. Automatically selects the mode:

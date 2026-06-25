@@ -1,4 +1,4 @@
-# ID jurisdiction — tax-regime display rules. Synthetic demo (2026-06-23).
+# ID jurisdiction — tax-regime display rules.
 regimes:
   UMKM_FINAL:
     label: "UMKM final"
@@ -8,6 +8,13 @@ regimes:
   PPh21:
     label: "PPh 21 (payroll)"
     show_rate: false
+  # Normal corporate regime — where a PT lands after the 0.5% facility lapses
+  # (time limit / 2026 PP55 revision). Income minus expenses, monthly PPh 25 installments.
+  PPh_BADAN:
+    label: "PPh Badan 22%"
+    show_rate: true
+    objects:
+      profit: "PPh Badan (profit)"
 # Indonesia has no patent regime.
 patent:
   active_status: "active"

@@ -334,15 +334,10 @@ def _min_dl(tasks):
 
 
 def _wave_due_badge(dl):
-    if dl is None:
-        return ''
-    if dl < 0:
-        return '<span class="wave-due due-overdue">' + t('overdue {}d').format(-dl) + '</span>'
-    if dl == 0:
-        return '<span class="wave-due due-today">' + t('today') + '</span>'
-    if dl <= 7:
-        return '<span class="wave-due due-soon">' + t('in {}d').format(dl) + '</span>'
-    return '<span class="wave-due due-plan">' + t('{}d').format(dl) + '</span>'
+    # THE shared due badge (engine/_components) — the wave header shows the same
+    # chip as its nearest item (dl == _min_dl of the wave). One date label app-wide.
+    from _components import due_badge
+    return due_badge(dl)
 
 
 # ---- readiness / anomalies (from open tasks, no writes) ----
@@ -516,28 +511,23 @@ def _render_wave(members, esc, htitle):
     # no red client list in the wave header.
     anomaly_html = ''
 
-    batch_prompt = _attr(tp(
-        'Process the wave "{op}": {clients}. For EACH client first resolve its jurisdiction '
-        '(state/regime.json) and use the checklist matching this operation in that client\'s pack '
-        '(jurisdictions/<code>/) — do NOT assume RF (INSTRUCTIONS \u00a70); clients may be in different '
-        'jurisdictions. Open state/*.json (source of truth) and mental_model, check the linked sources and '
-        'reconcile the links. Update the model with the new signals. Give a status per client and an overall '
-        'wave plan in each client\'s own tax system: what to batch now, where we wait, where it is blocked. '
-        'Make state changes via mm_update (with my approval); draft any outward message for my review — do not send.',
-        'Обработай волну «{op}»: {clients}. По КАЖДОМУ клиенту сначала определи его юрисдикцию '
-        '(state/regime.json) и используй чек-лист под эту операцию из пакета клиента (jurisdictions/<code>/) '
-        '— НЕ предполагай РФ (INSTRUCTIONS \u00a70); клиенты могут быть в разных юрисдикциях. Открой '
-        'state/*.json (источник истины) и mental_model, проверь связанные источники и сверь связи. Обнови '
-        'модель новыми сигналами. Дай статус по каждому и общий план волны в налоговой системе самого '
-        'клиента: что сделать пачкой сейчас, где ждём, где блок. Правки state — через mm_update (с моим '
-        'аппрувом); сообщения наружу — черновиком мне на проверку, не отправляй.').format(op=op, clients=clients))
+    # Same split as the track card: an immutable context block (wave facts) + a
+    # short editable ask. Standing rules (resolve jurisdiction, checklists,
+    # mm_update + approval, nothing outward) live in policies, not in the prompt.
+    wave_ctx = _attr(tp(
+        'Wave "{op}" \u00b7 clients: {clients} \u00b7 tasks: {n}',
+        'Волна «{op}» \u00b7 клиенты: {clients} \u00b7 задач: {n}').format(op=op, clients=clients, n=nt))
+    wave_ask = _attr(tp(
+        'Process the wave: give a status per client and a plan \u2014 what to batch now, where we wait, where it is blocked.',
+        'Обработай волну: дай статус по каждому клиенту и план \u2014 что сделать пачкой сейчас, где ждём, где блок.'))
 
+    # One button per wave — "Process wave" opens the shared prompt modal (where
+    # the operator can also dictate via Win+H). The separate Dictate button was
+    # dropped in the one-modal/one-button unification.
     actions = (
         '<span class="wave-acts">'
-        '<button class="wave-act wave-act-go" data-prompt="{bp}" title="' + _attr(t('Process the whole wave at once')) + '">' + icon('search') + ' ' + t('Process wave') + '</button>'
-        '<button class="wave-act wave-act-mic" data-wave-op="{wop}" data-wave-clients="{wcl}" '
-        'data-wave-n="{n}" title="' + _attr(t('Dictate for the wave')) + '">' + icon('pencil') + ' ' + t('Dictate') + '</button>'
-        '</span>').format(bp=batch_prompt, wop=_attr(op), wcl=_attr(clients), n=n)
+        '<button class="wave-act wave-act-go" data-prompt="{ask}" data-prompt-ctx="{ctx}" title="' + _attr(t('Process the whole wave at once')) + '">' + t('🔍 Review') + '</button>'
+        '</span>').format(ask=wave_ask, ctx=wave_ctx)
 
     assist_html = ''
     if comp:
@@ -550,12 +540,13 @@ def _render_wave(members, esc, htitle):
         '<span class="wave-chevron">{chev}</span>'
         '<span class="wave-op">{ic}{op}</span>'
         '<span class="wave-count">{nt}</span>'
-        '{badge}'
-        '{bar}'
+        '<span class="wave-meta"><span class="wave-bar-slot">{bar}</span>{badge}</span>'
         '{anom}'
         '</div>'
+        '<div class="wave-reveal"><div class="wave-reveal-inner">'
         '<div class="wave-sub">{assist}{acts}</div>'
         '<div class="wave-body">{rows}</div>'
+        '</div></div>'
         '</div>'.format(
             chev=icon('chevron'),
             tt=esc(track), wid=wid, stg=stg, ic=head_icon, op=esc(op), bar=bar, n=n, nt=nt,
@@ -580,7 +571,8 @@ def render_waves_page(all_tasks, render_row, esc):
                      '<span class="wave-chevron">{chev}</span>'
                      '<span class="wave-op">{label}</span>'
                      '{badge}<span class="wave-count">{n}</span></div>'
-                     '<div class="wave-body">{rows}</div></div>').format(
+                     '<div class="wave-reveal"><div class="wave-reveal-inner">'
+                     '<div class="wave-body">{rows}</div></div></div></div>').format(
                         chev=icon('chevron'),
                         wid=_attr(htitle + '|singles'), label=t('Individual tasks'),
                         n=len(singles), badge=_wave_due_badge(_min_dl(singles)), rows=srows))
@@ -603,16 +595,26 @@ def render_waves_page(all_tasks, render_row, esc):
 
 WAVES_CSS = (
     '.horizon-body{padding:0}'
-    '.wave{border-bottom:1px solid var(--border)}'
+    '.wave{border-bottom:1px solid var(--border);'
+    'transition:background var(--transition,150ms),border-color var(--transition,150ms),box-shadow var(--transition,150ms)}'
     '.wave:last-child{border-bottom:none}'
     '.wave-head{display:flex;align-items:center;gap:10px;padding:8px var(--space-md) 8px 5px;'
     'border-bottom:1px solid var(--border);background:transparent;cursor:pointer;'
-    'user-select:none;transition:background 120ms}'
+    'user-select:none;transition:background var(--transition,150ms),color var(--transition,150ms),border-color var(--transition,150ms)}'
     '.wave-head:hover{background:var(--bg-page)}'
     '.wave-head:hover .wave-op{color:var(--accent-blue)}'
     '.wave.collapsed .wave-head{border-bottom:none}'
-    '.wave.collapsed .wave-sub{display:none}'
-    '.wave.collapsed .wave-body{display:none}'
+    # collapsible reveal — animate height via grid-rows 0fr<->1fr (no JS measuring).
+    # NB: --transition already includes the easing word, so do NOT append one here.
+    '.wave-reveal{display:grid;grid-template-rows:1fr;'
+    'transition:grid-template-rows 240ms cubic-bezier(.16,1,.3,1)}'
+    '.wave-reveal-inner{overflow:hidden;min-height:0}'
+    '.wave-sub,.wave-body{transition:opacity 200ms ease}'
+    '.wave.collapsed .wave-reveal{grid-template-rows:0fr}'
+    # keep collapsed content out of tab order / clicks once the collapse finishes
+    '.wave.collapsed .wave-reveal-inner{visibility:hidden;'
+    'transition:visibility 0s linear 240ms}'
+    '.wave.collapsed .wave-sub,.wave.collapsed .wave-body{opacity:0}'
     '.wave-chevron{font-size:15px;color:var(--text-muted);transition:transform .15s;'
     'flex-shrink:0;width:16px;height:16px;display:inline-flex;align-items:center;'
     'justify-content:center;line-height:1}'
@@ -631,24 +633,38 @@ WAVES_CSS = (
     '.wb-block{background:var(--accent-red)}'
     '.wave-count{font-size:12px;color:var(--text-secondary);background:var(--border);'
     'border:none;border-radius:6px;padding:1px 7px;font-weight:600;min-width:20px;'
-    'text-align:center;line-height:1.5;white-space:nowrap;flex-shrink:0;margin:0 auto 0 8px}'
+    'text-align:center;line-height:1.5;white-space:nowrap;flex-shrink:0;margin:0 0 0 8px}'
+    # Fixed trailing columns so the readiness bar + due badge align across waves
+    # (don\'t jump with the badge text) — mirrors the task rows\' fixed meta columns.
+    '.wave-meta{margin-left:auto;display:grid;grid-template-columns:64px 92px;'
+    'align-items:center;gap:10px;justify-items:end;flex-shrink:0}'
+    '.wave-bar-slot{display:flex;justify-content:flex-end;min-width:0}'
     '.wave-head:hover .wave-count{color:var(--text-primary)}'
     '.wave-due{font-size:13px;font-weight:600;white-space:nowrap;flex-shrink:0}'
     '.wave-anomaly{font-size:12px;font-weight:600;color:var(--accent-red);background:var(--red-bg);'
     'border-radius:8px;padding:2px 9px;white-space:nowrap;flex-shrink:0}'
     '.wave-acts{display:flex;gap:6px;flex-shrink:0;margin-left:auto}'
-    '.wave-act{font-size:13px;font-weight:500;padding:4px 10px;border-radius:var(--radius-btn);'
+    # Unified secondary action button — same look as the analysis "Разобрать" and
+    # the header actions (neutral until hover); no special blue accent.
+    '.wave-act{font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:var(--radius-btn);'
     'border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);cursor:pointer;'
-    'font-family:inherit;white-space:nowrap;transition:all 150ms;line-height:1.3}'
+    'font-family:inherit;white-space:nowrap;transition:all 150ms;line-height:1.3;'
+    'display:inline-flex;align-items:center;gap:6px}'
     '.wave-act:hover{border-color:var(--accent-blue);background:var(--blue-bg);color:var(--accent-blue)}'
-    '.wave-act-go{border-color:var(--accent-blue);color:var(--accent-blue)}'
+    '.wave-act-go{border-color:var(--accent);color:var(--accent)}'
+    '.wave-act-go:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}'
     '.wave-sub{display:flex;align-items:center;gap:12px;flex-wrap:wrap;'
     'padding:7px var(--space-md);background:var(--bg-page);'
     'border-bottom:1px solid var(--border)}'
     '.wave-assist{font-size:13px;color:var(--text-secondary);flex:1;min-width:120px}'
     '.wave-assist b{color:var(--text-primary);font-weight:600}'
-    '.wave .task-item{background:var(--bg-card)}'
-    '.wave .task-row{padding-left:calc(var(--space-md) + 8px)}'
+    # The shared .an-rec snippet inside a wave: drop its brief-card negative margin
+    # and own border-top; the wave provides the frame, rows separate via a divider.
+    '.wave .an-rec{background:var(--bg-card);margin:0;border-top:none;padding:9px 14px}'
+    '.wave-body .an-rec + .an-rec{border-top:1px solid var(--border)}'
+    # first row keeps the base symmetric padding (9px top = 9px bottom) like every
+    # other row — the grey readiness bar already provides the separation, so no
+    # special first-child override (it made the first card top-heavy)
     '.wave-singles .wave-op{color:var(--text-secondary);font-weight:500}'
     '.waves-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px}'
     '.plan-sec-h-ops{display:flex;align-items:center;justify-content:space-between;gap:12px}'
@@ -677,20 +693,6 @@ _WAVES_JS_TEMPLATE = """
   }
   syncBtn();
   document.addEventListener('click', function(e){
-    // dictate for the wave
-    var mic = e.target.closest('.wave-act-mic');
-    if(mic){
-      e.preventDefault();
-      if(typeof window.openMicModal === 'function'){
-        window.openMicModal({
-          kind: 'wave', id: '',
-          client: mic.getAttribute('data-wave-clients') || '',
-          title: mic.getAttribute('data-wave-op') || '',
-          extra: (mic.getAttribute('data-wave-n') || '') + ' SPs'
-        });
-      }
-      return;
-    }
     // expand/collapse all
     var all = e.target.closest('.waves-expand-all');
     if(all){
@@ -747,6 +749,20 @@ _STAGE_JUMP_JS = (
 )
 WAVES_JS = WAVES_JS + _STAGE_JUMP_JS
 
+# Wave-jump: when the Plan is opened from the Calendar with #wave=<canonical op
+# token>, expand + scroll to + highlight the wave whose data-stage IS that token.
+# Generalises the stage-jump above to non-stage recurring ops too (the Calendar
+# chip carries the full canonical token, which uniquely identifies one wave).
+_WAVE_JUMP_JS = (
+    '<script>(function(){var m=(location.hash||"").match(/wave=([^&]+)/);'
+    'if(!m)return;var tok=decodeURIComponent(m[1]);var first=null;'
+    '[].slice.call(document.querySelectorAll(".wave[data-stage]")).forEach(function(w){'
+    'if((w.getAttribute("data-stage")||"")===tok){w.classList.remove("collapsed");'
+    'w.classList.add("wave-focus");if(!first)first=w;}});'
+    'if(first)setTimeout(function(){first.scrollIntoView({behavior:"smooth",block:"center"});},80);})();</script>'
+)
+WAVES_JS = WAVES_JS + _WAVE_JUMP_JS
+
 
 # ── Flat plan: stage+period waves + singles in ONE urgency-sorted, colour-coded
 # stream (no Горит/Неделя/Бэклог horizon buckets — the per-wave day badge already
@@ -756,7 +772,10 @@ WAVES_CSS = WAVES_CSS + (
     '.plan-item{background:transparent;border:none;'
     'border-bottom:1px solid var(--border);border-radius:0;margin-bottom:0;overflow:hidden}'
     '.plan-item .wave{border-bottom:none}'
-    '.plan-item.plan-single .task-item{border-bottom:none}'
+    # single (non-wave) task rows: the .plan-item supplies the frame, so the
+    # .an-rec drops its brief-card negative margin + own border.
+    '.plan-item.plan-single .an-rec{margin:0;border-top:none;padding:9px 14px}'
+    '.plan-item.plan-single .an-rec:hover{background:transparent}'
     '.plan-item:hover{background:var(--bg-page)}'
     '.plan-bk{margin-top:var(--space-md);border:1px solid var(--border);border-radius:var(--radius-card);'
     'background:var(--bg-card);overflow:hidden}'
@@ -771,7 +790,7 @@ WAVES_CSS = WAVES_CSS + (
     '.sec-card{background:var(--bg-card);border:1px solid var(--border);'
     'border-radius:var(--radius-card);padding:14px 16px;margin-bottom:14px}'
     '.sec-card .plan-item:last-child{border-bottom:none}'
-    '.sec-card .plan-item:last-child .task-item{border-bottom:none}'
+    '.sec-card .plan-item:last-child .an-rec{border-bottom:none}'
     '.plan-wait{margin-top:var(--space-md);border:1px dashed var(--border);border-radius:var(--radius-card);background:var(--bg-page);overflow:hidden;opacity:.9}'
     '.plan-wait>summary{cursor:pointer;padding:11px var(--space-md);font-weight:600;color:var(--text-muted);list-style:none}'
     '.plan-wait>summary::-webkit-details-marker{display:none}'
@@ -791,7 +810,7 @@ WAVES_CSS = WAVES_CSS + (
     '.plan-item:has(> .wave:not(.collapsed)):hover{background:transparent}'
     '.wave:not(.collapsed){background:var(--bg-card);border:1px solid var(--accent-soft-border);'
     'border-left:3px solid var(--accent);border-radius:var(--radius-card);overflow:hidden;'
-    'box-shadow:0 4px 14px rgba(94,106,210,0.12);margin:4px 0}'
+    'box-shadow:0 4px 14px rgba(31,78,121,0.12);margin:4px 0}'
     # soft lavender header (not a solid indigo bar)
     '.wave:not(.collapsed) .wave-head{background:var(--accent-soft);'
     'border-bottom:1px solid var(--accent-soft-border)}'

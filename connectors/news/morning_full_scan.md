@@ -1,31 +1,44 @@
 # Composite skill: news/morning_full_scan
 
-Morning sweep of relevant topics + categorization + daily report.
+Morning sweep of relevant topics **across every jurisdiction the operator's clients use** +
+categorization + daily report. Not RU-only: an operator serving RU and ID clients sweeps both
+RU tax law and Indonesian (PP55/PPN/BPJS) regulation, and applies each item only within its own
+jurisdiction.
 
 ## Parameters
 
 | Parameter | Type | Default |
 |---|---|---|
-| `today` | date | today's date (MSK) |
+| `today` | date | today's date (instance.timezone) |
 | `lookback_hours` | int | `24` |
 
 ## Algorithm
 
-### Step 1. Preparation
+### Step 1. Preparation — resolve the active jurisdiction set
 
-- Read `connectors/news/README.md` → "Search topics" section.
-- Load clients via `engine/_loaders.load_clients_from_index()` — gives 15 enriched records with regime/okved/financials from state (after the Phase 2 migration).
+- Load clients via `engine/_loaders.load_clients_from_index()` (regime/okved/financials from state).
+- **Build the active jurisdiction set** = the distinct `regime.json → jurisdiction` across all
+  clients (default `ru` when absent), deduped — today `{ru, id}`. **Never hardcode RU.**
+- For each jurisdiction `J`, load its **news block** from `jurisdictions/<J>/authorities.yaml →
+  news` (`topics`, `primary_sources`, `commentary_sources`, `language`, `exclude`). This is the
+  per-jurisdiction source of truth; `config → connectors.news.topics` is only an optional
+  operator override/addition.
 
-### Step 2. Search across all topics
+### Step 2. Search per jurisdiction (tag each item with `J`)
+
+For each jurisdiction `J` in the set:
 
 ```
 Read `connectors/news/search_topics.md`. Execute with:
-  topics = [the full list from README, except UKEP]
-  since = <now - lookback_hours>
-  until = <now>
-  max_results_per_topic = 10
-Get `all_items`.
+  topics  = <J's topics, minus J's `exclude`>
+  sources = <J's primary_sources + commentary_sources>   # bias the search to these domains
+  lang    = <J's news.language>                            # ru / id
+  since = <now - lookback_hours>, until = <now>, max_results_per_topic = 10
+Get items; tag each with jurisdiction = J.
 ```
+
+Union into `all_items` (each carries its `jurisdiction`). An ID search runs in Indonesian against
+`pajak.go.id`/DJP etc.; a RU search in Russian against `nalog.gov.ru` etc.
 
 ### Step 3. Categorization by severity
 
@@ -34,13 +47,15 @@ For each news item:
 - **🟡 Important** — takes effect later than 30 days; clarifications of fundamental points; changes our practice in the medium term
 - **📋 Informational** — FYI, general context, no direct impact
 
-### Step 4. Assessing applicability to clients
+### Step 4. Assessing applicability — scoped WITHIN the item's jurisdiction
 
-For each news item — note which of all clients it affects:
-- By regime (from `state/regime.json`: USN / patent / AUSN / OSNO)
-- By OKVED (the client 49.32 taxi, the client 68.20 rental, the client 49.41 freight, etc.)
-- By presence of a cash register (from `state/accounts.json:kassas[]`)
-- If the news applies to everyone — mark "all clients"
+For each news item, consider **only the clients in that item's `jurisdiction`** — a RU item never
+touches an ID client and vice-versa (no RF-reflex). Among those clients, narrow by the topic's
+`relevance`:
+- By regime (`state/regime.json`: USN/PSN/AUSN/OSNO for `ru`; UMKM_FINAL/PPh-Badan for `id`)
+- By OKVED / activity
+- By cash register (`accounts.json:kassas[]`) / payroll (for `has_payroll` ID topics)
+- `relevance: all` → every client **in that jurisdiction**.
 
 ### Step 5. R6 — preserving manual notes
 
@@ -57,6 +72,7 @@ news piece, ordered urgent → important → informational:
   "items": [
     {
       "severity": "high",
+      "jurisdiction": "ru | id",
       "title": "Headline / gist of the news",
       "source": "Source name (verified domain)",
       "body": "2-3 sentences: the gist, who it affects, deadline if any.",
@@ -80,7 +96,7 @@ YYYY-MM-DD HH:MM OK
 
 ### Step 8. Applying to client state (via mm_update)
 
-If a news item is 🔴 OR applies to a specific client with an active track — apply it via the cognitive protocol `mm_update` (see `connectors/mm_update/SKILL.md`):
+If a news item is 🔴 OR applies to a specific client with an active track — apply it via the cognitive protocol `mm_update` (see `connectors/mm_update/SKILL.md`). **Apply in the affected client's jurisdiction terms** — an `id` item in PP55/PPN/BPJS terms, a `ru` item in USN/ENS terms; never RF-default for an ID client (INSTRUCTIONS §0):
 
 - **High confidence** (clearly applicable): `_tracks.upsert_track(cid, {type='regulatory_change', status='active', due_date=<deadline>, title=<gist>})` in `state/tasks.json`
 - **Medium**: the same `upsert_track` with `title="🔧 Check: <gist>"`

@@ -23,3 +23,21 @@ term_map:
   income_ledger: "peredaran bruto record (gross turnover)"
   tax_return: "SPT (SPT Masa monthly, SPT Tahunan annual)"
   statistics_report: "BPS survey (if sampled)"
+
+# Regulatory-news sources & topics for THIS jurisdiction (Indonesia). The `news` collector
+# searches these and applies an item ONLY to ID clients — never to RU clients, and never
+# RF-reflexed. Search/results are Indonesian-language; the operator still reads the report
+# in their locale (RU), but tax terms stay native (PP55, PPN, UMKM, BPJS).
+news:
+  language: id
+  primary_sources: ["pajak.go.id", "jdih.kemenkeu.go.id", "peraturan.go.id", "bpjs-kesehatan.go.id", "bpjsketenagakerjaan.go.id"]
+  commentary_sources: ["ortax.org", "ddtc.co.id", "pajakku.com"]
+  topics:
+    - { id: pp55_final_pph,   label: "PP55 / PPh final 0.5% UMKM (rate, time limit, revisions)", relevance: "regime=UMKM_FINAL" }
+    - { id: ppn_pkp,          label: "PPN / PKP threshold (peredaran bruto 4.8B) + e-Faktur", relevance: all }
+    - { id: pph_badan,        label: "PPh Badan (corporate 22%) — for when the facility lapses", relevance: all }
+    - { id: pph21_withhold,   label: "PPh 21 / 23 / 4(2) withholding (unifikasi) rates & forms", relevance: "has_payroll_or_withholding" }
+    - { id: bpjs,             label: "BPJS Kesehatan / Ketenagakerjaan contribution rates", relevance: "has_payroll" }
+    - { id: coretax_spt,      label: "Coretax / SPT Masa & Tahunan form/deadline changes", relevance: all }
+    - { id: lkpm_oss,         label: "LKPM / OSS reporting changes", relevance: all }
+  exclude: ["RU-specific items", "non-Indonesian-source items"]

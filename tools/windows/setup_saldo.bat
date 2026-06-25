@@ -10,12 +10,11 @@ rem  Delivery note: Telegram sends .bat as a file. On first run Windows may show
 rem  "Windows protected your PC" -> click "More info" -> "Run anyway" (or right-
 rem  click the file -> Properties -> Unblock before running).
 rem ============================================================================
-setlocal
+setlocal EnableDelayedExpansion
 title Saldo setup
 
 set "DEST=C:\Saldo"
 set "REPO=%DEST%\Saldo-engine"
-set "OLD=%USERPROFILE%\Documents\Saldo\Saldo-engine"
 rem HTTPS (matches how this laptop already pulls; no SSH key needed - cached
 rem GitHub credentials are reused). For SSH instead: git@github.com:vindm/Saldo.git
 set "URL=https://github.com/vindm/Saldo.git"
@@ -35,18 +34,30 @@ if exist "%REPO%\.git" (
   git clone "%URL%" "%REPO%" || (echo [!] Clone failed - check internet / GitHub access. & pause & exit /b 1)
 )
 
-rem Carry over the existing configuration. port_config.py rewrites any RELATIVE
-rem data.dir / dashboards_dir to absolute (anchored at the old config folder) so
-rem the data still resolves after the move; it won't overwrite an existing config.
-if exist "%OLD%\config\instance.yaml" (
-  echo Porting your config from the old folder ^(making data paths absolute^) ...
-  %PY% "%REPO%\tools\port_config.py" "%OLD%\config\instance.yaml" "%REPO%\config\instance.yaml"
+rem Carry over the existing config. Look in the likely old locations (plain
+rem Documents AND OneDrive-redirected Documents). port_config.py rewrites any
+rem RELATIVE data.dir to absolute so the data still resolves from the new location;
+rem it won't overwrite a config that's already there.
+set "OLDCFG="
+for %%P in (
+  "%USERPROFILE%\Documents\Saldo\Saldo-engine\config\instance.yaml"
+  "%USERPROFILE%\OneDrive\Documents\Saldo\Saldo-engine\config\instance.yaml"
+  "%OneDrive%\Documents\Saldo\Saldo-engine\config\instance.yaml"
+) do if not defined OLDCFG if exist "%%~P" set "OLDCFG=%%~P"
+
+if defined OLDCFG (
+  echo Porting your config from "!OLDCFG!" ...
+  %PY% "%REPO%\tools\port_config.py" "!OLDCFG!" "%REPO%\config\instance.yaml"
+) else (
+  echo [!] Could not find your previous config automatically.
 )
+
 if not exist "%REPO%\config\instance.yaml" (
   echo.
-  echo [!] No config\instance.yaml found yet. Open %REPO%\config, copy
-  echo     instance.example.yaml to instance.yaml and set data.dir + locale,
-  echo     then run the Desktop icon. Ask Dima if unsure.
+  echo [!] No config\instance.yaml yet - the update will STOP rather than build the
+  echo     demo. Find your old instance.yaml and run, in this window:
+  echo         %PY% "%REPO%\tools\port_config.py" "PATH\TO\OLD\config\instance.yaml" "%REPO%\config\instance.yaml"
+  echo     (or copy it in and set data.dir + locale: ru). Ask Dima if unsure.
   echo.
 )
 

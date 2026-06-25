@@ -87,6 +87,46 @@ migration.
   canonical vocabulary (`engine/_status.py`); the original is preserved in
   `status_legacy`. Pairs with the display-time normalizer + the `state_lint`
   `status_noncanon` check.
+- `0006_quick_access_map.py` — quick_access: normalize `cred_status` (`na` →
+  derived) + backfill the RU service map; idempotent.
+- `0007_terminal_task_next_action.py` — tasks: clear stale `next_action` on
+  terminal tasks (done/archived/cancelled); original kept in `next_action_legacy`.
+  Pairs with the render-side guard in `_track_attrs.py` + the `stale_next_action`
+  lint check.
+- `0008_context_enumerator_newlines.py` — tasks: break a genuine inline
+  enumerator list (`1) … 2) … 3) …`) in `context` onto separate lines; original
+  kept in `context_legacy`. Conservative — only fires on a real sequence starting
+  at 1 with ≥2 bare items, so `(i1)`, `(1)…(2)…` and form numbers are left alone.
+  Pairs with the render-side `white-space:pre-wrap` + newline-safe `stripIds` in
+  `_track_modal.py` and the §0.3 authoring rule in `policies/INSTRUCTIONS.md`.
+- `0009_operator_text_ru_cleanup.py` — tasks: clean stray English in
+  operator-facing `title`/`context`/`next_action` (`direct`→`прямой`, `risk R-`→
+  `риском R-`, `(done)`→`(готово)`); originals in `*_legacy`. Conservative — exact,
+  grammar-correct, identifier-safe substrings only, so risk-ids/memory-keys are
+  left alone. Pairs with the §0.1.a rule in `policies/INSTRUCTIONS.md`.
+- `0010_assist_hypothesis_machine_tags.py` — tasks: strip machine annotations
+  (daemon tags, raw snake_case track-ids, `см./see <id>` cross-refs) from
+  operator-facing `assist.hypothesis`; original kept in `assist.hypothesis_legacy`.
+  Matched by SHAPE, never a literal client id (zero real data). Conservative —
+  meaningful inline source labels (e.g. `(mental_model)` vs `(state)`) are
+  protected. Pairs with the extended §0.1.a rule + the render change making
+  `assist.hypothesis` the per-row lens (`_plan_today.py` / `_track_modal.py`).
+- `0011_regime_client_facing.py` — regime: add optional `client_facing`
+  `{summary, turnover_scope}` where absent. Additive, behaviour-preserving (null =
+  the report derives a clean line). Opens the only client-facing prose slot so the
+  client one-pager stops borrowing the internal `business_description`. Pairs with
+  the rework of `engine/_owner_report.py` and the §0.1.b authoring rule in
+  `policies/INSTRUCTIONS.md`.
+- `0012_chat_quick_access_no_cred_status.py` — accounts.quick_access: remove the
+  stale `cred_status` from `by_chat` messenger entries (tg/whatsapp/max — access is
+  session-level, not a per-chat credential, so the chip was spurious). Idempotent;
+  behaviour-preserving with the render change (`_client_dashboard_v2.py →
+  render_client_quick_access` already suppresses the chip for messenger entries).
+- `0013_client_brief.py` — create `state/brief.json` `{summary, generated_for}`,
+  backfilled from the `mental_model.md` ```analysis``` summary (the operator
+  situation brief shown in the client-cockpit hero); `mm_update` refreshes it
+  nightly + on-change. Additive, behaviour-preserving (no summary → the hero falls
+  back to the counts line). Mirrors the additive pattern of 0004 / 0011.
 
 ## Known follow-ups needing a content decision (not yet migrations)
 

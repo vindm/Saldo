@@ -21,15 +21,21 @@ from _strings import t
 from _icons import icon, ICON_SPRITE, ICON_CSS
 
 SIDEBAR_CSS = (
-    ".layout-shell{display:grid;grid-template-columns:210px 1fr;gap:var(--space-md);"
-    "max-width:none;margin:0;padding:var(--space-md);align-items:start}"
+    ".layout-shell{display:grid;grid-template-columns:240px 1fr;gap:0;"
+    "max-width:none;margin:0;padding:0;align-items:start}"
     "@media(max-width:900px){.layout-shell{grid-template-columns:1fr}}"
-    ".sb{background:var(--bg-card);border:1px solid var(--border);"
-    "border-radius:var(--radius-card);padding:var(--space-md) var(--space-sm);"
-    "font-size:15px;position:sticky;top:var(--space-md);"
-    "max-height:calc(100vh - 2*var(--space-md));overflow-y:auto}"
+    # Full-bleed sidebar: edge-to-edge, full height, hairline right border —
+    # no floating 'island' card (border/radius/inset removed).
+    ".sb{background:var(--bg-card);border:none;border-right:1px solid var(--border);"
+    "border-radius:0;padding:var(--space-lg) var(--space-md);"
+    "font-size:15px;position:sticky;top:0;height:100vh;"
+    "max-height:100vh;overflow-y:auto;display:flex;flex-direction:column}"
+    # Bottom block (guide + update + footer) pinned to the foot of the sidebar.
+    ".sb-bottom{margin-top:auto}"
+    ".main-content{padding:32px 48px}"
+    "@media(max-width:900px){.main-content{padding:var(--space-lg)}}"
     ".sb-logo{display:flex;flex-direction:column;align-items:center;text-align:center;"
-    "gap:7px;padding:2px var(--space-sm) var(--space-md);"
+    "gap:7px;padding:2px var(--space-sm) var(--space-lg);"
     "border-bottom:1px solid var(--border);margin-bottom:var(--space-sm)}"
     ".sb-logo-img{width:64px;height:64px;border-radius:50%;display:block;"
     "box-shadow:0 1px 4px rgba(31,78,121,0.25)}"
@@ -59,6 +65,11 @@ SIDEBAR_CSS = (
     "border-top:1px solid var(--border);margin-top:var(--space-sm);text-align:center;letter-spacing:.02em}"
     ".main-content{min-width:0}"
     ".sb-item.sb-clients{border-left:3px solid #7F77DD}"
+    # Gold "Update available" call-to-action (rendered by _updater.py).
+    ".sb-item.sb-update{border-left:3px solid #B79257;background:#FBF4E6;"
+    "color:#6B4F1C;font-weight:600}"
+    ".sb-item.sb-update:hover{background:#F4E8CC;color:#5A3F12}"
+    ".sb-item.sb-update .count{background:#B79257;color:#fff;font-weight:700}"
 )
 SIDEBAR_CSS = SIDEBAR_CSS + ICON_CSS
 
@@ -132,10 +143,24 @@ def render_sidebar(active='dashboard', counts=None):
         '<div class="sb-group">' + t('Clients') + '</div>',
     ]
     parts.extend(_client_group_items(active))
+    # Bottom-pinned block: "How to use", the update affordance, and the footer
+    # sit at the foot of the sidebar (margin-top:auto pushes them down).
     parts.extend([
+        '<div class="sb-bottom">',
         '<div class="sb-divider"></div>',
         _sb_item('guide.html', t('How to use'), 'guide', active, icon=icon('guide')),
+    ])
+    # Update affordance — appears only when the check flag says a new engine
+    # version is available; renders '' (nothing) otherwise. Imported lazily to
+    # avoid any import cycle through generate/_config.
+    try:
+        from _updater import render_update_sidebar_item
+        parts.append(render_update_sidebar_item(active))
+    except Exception:
+        pass
+    parts.extend([
         '<div class="sb-footer">by Ask Why Not</div>',
+        '</div>',
         '</aside>',
     ])
     return ''.join(parts)

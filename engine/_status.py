@@ -89,7 +89,7 @@ CANON_PILL = {
     'active':      ('#EAF3DE', '#3D6107'),
     'in_progress': ('#E6F1FB', '#185FA5'),
     'awaiting':    ('#E6F1FB', '#185FA5'),
-    'blocked':     ('#FCEBEB', '#9B1C1C'),
+    'blocked':     ('#FAEEDA', '#854F0B'),  # yellow, not red — it's waiting on something, nothing to do now
     'scheduled':   ('#FAEEDA', '#854F0B'),
     'calculated':  ('#E6F1FB', '#185FA5'),
     'paid':        ('#EAF3DE', '#3D6107'),

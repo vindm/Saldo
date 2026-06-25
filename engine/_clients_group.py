@@ -24,14 +24,13 @@ from generate import (
 from _deadlines import collect_deadlines, collect_awaiting
 from _helpers import (
     _format_date_ru, _translate_tech_terms,
-    _slugify_group, _group_label, client_group,
+    _slugify_group, _group_label, client_group, client_avatar,
 )
 from _strings import t
 from _mental_model import load_mental_models
 from _overview_v2 import OVERVIEW_V2_CSS
 from _overview_shared import render_header, is_track_active
 from _sidebar import render_sidebar, SIDEBAR_CSS
-from _dictate import DICTATE_CSS, DICTATE_MODAL_HTML, DICTATE_JS
 from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 
 
@@ -72,8 +71,10 @@ def _scenario_short(c):
 def _render_group_card(c, color, n_tracks, key_anom, top_track):
     """A single client card — group-agnostic."""
     right_label = _scenario_short(c)
+    _av_ini, _av_style = client_avatar(c["name_short"])
     head_html = (
         f'<div class="dc-name-row">'
+        f'<span class="dc-av"{_av_style}>{_esc(_av_ini)}</span>'
         f'<span class="dc-name">{_esc(c["name_short"])}</span>'
         f'<span class="dc-regime">{_esc(right_label)}</span>'
         f'</div>'
@@ -136,7 +137,9 @@ _EXTRA_CSS = """
 .dc-card-grey::before{background:var(--text-muted)}
 .dc-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.08)}
 
-.dc-name-row{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-sm)}
+.dc-name-row{display:flex;justify-content:space-between;align-items:center;gap:var(--space-sm)}
+.dc-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:12px;font-weight:600}
 .dc-name{font-size:16px;font-weight:500;color:var(--text-primary);line-height:1.3;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .dc-regime{font-size:13px;color:var(--text-muted);white-space:nowrap;flex-shrink:0}
@@ -241,7 +244,7 @@ def render_clients_group(group_name, group_clients=None):
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS
-        + SIDEBAR_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + _EXTRA_CSS + '</style>'
+        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + _EXTRA_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active=active_key)
@@ -251,7 +254,7 @@ def render_clients_group(group_name, group_clients=None):
         + '<div class="cd-summary">' + t('{} {} clients').format(len(group_clients), _esc(label)) + '<br>' + health_summary + '</div>'
         + grid_html
         + '</main></div>'
-        + PROMPT_MODAL_HTML + DICTATE_MODAL_HTML
-        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS + DICTATE_JS +
+        + PROMPT_MODAL_HTML 
+        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS  +
         '</body></html>'
     )

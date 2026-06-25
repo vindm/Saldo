@@ -21,9 +21,10 @@ sys.path.insert(0, HERE)
 from state_ops import CLIENT_FOLDERS, _client_dir  # single source of the client list
 from _helpers import track_stale_days  # R8
 import _vocab
-from _status import CANON_LABEL  # canonical track-status vocabulary
+from _status import CANON_LABEL, normalize_status  # canonical track-status vocabulary
 from _track_modal import _TS_RU_LOC, INTERNAL_TS_KEYS  # type_specific label coverage
 from _track_attrs import _TASK_TYPE_LABEL  # task_type label coverage
+from _client_dashboard_v2 import _CP_RELATION_LABEL, _CP_CATEGORY_LABEL  # counterparty enum label coverage
 
 REPLACEMENT = '�'
 # NOTE: these markers are LOGIC KEYS — they are matched against data values in
@@ -216,6 +217,12 @@ def lint_client(cid, _xclient=None):
         if tt and tt not in _TASK_TYPE_LABEL:
             _v(viols, 'info', cid, 'i18n_task_type',
                f'{t.get("id")}: task_type "{tt}" has no label (add to _TASK_TYPE_LABEL)')
+        # A closed/terminal task must not carry a stale next_action (would show an
+        # outdated next step on a done task). Migration 0007 clears it; flag drift.
+        if normalize_status(t.get('status') or '') in ('done', 'archived', 'cancelled') \
+                and (t.get('next_action') or t.get('next_action_full')):
+            _v(viols, 'info', cid, 'stale_next_action',
+               f'{t.get("id")}: terminal task still has next_action (clear it on close)')
         for k in (t.get('type_specific') or {}):
             if k not in _ts_known and k not in _ts_internal:
                 _v(viols, 'info', cid, 'i18n_ts_key',
@@ -265,6 +272,17 @@ def lint_client(cid, _xclient=None):
         ci = cp.get('inn')
         if ci and str(ci).isdigit() and _inn_valid(ci) is False:
             _v(viols, 'warn', cid, 'cp_inn_csum', f'counterparty {cp.get("id")}: INN fails its checksum: {ci}')
+        # i18n coverage: relation_type/category are operator-facing enums; an
+        # unmapped value renders the raw code (uppercased by .cp-meta). Mirror
+        # i18n_task_type so a new value can't ship without a localized label.
+        rel = cp.get('relation_type')
+        if rel and rel not in _CP_RELATION_LABEL:
+            _v(viols, 'info', cid, 'i18n_cp_label',
+               f'counterparty {cp.get("id")}: relation_type "{rel}" has no label (add to _CP_RELATION_LABEL)')
+        ccat = cp.get('category')
+        if ccat and ccat not in _CP_CATEGORY_LABEL:
+            _v(viols, 'info', cid, 'i18n_cp_label',
+               f'counterparty {cp.get("id")}: category "{ccat}" has no label (add to _CP_CATEGORY_LABEL)')
 
     # J. Tracks: overdue, open_question without resolves_when, stale
     for t2 in tasks:

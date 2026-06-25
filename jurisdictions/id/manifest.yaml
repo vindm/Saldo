@@ -1,13 +1,31 @@
-# ID jurisdiction — pack manifest (synthetic demo, salon-scoped). 2026-06-23.
+# ID jurisdiction — pack manifest. Indonesia (UMKM-final; micro -> PT-with-payroll).
 code: id
 name: "Indonesia"
+name_i18n: { ru: "Индонезия", en: "Indonesia" }
 authorities: authorities.yaml
 regimes: regimes.yaml
 pipeline: pipeline.yaml
-workflow_domains: [coretax, email, bank]
+glossary: glossary.md
+workflow_domains: [coretax, email, bank, payroll, bpjs]
 checklists:
+  # intake / inputs + master monthly close (PT with employees)
   monthly_turnover:           checklists/monthly-turnover.md
+  turnover_collection:        checklists/monthly-turnover.md
+  inputs_collection:          checklists/monthly-close-pt.md
+  monthly_close:              checklists/monthly-close-pt.md
+  monthly_close_pt:           checklists/monthly-close-pt.md
+  # PP55 0.5% compute + pay
   compute_final_pph:          checklists/coretax-final-tax-payment.md
   coretax_final_tax_payment:  checklists/coretax-final-tax-payment.md
   single_tax_payment_order:   checklists/coretax-final-tax-payment.md
+  # payroll: PPh 21 + BPJS
+  payroll:                    checklists/payroll-pph21-bpjs.md
+  payroll_pph21_bpjs:         checklists/payroll-pph21-bpjs.md
+  # withholding: unifikasi (PPh 4(2) rent + PPh 23)
+  withholding_unifikasi:      checklists/unifikasi-withholding.md
+  unifikasi_withholding:      checklists/unifikasi-withholding.md
+  # annual
+  annual_spt_badan:           checklists/annual-spt-badan.md
+  annual_return:              checklists/annual-spt-badan.md
+  # onboarding
   new_client:                 checklists/new-client-id.md

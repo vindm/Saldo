@@ -141,7 +141,8 @@ def render_periods():
             continue
         try:
             import _jurisdiction as _J
-            jname = _J.load_jurisdiction(juris).manifest.get('name') or juris.upper()
+            _mani = _J.load_jurisdiction(juris).manifest
+            jname = (_mani.get('name_i18n') or {}).get(_LOC) or _mani.get('name') or juris.upper()
         except Exception:
             jname = juris.upper()
         blocks.append('<h2 class="pp-juris-head" style="margin:28px 0 6px;font-size:14px;'

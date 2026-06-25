@@ -98,44 +98,50 @@ def _ts_internal_json():
     return json.dumps(INTERNAL_TS_KEYS)
 
 TRACK_MODAL_CSS = """
-.track-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;
-  display:none;align-items:center;justify-content:center;padding:var(--space-md)}
-.track-modal.open{display:flex}
-.track-modal-box{background:var(--bg-card);border-radius:var(--radius-card);
-  max-width:1040px;width:100%;max-height:90vh;overflow-y:auto;
-  box-shadow:0 16px 48px rgba(16,16,26,0.22);padding:var(--space-lg) var(--space-xl);position:relative}
+.track-modal{position:fixed;inset:0;background:rgba(18,18,28,0.34);z-index:9999;
+  display:none;align-items:center;justify-content:center;padding:var(--space-lg);
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.track-modal.open{display:flex;animation:tm-fade 140ms ease}
+@keyframes tm-fade{from{opacity:0}to{opacity:1}}
+.track-modal-box{background:var(--bg-card);border-radius:16px;border:1px solid var(--border);
+  max-width:1080px;width:100%;max-height:90vh;overflow-y:auto;
+  box-shadow:0 24px 64px -16px rgba(16,16,26,0.30),0 4px 12px rgba(16,16,26,0.06);
+  padding:38px 44px 0;position:relative;animation:tm-rise 160ms cubic-bezier(.2,.7,.3,1)}
+@keyframes tm-rise{from{transform:translateY(8px);opacity:.6}to{transform:translateY(0);opacity:1}}
 
 /* Two-column: solving content on the left, properties rail on the right (Linear) */
-.tm-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
+.tm-grid{display:grid;grid-template-columns:minmax(0,1fr) 256px;gap:52px;align-items:stretch}
 .tm-main{min-width:0}
-.tm-aside{border-left:1px solid var(--border);padding-left:24px;min-width:0}
-.tm-aside-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--text-muted);font-weight:600;margin-bottom:12px}
-.tm-aside .tm-meta-row{flex-direction:column;align-items:flex-start;gap:7px;
+.tm-aside{border-left:1px solid var(--border);padding-left:32px;padding-bottom:30px;min-width:0}
+.tm-aside-h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-muted);font-weight:600;margin-bottom:14px}
+.tm-aside .tm-meta-row{flex-direction:column;align-items:flex-start;gap:8px;
   margin:0;padding:0;border-bottom:none}
-.tm-aside .tm-section{margin:16px 0 0}
-.tm-aside .tm-section-label{font-size:11px;letter-spacing:.06em}
-.tm-aside .tm-typespecific-grid{grid-template-columns:1fr;gap:2px}
-.tm-aside .tm-typespecific-key{font-size:13px}
-.tm-aside .tm-typespecific-val{font-size:14px;margin-bottom:6px}
-@media (max-width:680px){
+.tm-aside .tm-section{margin:20px 0 0}
+.tm-aside .tm-section-label{font-size:11px;letter-spacing:.08em}
+.tm-aside .tm-typespecific-grid{grid-template-columns:1fr;gap:1px}
+.tm-aside .tm-typespecific-key{font-size:12px;color:var(--text-muted);margin-bottom:1px}
+.tm-aside .tm-typespecific-val{font-size:14px;margin-bottom:12px;color:var(--text-primary)}
+@media (max-width:720px){
+  .track-modal-box{padding:26px 22px 0}
   .tm-grid{grid-template-columns:1fr;gap:0}
-  .tm-aside{border-left:none;padding-left:0;margin-top:16px;
-    border-top:1px solid var(--border);padding-top:16px}
+  .tm-aside{border-left:none;padding-left:0;margin-top:20px;
+    border-top:1px solid var(--border);padding-top:20px}
   .tm-aside .tm-meta-row{flex-direction:row;flex-wrap:wrap}
 }
-.track-modal-close{position:absolute;top:var(--space-md);right:var(--space-md);
-  background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);
-  width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:2}
+.track-modal-close{position:absolute;top:18px;right:18px;
+  background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-muted);
+  width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;z-index:2;
+  transition:all 120ms}
 .track-modal-close:hover{background:var(--bg-page);color:var(--text-primary)}
 
 /* Breadcrumb */
-.tm-breadcrumb{display:flex;align-items:center;gap:4px;font-size:15px;
-  color:var(--text-secondary);margin-bottom:var(--space-md);padding-right:40px;
+.tm-breadcrumb{display:flex;align-items:center;gap:4px;font-size:14px;
+  color:var(--text-secondary);margin-bottom:18px;padding-right:40px;
   flex-wrap:wrap;line-height:1.5}
-.tm-bc-link{color:var(--text-secondary);text-decoration:none;padding:3px 8px;
+.tm-bc-link{color:var(--text-muted);text-decoration:none;padding:4px 10px 4px 0;
   border-radius:6px;transition:all 120ms;font-weight:500}
-.tm-bc-link:hover{background:var(--bg-page);color:var(--accent-blue)}
+.tm-bc-link:hover{color:var(--accent)}
 .tm-bc-sep{color:var(--text-muted);font-size:14px;margin:0 2px;user-select:none}
 .tm-bc-current{color:var(--text-primary);font-weight:500;padding:3px 8px}
 .tm-bc-spacer{flex:1;min-width:8px}
@@ -146,45 +152,37 @@ TRACK_MODAL_CSS = """
 .tm-bc-badge.bc-green{background:var(--green-bg);color:#3B5E2A}
 .tm-bc-badge.bc-grey{background:var(--bg-page);color:var(--text-secondary)}
 
-.tm-title{font-size:20px;font-weight:600;margin:0 0 14px;color:var(--text-primary);
-  padding-right:40px;line-height:1.3;letter-spacing:-0.01em}
-.tm-section{margin:16px 0;padding:0}
-.tm-section-label{font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;
+.tm-title{font-size:23px;font-weight:600;margin:2px 0 20px;color:var(--text-primary);
+  padding-right:40px;line-height:1.28;letter-spacing:-0.02em}
+.tm-section{margin:22px 0;padding:0}
+.tm-section-label{font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em;
   font-weight:600}
-.tm-section-body{font-size:15px;line-height:1.6;color:var(--text-primary)}
+.tm-section-body{font-size:15px;line-height:1.65;color:var(--text-primary)}
 /* Context reads as a lead paragraph, not a labeled form field */
-#tm-context-section{margin-top:0}
+#tm-context-section{margin-top:0;margin-bottom:24px}
 #tm-context-section .tm-section-label{display:none}
-#tm-context-body{font-size:16px;line-height:1.6;color:var(--text-primary)}
-.tm-next-action{padding:12px 14px;background:var(--blue-bg);color:var(--text-primary);font-size:15px;line-height:1.55;border-radius:8px;border-left:3px solid var(--accent-blue)}
+#tm-context-body{font-size:16.5px;line-height:1.65;color:var(--text-secondary);white-space:pre-wrap}
+.tm-next-action{padding:13px 16px;background:var(--blue-bg);color:var(--text-primary);font-size:15px;line-height:1.55;border-radius:10px;border-left:3px solid var(--accent-blue);white-space:pre-wrap}
 .tm-reply-draft{padding:var(--space-md) var(--space-lg);background:var(--green-bg);
   border-left:4px solid var(--accent-green);border-radius:0 var(--radius-btn) var(--radius-btn) 0;
   font-size:16px;line-height:1.7;color:var(--text-primary);white-space:pre-wrap}
 
-.tm-actions{padding-top:18px;margin-top:20px;border-top:1px solid var(--border)}
-.tm-actions-assist{display:flex;gap:10px;flex-wrap:wrap}
-.tm-actions-assist:not(:empty){margin-bottom:12px}
-.tm-actions-generic{display:flex;gap:10px;flex-wrap:wrap}
-.tm-btn-sm{padding:7px 13px;font-size:14px;font-weight:500}
+/* Action bar pinned to the bottom of the scroll area so the primary CTA stays
+   reachable on long tasks. Background masks content scrolling underneath. */
+.tm-actions{position:sticky;bottom:0;z-index:3;margin-top:24px;padding:16px 0 26px;
+  background:var(--bg-card);border-top:1px solid var(--border);
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+/* assist actions + the generic button share one wrapping row */
+.tm-actions-assist,.tm-actions-generic{display:contents}
 .tm-actions-secondary{margin-top:var(--space-sm);border-top:none;padding-top:0;
   display:flex;gap:8px;flex-wrap:wrap}
-.tm-actions-secondary .tm-btn{font-size:15px;padding:8px 14px;opacity:0.9}
-.tm-btn{padding:10px 16px;font-size:15px;border:1px solid var(--border);
-  border-radius:var(--radius-btn);background:var(--bg-card);color:var(--text-primary);
-  cursor:pointer;transition:all 150ms;text-decoration:none;display:inline-flex;
-  align-items:center;gap:8px;font-family:inherit;font-weight:500}
-.tm-btn:hover{border-color:var(--accent-blue);background:var(--blue-bg);color:var(--accent-blue)}
-.tm-btn-primary{background:var(--accent-blue);color:#fff;border-color:var(--accent-blue)}
-.tm-btn-primary:hover{background:var(--accent-hover);color:#fff;border-color:var(--accent-hover)}
-.tm-btn-success{background:var(--accent-green);color:#fff;border-color:var(--accent-green)}
-.tm-btn-success:hover{background:#557546;color:#fff;border-color:#557546}
-.tm-btn-warn{background:var(--accent-yellow);color:#fff;border-color:var(--accent-yellow)}
-.tm-btn-warn:hover{background:#b8893a;color:#fff;border-color:#b8893a}
-.tm-btn-tg{background:#2AABEE;color:#fff;border-color:#2AABEE}
-.tm-btn-tg:hover{background:#1a8fc7;color:#fff;border-color:#1a8fc7}
+/* The button system itself (.tm-btn + size/colour modifiers) is defined ONCE
+   in _css.py. Do not redefine it here — only modal-scoped tweaks belong below. */
+.tm-actions-secondary .tm-btn{opacity:0.9}
 .tm-meta-row{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--border)}
-.tm-meta-chip{font-size:13px;padding:3px 9px;border-radius:6px;background:var(--bg-page);
-  color:var(--text-primary);font-weight:500;border:1px solid var(--border)}
+.tm-meta-chip{font-size:12.5px;padding:4px 11px;border-radius:7px;background:var(--bg-page);
+  color:var(--text-secondary);font-weight:500;border:1px solid var(--border);
+  display:inline-flex;align-items:center;gap:5px;line-height:1.3}
 .tm-meta-chip.status-awaiting{background:var(--blue-bg);color:var(--accent-blue);border-color:transparent}
 .tm-meta-chip.status-active{background:var(--green-bg);color:var(--accent-green);border-color:transparent}
 .tm-meta-chip.status-blocked{background:var(--yellow-bg);color:var(--accent-yellow);border-color:transparent}
@@ -199,8 +197,12 @@ TRACK_MODAL_CSS = """
 .tm-meta-chip.due-far{background:var(--bg-page);color:var(--text-secondary);border-color:transparent}
 .tm-meta-chip.tm-stale{background:var(--yellow-bg);color:#8A6730;border-color:transparent;font-weight:600}
 
-.tm-dep-link{display:block;padding:6px 10px;background:var(--yellow-bg);border-radius:4px;margin-bottom:4px;font-size:14px;color:#8A6730}
-.tm-dep-link .dep-arrow{color:var(--text-muted);margin-right:6px}
+.tm-dep-link{display:flex;align-items:center;padding:7px 11px;background:var(--yellow-bg);border-radius:6px;margin-bottom:4px;font-size:14px;color:#8A6730;cursor:pointer;transition:background 150ms}
+.tm-dep-link[data-dep-id]:hover{background:#F3E4C8}
+.tm-dep-link .dep-arrow{color:var(--text-muted);margin-right:6px;white-space:nowrap;flex-shrink:0}
+/* trailing go-arrow on the right — signals the row is a link even without hover */
+.tm-dep-link .dep-go{margin-left:auto;padding-left:10px;color:var(--text-muted);flex-shrink:0}
+.tm-dep-link[data-dep-id]:hover .dep-go{color:var(--accent)}
 .tm-dep-link .dep-id{font-size:14px;color:var(--text-muted);font-family:var(--font-mono,monospace);
   margin-left:8px}
 
@@ -220,25 +222,35 @@ TRACK_MODAL_CSS = """
 .tm-comment-meta{font-size:15px;color:var(--text-muted);margin-bottom:4px}
 .tm-comment-text{font-size:14px;color:var(--text-primary);line-height:1.5}
 
-.tm-history-list{display:flex;flex-direction:column;gap:0}
-.tm-history-item{font-size:14px;line-height:1.55;padding:9px 0;border:none;border-bottom:1px solid var(--border);
-  background:transparent;color:var(--text-secondary);border-radius:0}
-.tm-history-item:last-child{border-bottom:none}
+/* Event history rendered as a real timeline: a continuous rail with a dot per
+   event. Filled accent dot = operator/system action; hollow ring = auto event. */
+.tm-history-list{display:flex;flex-direction:column;gap:0;position:relative}
+.tm-history-list::before{content:"";position:absolute;left:4px;top:15px;bottom:15px;
+  width:2px;background:var(--border);border-radius:2px}
+.tm-history-item{position:relative;font-size:14px;line-height:1.55;padding:7px 0 7px 26px;
+  border:none;background:transparent;color:var(--text-secondary);border-radius:0}
+.tm-history-item::before{content:"";position:absolute;left:0;top:11px;width:10px;height:10px;
+  border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--bg-card);z-index:1}
+.tm-history-item.auto::before{background:var(--bg-card);border:2px solid var(--border-strong);
+  box-shadow:0 0 0 2px var(--bg-card)}
 .tm-history-item .h-date{color:var(--text-muted);font-weight:500;font-family:var(--font-mono,monospace);
-  font-size:13px;margin-right:9px}
+  font-size:12.5px;margin-right:9px}
 .tm-history-item.auto{opacity:1}
-.tm-history-item .h-src{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:11px;font-size:13px;
-  font-family:var(--font-mono,monospace);font-weight:700;background:var(--bg-page);color:var(--text-muted);border:1px solid var(--border)}
+.tm-history-item .h-src{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:6px;font-size:12px;
+  font-family:var(--font-mono,monospace);font-weight:600;background:var(--bg-page);color:var(--text-muted);border:1px solid var(--border)}
 .tm-history-item .h-src-none{background:#F7D9D9;color:#8A1414;border:1px solid #E0A0A0}
-.tm-history-item .h-auto{display:inline-block;margin-left:7px;padding:2px 9px;border-radius:11px;font-size:12px;
-  font-weight:600;background:#E8E8E4;color:#444;border:1px solid #CFCFC8}
+.tm-history-item .h-auto{display:inline-block;margin-left:7px;padding:1px 8px;border-radius:6px;font-size:11.5px;
+  font-weight:500;background:var(--bg-page);color:var(--text-muted);border:1px solid var(--border)}
 .tm-action-status{padding:var(--space-sm) var(--space-md);margin:var(--space-sm) 0;
   border-radius:var(--radius-btn);font-size:14px;display:none}
 .tm-action-status.show{display:block}
 .tm-action-status.success{background:var(--green-bg);color:#3B5E2A;border-left:3px solid var(--accent-green)}
 .tm-action-status.error{background:var(--red-bg);color:var(--accent-red);border-left:3px solid var(--accent-red)}
 .tm-action-status.info{background:var(--blue-bg);color:#0C447C;border-left:3px solid var(--accent-blue)}
-.tm-assist-hyp{padding:11px 14px;background:var(--yellow-bg);border-left:3px solid var(--accent-yellow);border-radius:8px;font-size:15px;line-height:1.55;color:var(--text-primary);margin-bottom:12px}
+/* Hypothesis = the system thinking out loud, not a warning. Calm neutral card. */
+.tm-assist-hyp{padding:13px 16px;background:var(--bg-subtle);border:1px solid var(--border);
+  border-left:3px solid var(--border-strong);border-radius:10px;font-size:15px;line-height:1.6;
+  color:var(--text-secondary);margin-bottom:12px;white-space:pre-wrap}
 .tm-assist-conf{font-size:13px;color:var(--text-muted);margin-left:6px}
 .tm-assist-actions{display:flex;gap:8px;flex-wrap:wrap}
 .tm-assist-btn{padding:9px 16px;font-size:15px;border:1px solid var(--border);border-radius:var(--radius-btn);background:var(--bg-card);color:var(--text-primary);cursor:pointer;font-family:inherit;font-weight:500;transition:all 150ms}
@@ -266,6 +278,14 @@ _TRACK_MODAL_HTML_TEMPLATE = """
           <div class="tm-section-label">__CONTEXT__</div>
           <div class="tm-section-body" id="tm-context-body"></div>
         </div>
+        <div class="tm-section" id="tm-deps-section" style="display:none">
+          <div class="tm-section-label">__DEPENDENCIES__</div>
+          <div class="tm-section-body" id="tm-deps-body"></div>
+        </div>
+        <div class="tm-section" id="tm-blocks-section" style="display:none">
+          <div class="tm-section-label">__BLOCKS__</div>
+          <div class="tm-section-body" id="tm-blocks-body"></div>
+        </div>
         <div class="tm-section" id="tm-assist-section" style="display:none">
           <div class="tm-section-label">__HYPOTHESIS__</div>
           <div class="tm-assist-hyp" id="tm-assist-hyp"></div>
@@ -290,15 +310,10 @@ _TRACK_MODAL_HTML_TEMPLATE = """
           <div class="tm-section-label">__REPLY_DRAFT__</div>
           <div class="tm-reply-draft" id="tm-reply-body"></div>
         </div>
-        <div class="tm-section" id="tm-deps-section" style="display:none">
-          <div class="tm-section-label">__DEPENDENCIES__</div>
-          <div class="tm-section-body" id="tm-deps-body"></div>
-        </div>
         <div class="tm-actions">
           <div class="tm-actions-assist" id="tm-assist-btns"></div>
           <div class="tm-actions-generic">
-            <button class="tm-btn tm-btn-sm" id="tm-discuss-btn" type="button">__BREAK_DOWN__</button>
-            <button class="tm-btn tm-btn-sm" id="tm-dictate-btn" type="button">__DICTATE__</button>
+            <button class="tm-btn" id="tm-discuss-btn" type="button">__BREAK_DOWN__</button>
           </div>
         </div>
         <div class="tm-action-status" id="tm-action-status"></div>
@@ -325,12 +340,12 @@ TRACK_MODAL_HTML = (
     .replace('__HYPOTHESIS__', t('🧭 System hypothesis'))
     .replace('__NEXT_ACTION__', t('🎯 Next action'))
     .replace('__DEPENDENCIES__', t('🔒 Dependencies'))
+    .replace('__BLOCKS__', t('🔓 Blocks'))
     .replace('__DETAILS__', t('📑 Details'))
     .replace('__DETAILS_CONTENT__', t('📋 Particulars'))
     .replace('__COMMENTS__', t('💬 Comments'))
     .replace('__REPLY_DRAFT__', t('💬 Draft reply to client'))
     .replace('__BREAK_DOWN__', t('🔍 Break down'))
-    .replace('__DICTATE__', t('🎤 Dictate'))
     .replace('__PROPERTIES__', t('Properties'))
 )
 
@@ -349,7 +364,6 @@ TRACK_MODAL_JS = r"""
   var elReplyBody = document.getElementById('tm-reply-body');
   var elStatus = document.getElementById('tm-action-status');
   var btnDiscuss = document.getElementById('tm-discuss-btn');
-  var btnDictate = document.getElementById('tm-dictate-btn');
   var btnClose = document.getElementById('tm-close-btn');
   var btnTg = null;  // tm-tg-btn removed
 
@@ -391,9 +405,11 @@ TRACK_MODAL_JS = r"""
     // remaining "Dedup …—" anywhere
     s = s.replace(/[Dd]edup\w*\s*:?\s*[+\s]*[—–-]?\s*/g, '');
     s = s.replace(/\(\s*\)/g, '');
-    s = s.replace(/\s{2,}/g, ' ');
-    s = s.replace(/\s+([.,;:)])/g, '$1');
-    s = s.replace(/[\s—–-]+$/, '');
+    // Collapse runs of spaces/tabs only — never newlines, so intentional line
+    // breaks in context/hypothesis survive (the renderer shows them via pre-wrap).
+    s = s.replace(/[ \t]{2,}/g, ' ');
+    s = s.replace(/[ \t]+([.,;:)])/g, '$1');
+    s = s.replace(/[ \t—–-]+$/gm, '');
     return s.trim();
   }
 
@@ -429,6 +445,7 @@ TRACK_MODAL_JS = r"""
       statusCanon: card.getAttribute('data-track-status-canon') || '',
       source: card.getAttribute('data-track-source') || '',
       blockedByJson: card.getAttribute('data-track-blocked-by-json') || '[]',
+      blocksJson: card.getAttribute('data-track-blocks-json') || '[]',
       labelsJson: card.getAttribute('data-track-labels-json') || '[]',
       typeSpecificJson: card.getAttribute('data-track-type-specific-json') || '{}',
       commentsJson: card.getAttribute('data-track-comments-json') || '[]',
@@ -464,16 +481,20 @@ TRACK_MODAL_JS = r"""
       elBcBadge.style.display = 'none';
     }
     elTitle.textContent = currentTrack.title;
-    var _p = '__DISC_PRE__' + (currentTrack.title || '') + '__DISC_MID__' + (currentTrack.clientName || '') + '. ';
-    if (currentTrack.context) _p += '__DISC_CTX__' + currentTrack.context + ' ';
-    if (currentTrack.nextAction) _p += '__DISC_NEXT__' + currentTrack.nextAction + '. ';
-    if (currentTrack.taskType) _p += '(task_type: ' + currentTrack.taskType + ') ';
-    try { var _ts = JSON.parse(currentTrack.typeSpecificJson || '{}'); var _sp = []; if (_ts.period) _sp.push('period ' + _ts.period); if (_ts.amount != null) _sp.push('amount ' + _ts.amount); if (_sp.length) _p += '__DISC_SPEC__' + _sp.join(', ') + '. '; } catch (e) {}
-    try { var _bb = JSON.parse(currentTrack.blockedByJson || '[]'); if (_bb.length) _p += '__DISC_BLOCK__' + _bb.map(function(x){ return x.title || x.id || x; }).join(', ') + '. '; } catch (e) {}
-    try { var _h = JSON.parse(currentTrack.historyJson || '[]'); if (_h.length) { var _last = _h.slice(-2).map(function(ev){ return (ev.date ? ev.date + ' ' : '') + (ev.event || ''); }); _p += '__DISC_DONE__' + _last.join('; ') + '. '; } } catch (e) {}
-    try { var _a = currentTrack.assistJson ? JSON.parse(currentTrack.assistJson) : null; if (_a && _a.hypothesis) _p += '__DISC_HYP__' + _a.hypothesis + ' '; } catch (e) {}
-    _p += '__DISC_INSTR__';
-    btnDiscuss.setAttribute('data-prompt', _p);
+    // The task context (facts) is immutable — kept in data-prompt-ctx so the
+    // operator can clear/replace the default instruction (data-prompt) without
+    // losing it. The unified modal always prepends the context to whatever is
+    // in the editable field on copy.
+    var _ctx = '__DISC_PRE__' + (currentTrack.title || '') + '__DISC_MID__' + (currentTrack.clientName || '') + '. ';
+    if (currentTrack.context) _ctx += '__DISC_CTX__' + currentTrack.context + ' ';
+    if (currentTrack.nextAction) _ctx += '__DISC_NEXT__' + currentTrack.nextAction + '. ';
+    if (currentTrack.taskType) _ctx += '(task_type: ' + currentTrack.taskType + ') ';
+    try { var _ts = JSON.parse(currentTrack.typeSpecificJson || '{}'); var _sp = []; if (_ts.period) _sp.push('period ' + _ts.period); if (_ts.amount != null) _sp.push('amount ' + _ts.amount); if (_sp.length) _ctx += '__DISC_SPEC__' + _sp.join(', ') + '. '; } catch (e) {}
+    try { var _bb = JSON.parse(currentTrack.blockedByJson || '[]'); if (_bb.length) _ctx += '__DISC_BLOCK__' + _bb.map(function(x){ return x.title || x.id || x; }).join(', ') + '. '; } catch (e) {}
+    try { var _h = JSON.parse(currentTrack.historyJson || '[]'); if (_h.length) { var _last = _h.slice(-2).map(function(ev){ return (ev.date ? ev.date + ' ' : '') + (ev.event || ''); }); _ctx += '__DISC_DONE__' + _last.join('; ') + '. '; } } catch (e) {}
+    try { var _a = currentTrack.assistJson ? JSON.parse(currentTrack.assistJson) : null; if (_a && _a.hypothesis) _ctx += '__DISC_HYP__' + _a.hypothesis + ' '; } catch (e) {}
+    btnDiscuss.setAttribute('data-prompt-ctx', _ctx.trim());
+    btnDiscuss.setAttribute('data-prompt', '__DISC_ASK__');
     if(currentTrack.context){
       elCtxBody.textContent = stripIds(currentTrack.context);
       elCtxSec.style.display = '';
@@ -501,7 +522,17 @@ TRACK_MODAL_JS = r"""
     if(_assist && _assist.hypothesis){
       var _conf = '';
       if(_assist.confidence || _assist.updated_at){
-        _conf = '<span class="tm-assist-conf">(' + esc([_assist.confidence, _assist.updated_at].filter(Boolean).join(' · ')) + ')</span>';
+        // Operator-facing: localise the confidence word and humanise the ISO
+        // update date (2026-06-13 -> "13 июня 2026"), same RU month names as the
+        // history block uses (fmtWhen).
+        var _CONF = {high:'уверенность: высокая', medium:'уверенность: средняя', low:'уверенность: низкая'};
+        var _cf = _assist.confidence ? (_CONF[_assist.confidence] || ('уверенность: ' + _assist.confidence)) : '';
+        var _ua = (_assist.updated_at || '').trim();
+        if(/^\d{4}-\d{2}-\d{2}/.test(_ua)){
+          var _M=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+          _ua = parseInt(_ua.slice(8,10),10) + ' ' + _M[parseInt(_ua.slice(5,7),10)-1] + ' ' + _ua.slice(0,4);
+        }
+        _conf = '<span class="tm-assist-conf">(' + esc([_cf, _ua].filter(Boolean).join(' · ')) + ')</span>';
       }
       elAssistHyp.innerHTML = esc(stripIds(_assist.hypothesis)) + _conf;
       if(elAssistSec) elAssistSec.style.display = '';
@@ -511,7 +542,7 @@ TRACK_MODAL_JS = r"""
     if(_hasAssistActions){
       var _attr = function(s){ return String(s||'').replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
       elAssistBtns.innerHTML = _assist.actions.map(function(a, i){
-        return '<button class="tm-btn' + (a.recommended ? ' tm-btn-primary' : '') + '" data-prompt="' + _attr(a.prompt || '') + '">' + esc(stripIds(a.label || '') || ('__ACTION__ ' + (i+1))) + '</button>';
+        return '<button class="tm-btn' + (a.recommended ? ' tm-btn-primary' : '') + '" data-prompt="' + _attr(a.prompt || '') + '" data-prompt-ctx="' + _attr(_ctx.trim()) + '">' + esc(stripIds(a.label || '') || ('__ACTION__ ' + (i+1))) + '</button>';
       }).join('');
     }
     // Always present one primary CTA. With an assist block, the recommended
@@ -542,11 +573,12 @@ TRACK_MODAL_JS = r"""
       metaChips.push('<span class="tm-meta-chip">' + esc(currentTrack.taskType) + '</span>');
     }
     if(currentTrack.due){
-      var dueCls = 'due-far';
-      if(currentTrack.due.indexOf('overdue') >= 0) dueCls = 'due-overdue';
-      else if(currentTrack.due.indexOf('today') >= 0 || currentTrack.due.indexOf('tomorrow') >= 0) dueCls = 'due-soon';
-      else if(currentTrack.due.match(/in [123]d/)) dueCls = 'due-soon';
-      metaChips.push('<span class="tm-meta-chip ' + dueCls + '">📅 ' + esc(currentTrack.due) + '</span>');
+      // THE shared due badge (.due-badge) — same chip as the hero and the plan
+      var _d = String(currentTrack.due).toLowerCase(), dueCls = 'far';
+      if(_d.indexOf('overdue') >= 0 || _d.indexOf('просроч') >= 0) dueCls = 'overdue';
+      else if(_d.indexOf('today') >= 0 || _d.indexOf('сегодня') >= 0) dueCls = 'today';
+      else if(_d.indexOf('tomorrow') >= 0 || _d.indexOf('завтра') >= 0 || _d.match(/in [1-7]d/) || _d.match(/через [1-7] /)) dueCls = 'soon';
+      metaChips.push('<span class="due-badge due-badge-' + dueCls + '">' + esc(currentTrack.due) + '</span>');
     }
     if(currentTrack.assignee){
       metaChips.push('<span class="tm-meta-chip">👤 ' + esc(currentTrack.assignee) + '</span>');
@@ -566,13 +598,34 @@ TRACK_MODAL_JS = r"""
         elDepsBody.innerHTML = bb.map(function(d){
           var dt = d.title || '';
           if(!dt || dt === d.id) dt = '__RELATED_TASK__';
-          return '<div class="tm-dep-link">' +
-            '<span class="dep-arrow">→</span>' + esc(dt) +
+          // clickable: jumps to the blocker's own task card (handler below)
+          return '<div class="tm-dep-link" data-dep-id="' + esc(d.id || '') + '">' +
+            '<span class="dep-arrow">&#128274;</span>' + esc(dt) +
+            '<span class="dep-go">&rarr;</span>' +
           '</div>';
         }).join('');
         elDepsSec.style.display = '';
       } else { elDepsSec.style.display = 'none'; }
     } catch(e) { elDepsSec.style.display = 'none'; }
+
+    // Blocks (reverse deps — the tasks THIS one is holding up)
+    var elBlocksSec = document.getElementById('tm-blocks-section');
+    var elBlocksBody = document.getElementById('tm-blocks-body');
+    try {
+      var bl = JSON.parse(currentTrack.blocksJson);
+      if(bl && bl.length){
+        elBlocksBody.innerHTML = bl.map(function(d){
+          var dt = d.title || '';
+          if(!dt || dt === d.id) dt = '__RELATED_TASK__';
+          // clickable: jumps to the blocked task's own card (shared handler below)
+          return '<div class="tm-dep-link" data-dep-id="' + esc(d.id || '') + '">' +
+            '<span class="dep-arrow">&#128275;</span>' + esc(dt) +
+            '<span class="dep-go">&rarr;</span>' +
+          '</div>';
+        }).join('');
+        elBlocksSec.style.display = '';
+      } else { elBlocksSec.style.display = 'none'; }
+    } catch(e) { elBlocksSec.style.display = 'none'; }
 
     // Type-specific details
     var elTsSec = document.getElementById('tm-typespecific-section');
@@ -738,24 +791,18 @@ TRACK_MODAL_JS = r"""
     if(e.key === 'Escape' && modal.classList.contains('open')) closeTrackModal();
   });
 
-  btnDictate.addEventListener('click', function(){
-    if(!currentTrack) return;
-    if(typeof window.openMicModal === 'function'){
-      window.openMicModal({
-        kind: 'track',
-        id: currentTrack.trackId,
-        client: currentTrack.clientName,
-        title: currentTrack.title,
-        extra: currentTrack.badge || currentTrack.status
-      });
-    } else {
-      console.warn('window.openMicModal not available');
-    }
-  });
-
   document.addEventListener('click', function(e){
     var inner = e.target.closest('button,a');
     if(inner) return;
+    // a dependency chip (modal «Зависимости», plan/card rows): jump to the
+    // blocker's own task card if it's rendered anywhere on the page.
+    var dep = e.target.closest('[data-dep-id]');
+    if(dep){
+      var did = dep.getAttribute('data-dep-id');
+      var sel = (window.CSS && CSS.escape) ? CSS.escape(did) : did;
+      var bcard = did && document.querySelector('.track-card-clickable[data-track-id="' + sel + '"]');
+      if(bcard){ e.preventDefault(); e.stopPropagation(); openTrackModal(bcard); return; }
+    }
     var card = e.target.closest('.track-card-clickable[data-track-id]');
     if(card){ e.preventDefault(); openTrackModal(card); }
   });
@@ -778,23 +825,20 @@ TRACK_MODAL_JS = (
     .replace('__AUTO__', t('auto'))
     .replace('__TS_RU_LOC_JSON__', _ts_ru_loc_json())
     .replace('__TS_INTERNAL_JSON__', _ts_internal_json())
-    .replace('__DISC_PRE__', _loc('Break down and act on the task "', 'Разбери и выполни задачу «'))
-    .replace('__DISC_MID__', _loc('" for client ', '» для клиента '))
+    # Context labels — pure facts, no instruction verbs (the runtime's standing
+    # procedure lives in policies/INSTRUCTIONS.md, not in the copied prompt).
+    .replace('__DISC_PRE__', _loc('Task: "', 'Задача: «'))
+    .replace('__DISC_MID__', _loc('" · client ', '» · клиент '))
     .replace('__DISC_CTX__', _loc('Situation: ', 'Ситуация: '))
     .replace('__DISC_NEXT__', _loc('Planned next step: ', 'Следующий шаг: '))
     .replace('__DISC_SPEC__', _loc('Specifics: ', 'Детали: '))
     .replace('__DISC_BLOCK__', _loc('Blocked by: ', 'Блокирует: '))
     .replace('__DISC_DONE__', _loc('Already done: ', 'Уже сделано: '))
     .replace('__DISC_HYP__', _loc('Working hypothesis: ', 'Гипотеза: '))
-    .replace('__DISC_INSTR__', _loc(
-        'Use this as your starting point — do not re-derive what is given. Resolve the jurisdiction of this '
-        'client and follow the matching checklist (jurisdictions/<code>/checklists/). Fetch the missing input '
-        'and verify anything material or stale (ground truth: state/*.json, mental_model, linked docs). Propose '
-        'the concrete next action in the tax system of this client, then apply via mm_update (with my approval); '
-        'send nothing outward without my OK.',
-        'Используй это как отправную точку — не выводи заново то, что уже дано. Определи юрисдикцию этого '
-        'клиента и используй подходящий чек-лист (jurisdictions/<code>/checklists/). Добери недостающее и '
-        'перепроверь всё существенное или устаревшее (источник истины: state/*.json, mental_model, связанные '
-        'документы). Предложи конкретное следующее действие в налоговой системе этого клиента, затем применяй '
-        'через mm_update (с моим аппрувом); наружу ничего не отправляй без моего «ок».'))
+    # The editable default is just the per-task ask. The standing rules (resolve
+    # jurisdiction, checklist, verify, mm_update + approval, nothing outward
+    # without OK) are already what the runtime follows from policies.
+    .replace('__DISC_ASK__', _loc(
+        'Break down the task and propose a concrete next action.',
+        'Разбери задачу и предложи конкретное следующее действие.'))
 )

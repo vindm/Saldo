@@ -1,30 +1,49 @@
-# ID monthly cycle for a UMKM-final micro client (synthetic demo).
-# Mirrors the RU pipeline shape (ordered stages keyed by task_type) so the engine
-# reads it the same way. Each stage declares its own icon/glyph so a new
-# jurisdiction is pure data (no engine edit). Coretax is browser-driven by the
-# runtime, not a connector.
+# ID monthly cycle. Covers the full UMKM-final flow — from a micro single-tax client
+# (turnover -> 0.5% -> pay -> NTPN) up to a PT with payroll (adds payroll + withholding
+# stages). A micro client simply has no tasks in the payroll/withholding stages.
+# Stage titles carry an operator-locale key (ru) — the operator UI is Russian regardless
+# of jurisdiction (locale != jurisdiction). Indonesian tax terms (PP55, PPh, BPJS, unifikasi,
+# Coretax, NTPN, SPT Masa) are kept verbatim — they are the real terms, not UI chrome.
+# Each stage declares its own icon (a lucide name present in the sprite) + glyph.
 pipeline: monthly_close_id
 stages:
-  - code: turnover_collection
-    title: { en: "Collect turnover", id: "Kumpulkan peredaran bruto" }
-    task_types: [turnover_collection]
-    checklist: monthly_turnover
+  # Canonical first stage — shared code `primary_collection` with every other
+  # jurisdiction so "collect the month's source docs" batches into ONE cross-
+  # jurisdiction wave on the Plan page (the runtime still resolves each client's
+  # own collection procedure by jurisdiction). Downstream stages stay ID-specific.
+  - code: primary_collection
+    title: { ru: "Сбор первички", en: "Collect source docs", id: "Kumpulkan data" }
+    task_types: [turnover_collection, inputs_collection]
+    checklist: monthly_close_pt
     icon: folder
     glyph: "📂"
-  - code: compute_final
-    title: { en: "Compute 0.5% final PPh", id: "Hitung PPh final 0,5%" }
+  - code: compute_pp55
+    title: { ru: "Расчёт PP55 (0,5% final)", en: "Compute 0.5% final PPh (PP55)", id: "Hitung PPh final 0,5%" }
     task_types: [compute_final_pph]
+    checklist: coretax_final_tax_payment
     icon: file-text
     glyph: "🧮"
+  - code: payroll
+    title: { ru: "Зарплата: PPh 21 + BPJS", en: "Payroll: PPh 21 + BPJS", id: "Gaji: PPh 21 + BPJS" }
+    task_types: [payroll, payroll_pph21_bpjs]
+    checklist: payroll_pph21_bpjs
+    icon: users
+    glyph: "👥"
+  - code: withholding
+    title: { ru: "Удержания (unifikasi: PPh 4(2)/23)", en: "Withholding (unifikasi: PPh 4(2)/23)", id: "Unifikasi: PPh 4(2)/23" }
+    task_types: [withholding_unifikasi]
+    checklist: unifikasi_withholding
+    icon: wallet
+    glyph: "🧾"
   - code: billing_pay
-    title: { en: "Billing code + pay (Coretax)", id: "Kode billing + bayar" }
+    title: { ru: "Kode billing + оплата до 15-го (Coretax)", en: "Billing codes + pay by 15th (Coretax)", id: "Kode billing + bayar (≤15)" }
     task_types: [coretax_billing, tax_pay]
-    checklist: coretax_final_tax_payment
+    checklist: monthly_close_pt
     icon: credit-card
     glyph: "💳"
-  - code: record_ntpn
-    title: { en: "Record NTPN", id: "Catat NTPN" }
-    task_types: [record_ntpn]
+  - code: record_report
+    title: { ru: "NTPN + SPT Masa (до 20-го)", en: "NTPN + SPT Masa (by 20th)", id: "Catat NTPN + SPT Masa (≤20)" }
+    task_types: [record_ntpn, spt_masa]
     icon: receipt
     glyph: "🧾"
 feeders: [bank_check]

@@ -30,3 +30,23 @@ term_map:
   income_ledger: "KUDIR"
   tax_return: "declaration (SPT has no RU analogue; RU files per-tax returns)"
   statistics_report: "websbor / Rosstat report"
+
+# Regulatory-news sources & topics for THIS jurisdiction. The `news` collector unions
+# the `topics` of every jurisdiction in play across the operator's clients, searches each,
+# and applies an item ONLY to clients in this jurisdiction. (Adding a jurisdiction's news
+# is pure pack data — no engine change.)
+news:
+  language: ru
+  primary_sources: ["nalog.gov.ru", "minfin.gov.ru", "publication.pravo.gov.ru"]
+  commentary_sources: ["klerk.ru", "buh.ru", "glavbukh.ru", "consultant.ru", "garant.ru"]
+  topics:
+    - { id: tax_code_changes,   label: "Tax Code / government decrees", relevance: all }
+    - { id: fts_minfin_letters, label: "FTS / Ministry of Finance / SFR letters", relevance: all }
+    - { id: usn,                label: "USN (income 6%) + the VAT-on-USN threshold", relevance: "regime=USN" }
+    - { id: patent,             label: "Patent (PSN) changes", relevance: "regime=PSN" }
+    - { id: ausn,               label: "AUSN changes", relevance: "regime=AUSN" }
+    - { id: sp_contributions,   label: "SP insurance contributions / 1%", relevance: all }
+    - { id: ens_enp,            label: "Single tax account (ENS/ENP) / notifications", relevance: all }
+    - { id: kkt_54fz,           label: "54-FZ / online cash registers / OFD", relevance: "has_kassa" }
+    - { id: stats_reporting,    label: "Statistics reporting (Rosstat/websbor)", relevance: "websbor_required" }
+  exclude: ["UKEP / electronic signature (KEP/ECP) — not the operator's area", "foreign-source items"]

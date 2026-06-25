@@ -7,13 +7,10 @@ Structure: header -> understanding snapshot (3 columns) -> active client tracks
 """
 import os
 from datetime import date, timedelta
-from _helpers import _esc, _esca, _format_date_ru
+from _helpers import _esc, _esca, _format_date_ru, client_avatar
 from _css import (
     DESIGN_TOKENS_CSS, OVERVIEW_SPECIFIC_CSS,
     PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS,
-)
-from _dictate import (
-    DICTATE_CSS, DICTATE_MODAL_HTML, DICTATE_JS, render_dictate_button,
 )
 from _mental_model import load_mental_models
 from _overview_v2 import (
@@ -52,38 +49,102 @@ def _md_bold(text):
     return _re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', safe)
 
 
-def render_action_buttons(kind, entity_id, entity_name, prompt_text, mic_kind='', mic_title='', mic_extra=''):
-    """Unified action-button component (UX-fix #8, 2026-05-25).
+# ── Render-side auto-gloss ────────────────────────────────────────────────
+# For a client whose jurisdiction differs from the operator's home (e.g. an
+# Indonesian client under a Russian operator), native tax terms (PPh 21, BPJS,
+# SPT Masa, LKPM, unifikasi…) are opaque to the operator. We wrap any term that
+# appears in the jurisdiction's glossary in an <abbr> tooltip with the plain
+# operator-locale explanation. This is a *view* derivation (engine's job): no
+# state is written, and it always works — independent of what the runtime wrote.
+import functools as _functools
 
-    Used everywhere actions on an entity are needed (client/track/risk/future).
-    Styles — unified design system .tm-btn-primary + .tm-btn-success.
 
-    Args:
-        kind: 'client' | 'task' | 'risk' | ... — for prompt logic
-        entity_id, entity_name: for data-mic-* attributes
-        prompt_text: what to copy on "Review" click
-        mic_kind, mic_title, mic_extra: for render_dictate_button
+@_functools.lru_cache(maxsize=8)
+def _gloss_map(jurisdiction):
+    """{matchable_token: plain_gloss} parsed from the pack glossary table."""
+    juris = (jurisdiction or '').strip().lower()
+    if not juris or juris == 'ru':
+        return ()
+    try:
+        import os as _os
+        import _jurisdiction as _J
+        man = _J.load_jurisdiction(juris).manifest or {}
+        grel = man.get('glossary')
+        if not grel:
+            return ()
+        text = open(_os.path.join(_J._PACKS_DIR, juris, grel), encoding='utf-8').read()
+    except Exception:
+        return ()
+    out = {}
+    for ln in text.splitlines():
+        ln = ln.strip()
+        if not ln.startswith('|'):
+            continue
+        cells = [c.strip() for c in ln.strip('|').split('|')]
+        if len(cells) < 2 or all(set(c) <= set('-: ') for c in cells):
+            continue
+        if cells[0].lower() == 'term':
+            continue
+        gloss = (cells[2] if len(cells) >= 3 and cells[2] else cells[1]).replace('**', '').strip()
+        raw = cells[0].replace('**', '').strip().lstrip('—').strip()
+        if not gloss:
+            continue
+        for tok in raw.split('/'):
+            tok = tok.strip().strip('"').strip('«»').strip()
+            if len(tok) < 3 or not any(ch.isalpha() for ch in tok):
+                continue
+            out[tok] = gloss
+            # also index the space-free variant ("PPh 21" -> "PPh21")
+            if ' ' in tok:
+                out[tok.replace(' ', '')] = gloss
+    # tuple of (token, gloss) sorted longest-first for greedy matching
+    return tuple(sorted(out.items(), key=lambda kv: -len(kv[0])))
 
-    Returns:
-        HTML string with two buttons.
+
+def _gloss_text(text, jurisdiction):
+    """Escape `text`, then wrap glossary terms in <abbr> tooltips. Returns HTML."""
+    safe = _esc(text or '')
+    pairs = _gloss_map(jurisdiction)
+    if not pairs or not safe:
+        return safe
+    import re as _re
+    pattern = '|'.join(_re.escape(tok) for tok, _ in pairs)
+    gloss_by_tok = {tok: g for tok, g in pairs}
+    # case-insensitive lookup map
+    lower_by = {tok.lower(): g for tok, g in pairs}
+    rx = _re.compile(r'(?<![\w/])(' + pattern + r')(?![\w])', _re.IGNORECASE)
+
+    def _wrap(m):
+        word = m.group(1)
+        g = gloss_by_tok.get(word) or lower_by.get(word.lower())
+        if not g:
+            return word
+        title = _esc(g).replace('"', '&quot;')
+        return '<abbr class="gl" title="' + title + '">' + word + '</abbr>'
+
+    return rx.sub(_wrap, safe)
+
+
+def render_action_buttons(kind, entity_id, entity_name, prompt_text, context_text=''):
+    """Single unified action button → opens the shared prompt modal.
+
+    One button, one modal (the editable prompt popup with the immutable context
+    block + Win+H dictation inside). `prompt_text` is the editable default ask;
+    `context_text` (optional) is the immutable context always prepended on copy.
+
+    stopPropagation keeps the click off the card/row behind the button; because a
+    stopped event never reaches the document-level data-prompt handler, we open
+    the modal ourselves here.
     """
-    discuss_btn = (
-        '<button class="tm-btn tm-btn-primary" type="button" '
-        'onclick="event.stopPropagation();event.preventDefault();" '
-        'data-prompt="' + _esca(prompt_text) + '">'
+    ctx_attr = (' data-prompt-ctx="' + _esca(context_text) + '"') if context_text else ''
+    # Header-level primary action (filled). Row-level "Разобрать" stays outline/ghost.
+    return (
+        '<button class="tm-btn tm-btn-primary tm-btn-sm" type="button" '
+        'onclick="event.stopPropagation();if(window.openPromptModal)window.openPromptModal('
+        "this.dataset.prompt,{ctx:this.getAttribute('data-prompt-ctx')||''});\" "
+        'data-prompt="' + _esca(prompt_text) + '"' + ctx_attr + '>'
         + _t('🔍 Review') + '</button>'
     )
-    dictate_btn = render_dictate_button(
-        kind=mic_kind or kind,
-        id=entity_id,
-        client=entity_name,
-        title=mic_title or ('note on ' + kind),
-        extra=mic_extra,
-        btn_class='tm-btn',
-    ).replace('btn-mic', 'tm-btn-success btn-mic').replace(
-        '>🎤 Dictate<', '>🎤 Dictate a note<'
-    )
-    return discuss_btn + dictate_btn
 
 
 def render_client_snapshot(snapshot):
@@ -122,36 +183,72 @@ def render_client_snapshot(snapshot):
 
 
 def render_client_history(history):
-    """Key decisions history — list from section 5 of mental_model."""
+    """Key decisions history — a real timeline (rail + dots) built from state
+    history. Each item is {date, summary, auto}; a filled dot marks an
+    operator/system decision, a hollow ring an automatic event (same legend as
+    the per-track event timeline in the track modal). Long summaries are softly
+    clamped so the block stays scannable; the full text lives in the track."""
     if not history:
         return ''
-    items = ''.join(
-        '<div class="history-item">' + _esc(it) + '</div>'
-        for it in history[:7]
-    )
+    rows = []
+    for it in history[:7]:
+        if isinstance(it, dict):
+            date = it.get('date') or ''
+            summ = it.get('summary') or ''
+            auto = bool(it.get('auto'))
+        else:  # backward-compat: a plain '**date** — summary' string
+            date, summ, auto = '', str(it), False
+        if len(summ) > 240:
+            summ = summ[:237].rstrip() + '…'
+        cls = 'kdh-item auto' if auto else 'kdh-item'
+        date_html = ('<span class="kdh-date">' + _esc(date) + '</span>') if date else ''
+        rows.append('<div class="' + cls + '">' + date_html
+                    + '<span class="kdh-text">' + _md_bold(summ) + '</span></div>')
     return (
         '<div class="section-title"><h2>' + _t('📜 Key decisions history') + '</h2>'
         '<span class="count">' + str(len(history)) + '</span></div>'
-        '<section class="history-list">' + items + '</section>'
+        '<section class="kdh-card"><div class="kdh-list">' + ''.join(rows) + '</div></section>'
     )
+
+
+# (The header regime badge now reuses c['regime'] — the full localised label
+# built by _jurisdiction.render_regime_label, identical to the client-list
+# snippet — so the old short-label lookup table is no longer needed.)
 
 
 CLIENT_V2_EXTRA_CSS = (
     ".breadcrumb{font-size:var(--fs-meta);color:var(--text-muted);"
     "margin-bottom:var(--space-xs)}"
     ".breadcrumb a:hover{color:var(--accent-blue)}"
-    ".client-head{display:flex;justify-content:space-between;align-items:flex-start;"
-    "margin-bottom:var(--space-lg);padding-bottom:var(--space-md);"
-    "border-bottom:1px solid var(--border)}"
-    ".client-head h1{font-size:var(--fs-h1);font-weight:500;margin:0}"
-    ".client-head .h-dot{display:inline-block;width:10px;height:10px;border-radius:50%;"
-    "margin-right:var(--space-sm);vertical-align:middle}"
-    ".client-head .h-dot.health-red{background:var(--accent-red)}"
-    ".client-head .h-dot.health-yellow{background:var(--accent-yellow)}"
-    ".client-head .h-dot.health-green{background:var(--accent-green)}"
-    ".client-head .h-dot.health-grey{background:var(--border)}"
-    ".client-head .meta-info{font-size:var(--fs-meta);color:var(--text-secondary);"
-    "text-align:right;line-height:1.6}"
+    # Compact sticky header toolbar — stays pinned while the cockpit scrolls.
+    # Block 1 — sticky title/actions bar (compact, stays pinned).
+    ".client-topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;"
+    "justify-content:space-between;gap:16px;padding:14px 0 12px;margin-bottom:0;"
+    "background:var(--bg-canvas);border-bottom:1px solid transparent;"
+    "transition:border-color .15s ease}"
+    # blends with the page at rest; a thin divider appears only once it is pinned
+    ".client-topbar.stuck{border-bottom-color:var(--border)}"
+    ".client-topbar .ct-id{display:flex;align-items:center;gap:12px;min-width:0}"
+    ".client-topbar h1{font-size:23px;font-weight:600;letter-spacing:-.015em;margin:0;"
+    "display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}"
+    ".client-av{width:46px;height:46px;border-radius:50%;flex-shrink:0;"
+    "display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;"
+    "border:1px solid var(--border)}"
+    ".client-topbar .ct-act{display:flex;align-items:center;gap:10px;flex-shrink:0}"
+    ".ct-btns{display:flex;align-items:center;gap:10px}"
+    ".ct-meta{font-size:var(--fs-meta);color:var(--text-muted);text-align:right;"
+    "line-height:1.65;flex-shrink:0;white-space:nowrap}"
+    # Block 2 — description (left) and 'updated' stamp (right) share one row.
+    ".client-desc{display:flex;justify-content:space-between;align-items:flex-start;"
+    "gap:28px;margin:0 0 28px;border-top:1px solid var(--border);padding-top:14px}"
+    ".client-desc-main{min-width:0;max-width:780px}"
+    ".client-desc-text{font-size:14px;color:var(--text-secondary);line-height:1.5;font-style:italic}"
+    ".client-desc .client-team-meta{margin-top:4px}"
+    ".client-sub{color:var(--text-secondary);font-size:13.5px;line-height:1.5;"
+    "margin:0 0 var(--space-lg);max-width:780px}"
+    ".client-sub .client-team-meta{margin-top:4px}"
+    "@media(max-width:760px){.client-topbar{flex-direction:column;align-items:flex-start;gap:10px}"
+    ".client-topbar .ct-act{align-items:flex-start}.ct-meta{display:none}}"
     ".snapshot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-md);"
     "margin-bottom:var(--space-lg)}"
     "@media(max-width:900px){.snapshot-grid{grid-template-columns:1fr}}"
@@ -164,12 +261,27 @@ CLIENT_V2_EXTRA_CSS = (
     ".snapshot-list .row:last-child{border-bottom:none}"
     ".snapshot-list .empty{color:var(--text-muted);font-size:var(--fs-meta);"
     "text-align:center;padding:var(--space-sm)}"
-    ".history-list{background:var(--bg-card);border:1px solid var(--border);"
-    "border-radius:var(--radius-card);padding:var(--space-sm) 0;"
+    # Key-decisions history as a real timeline: a continuous rail with a dot per
+    # entry. Filled accent dot = operator/system decision; hollow ring = auto
+    # event (same legend as the per-track event timeline in the track modal).
+    ".kdh-card{background:var(--bg-card);border:1px solid var(--border);"
+    "border-radius:var(--radius-card);padding:var(--space-sm) var(--space-md);"
     "margin-bottom:var(--space-lg)}"
-    ".history-item{font-size:var(--fs-meta);color:var(--text-secondary);line-height:1.5;"
-    "padding:6px var(--space-md);border-bottom:1px solid var(--border)}"
-    ".history-item:last-child{border-bottom:none}"
+    ".kdh-list{display:flex;flex-direction:column;position:relative}"
+    ".kdh-list::before{content:'';position:absolute;left:4px;top:16px;bottom:16px;"
+    "width:2px;background:var(--border);border-radius:2px}"
+    ".kdh-item{position:relative;padding:9px 0 9px 26px;font-size:var(--fs-meta);"
+    "line-height:1.55;color:var(--text-secondary)}"
+    ".kdh-item::before{content:'';position:absolute;left:0;top:12px;width:10px;height:10px;"
+    "border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--bg-card);z-index:1}"
+    ".kdh-item.auto::before{background:var(--bg-card);border:2px solid var(--border-strong);"
+    "box-shadow:0 0 0 2px var(--bg-card)}"
+    ".kdh-date{display:inline-block;color:var(--text-muted);font-weight:600;"
+    "font-family:var(--font-mono,monospace);font-size:12.5px;margin-right:9px}"
+    ".kdh-text{color:var(--text-primary)}"
+    # auto-gloss tooltip for foreign-jurisdiction terms (PPh 21, BPJS, LKPM…)
+    "abbr.gl{text-decoration:none;border-bottom:1px dotted var(--text-muted);"
+    "cursor:help;text-underline-offset:2px}"
 )
 
 
@@ -196,6 +308,73 @@ def _filter_mm_by_client(mm, client_id):
 
 
 
+_REQ_ROLE_LABEL = {'Direktur': 'Director', 'Komisaris': 'Supervisor'}
+
+
+def _render_requisites_foreign(c, row):
+    """Client-details card for a non-RU jurisdiction, built from identity.json:
+    local tax/registration identifiers, KBLI, management, capital, authority."""
+    idy = {}
+    try:
+        from state_ops import state_read
+        idy = state_read(c['id'], 'identity.json') or {}
+    except Exception:
+        idy = {}
+    if not idy:
+        return None
+    nm = idy.get('name') or {}
+    modal = idy.get('modal') or {}
+    kbli = idy.get('kbli') or {}
+    kmain = kbli.get('main') or {}
+    kbli_s = ''
+    if kmain.get('code'):
+        kbli_s = kmain['code'] + ((' — ' + kmain['name']) if kmain.get('name') else '')
+        _extra = [e.get('code', '') for e in (kbli.get('additional') or []) if e.get('code')]
+        if _extra:
+            kbli_s += ' (+' + ', '.join(_extra) + ')'
+    cap = (_kpi_num(modal['ditempatkan_idr']) + ' Rp') if modal.get('ditempatkan_idr') else ''
+    contacts = idy.get('contacts') or {}
+    tax_office = idy.get('tax_office') or {}
+    addr = (idy.get('addr') or {}).get('full') or c.get('addr') or ''
+    bank = c.get('bank_name') or (c.get('bank_access') or {}).get('bank') or ''
+    dir_rows = ''
+    for m in (idy.get('management') or []):
+        if m.get('name'):
+            dir_rows += row(_t(_REQ_ROLE_LABEL.get(m.get('role', ''), 'Management')),
+                            m['name'] + ((' — ' + m['role']) if m.get('role') else ''))
+    left = (
+        row(_t('Tax no. (NPWP)'), idy.get('npwp'), mono=True) +
+        row(_t('Reg. no. (NIB)'), idy.get('nib'), mono=True) +
+        row(_t('Legal form'), nm.get('legal_form')) +
+        row(_t('Reg. date'), idy.get('reg_date') or c.get('reg_date')) +
+        row(_t('OKVED (KBLI)'), kbli_s) +
+        row(_t('Address'), addr)
+    )
+    right = (
+        row(_t('Regime'), c.get('regime') or '') +
+        row(_t('Capital'), cap, mono=True) +
+        row(_t('Investment'), idy.get('penanaman_modal')) +
+        row(_t('Scale'), idy.get('skala_usaha')) +
+        dir_rows +
+        row(_t('Tax authority'), tax_office.get('authority')) +
+        row(_t('Portal'), tax_office.get('portal')) +
+        row(_t('Phone'), contacts.get('phone') or c.get('phone'), mono=True) +
+        row('Email', contacts.get('email') or c.get('email')) +
+        row(_t('Bank'), bank)
+    )
+    if not left.strip() and not right.strip():
+        return None
+    return (
+        '<div class="section-title"><h2>' + _t('📋 Client details') + '</h2></div>'
+        '<section class="req-section">'
+        '<div class="req-grid">'
+        '<div class="req-col">' + left + '</div>'
+        '<div class="req-col">' + right + '</div>'
+        '</div>'
+        '</section>'
+    )
+
+
 def render_client_requisites(c):
     """Compact client details card from clients_data.json."""
     def row(label, value, mono=False):
@@ -208,6 +387,14 @@ def render_client_requisites(c):
             '<span class="' + val_class + '">' + _esc(str(value)) + '</span>'
             '</div>'
         )
+
+    # Non-RU jurisdiction: render the local identifiers from identity.json
+    # (NPWP/NIB/KBLI/management/…) instead of the RU INN/OGRNIP/OKVED set.
+    _juris = (c.get('jurisdiction') or 'ru').strip().lower()
+    if _juris and _juris != 'ru':
+        _f = _render_requisites_foreign(c, row)
+        if _f is not None:
+            return _f
 
     inn = c.get('inn') or ''
     ogrnip = c.get('ogrnip') or ''
@@ -324,6 +511,9 @@ def render_client_risks(risks_data, tasks_lookup=None):
         'data_quality': 'data gap',
         'infrastructure': 'infrastructure',
         'client_behavior': 'client behavior',
+        'tax_regime': 'tax regime',
+        'reporting': 'reporting',
+        'legal': 'legal',
     }
 
     def _kind(r):
@@ -345,7 +535,7 @@ def render_client_risks(risks_data, tasks_lookup=None):
 
         meta_bits = []
         if r.get('category'):
-            meta_bits.append(_CATEGORY_RU.get(r['category'], r['category']))
+            meta_bits.append(_t(_CATEGORY_RU.get(r['category'], r['category'])))
         if r.get('since'):
             meta_bits.append(_t('since') + ' ' + r['since'])
         meta = ' · '.join(meta_bits)
@@ -487,12 +677,12 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
         gx = yp.get('growth_vs_prev_year_x')
         bits = []
         if ea:
-            bits.append('~' + _fmt_money(ea) + ' ' + cur + ' annual')
+            bits.append('~' + _fmt_money(ea) + ' ' + cur + ' ' + _t('annual'))
         if gx:
-            bits.append('growth ×' + str(gx))
+            bits.append(_t('growth') + ' ×' + str(gx))
         if bits:
             pace_html = (
-                '<div class="fin-pace">📈 Pace 2026: '
+                '<div class="fin-pace">📈 ' + _t('Pace') + ' 2026: '
                 + _esc(' · '.join(bits)) + '</div>'
             )
 
@@ -501,8 +691,11 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
         rows = []
         for p in periods:
             per = p.get('period', '')
-            inc = _fmt_money(p.get('income_usn'))
-            est = ' (est.)' if p.get('income_usn_estimated') else ''
+            inc_v = p.get('income_usn')
+            if inc_v is None:
+                inc_v = p.get('turnover_idr')   # non-RU jurisdictions store turnover here
+            inc = _fmt_money(inc_v)
+            est = ' (' + _t('est.') + ')' if (p.get('income_usn_estimated') or p.get('turnover_idr_estimated')) else ''
             taxes = p.get('taxes') or {}
             tbits = []
             if taxes.get('usn_advance') is not None:
@@ -510,7 +703,14 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
             if taxes.get('one_pct_overage'):
                 tbits.append('1%=' + str(taxes['one_pct_overage']))
             if taxes.get('fixed_insurance_paid'):
-                tbits.append('fixed ' + _fmt_money(taxes['fixed_insurance_paid']))
+                tbits.append(_t('fixed') + ' ' + _fmt_money(taxes['fixed_insurance_paid']))
+            if not tbits and taxes:
+                # Generic (non-RU) taxes column: sum the period's tax amounts.
+                # Skip non-tax payload keys (e.g. net payroll) so the total is clean.
+                _tax_vals = [v for k, v in taxes.items()
+                             if isinstance(v, (int, float)) and k not in ('payroll_net', 'payroll_net_idr')]
+                if _tax_vals:
+                    tbits.append(_t('taxes total') + ' ' + _fmt_money(sum(_tax_vals)) + ' ' + cur)
             tax_s = ' · '.join(tbits) if tbits else '—'
             status_raw = p.get('status', '')
             status_ru = _t(_PERIOD_STATUS_RU.get(status_raw, status_raw))
@@ -540,7 +740,7 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
             if amt is not None:
                 amt_s = _fmt_money(amt) + ' ' + cur
             elif amt_est is not None:
-                amt_s = '~' + _fmt_money(amt_est) + ' ' + cur + ' (forecast)'
+                amt_s = '~' + _fmt_money(amt_est) + ' ' + cur + ' (' + _t('forecast') + ')'
             else:
                 amt_s = '—'
             st_raw = ev.get('status', '')
@@ -557,7 +757,7 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
                 lt_s = '—'
             row_html = (
                 '<tr class="' + st_class + '"><td class="cal-date">' + _esc(d) + '</td>'
-                '<td>' + _esc(ev.get('what', '')) + '</td>'
+                '<td>' + _gloss_text(ev.get('what', ''), jurisdiction) + '</td>'
                 '<td class="cal-amt">' + _esc(amt_s) + '</td>'
                 '<td class="cal-st">' + _esc(st_ru) + '</td>'
                 '<td class="cal-task">' + lt_s + '</td></tr>'
@@ -595,6 +795,49 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
     )
 
 
+# Counterparty enum → English label (also a t() catalog key, routed through _t()
+# for the operator locale). SHARED with state_lint.py so a new relation_type/
+# category can't ship without a localized label (see DESIGN-SYSTEM.md §Localization;
+# lint key i18n_cp_label). Keep keys in sync with the data's controlled vocabulary.
+_CP_RELATION_LABEL = {
+    'b2b_customer_main': 'B2B (main)',
+    'b2b_customer': 'B2B',
+    'b2b_supplier': 'Supplier',
+    'agent': 'Agent',
+    'payment_aggregator': 'Acquiring',
+    'sz_executor': 'Self-employed contractor',
+    'self_employed_contractor': 'Self-employed contractor',
+    'npd_supplier': 'Self-employed supplier',
+    'bookkeeping_service_provider_team_lead': 'Bookkeeping provider (team lead)',
+}
+_CP_CATEGORY_LABEL = {
+    'gov_order': 'gov orders',
+    'marketplace': 'marketplace',
+    'marketplace_taxi': 'marketplace (taxi)',
+    'rental': 'rental',
+    'it_consulting': 'IT consulting',
+    'labor': 'labor/individual contractors',
+    'monthly_recurring': 'monthly',
+    'payment_processor': 'payment processing',
+    'production_client': 'client (production)',
+    'production_executor': 'executor (production)',
+    'rental_aggregator': 'rental (via aggregator)',
+    'rental_tenant': 'tenant',
+    'subcontractor_ip': 'subcontractor SP',
+    'creditor': 'creditor',
+    'property_management': 'property management',
+    'recruiting_client': 'recruiting client',
+    'recurring_executor': 'recurring executor',
+    'rental_agent_short_term': 'rental (short-term, agent)',
+    'rental_income': 'rental income',
+    'services': 'services',
+    'services_buyer': 'services buyer',
+    'tenant_commercial': 'tenant (commercial)',
+    'tenant_direct_long_term': 'tenant (direct, long-term)',
+    'tenant_medical_equipment': 'tenant (medical equipment)',
+}
+
+
 def render_client_counterparties(cp_data):
     """🤝 Counterparties — from state/counterparties.json. Iter 21, 2026-05-25."""
     if not cp_data:
@@ -608,30 +851,9 @@ def render_client_counterparties(cp_data):
         name = cp.get('name', '')
         inn = cp.get('inn') or '—'
         rel = cp.get('relation_type', '')
-        rel_ru = _t({
-            'b2b_customer_main': 'B2B (main)',
-            'b2b_customer': 'B2B',
-            'b2b_supplier': 'Supplier',
-            'agent': 'Agent',
-            'payment_aggregator': 'Acquiring',
-            'sz_executor': 'Self-employed contractor',
-            'self_employed_contractor': 'Self-employed contractor',
-        }.get(rel, rel or '—'))
+        rel_ru = _t(_CP_RELATION_LABEL.get(rel, rel or '—'))
         cat = cp.get('category') or ''
-        cat_ru = _t({
-            'gov_order': 'gov orders',
-            'marketplace': 'marketplace',
-            'rental': 'rental',
-            'it_consulting': 'IT consulting',
-            'labor': 'labor/individual contractors',
-            'monthly_recurring': 'monthly',
-            'payment_processor': 'payment processing',
-            'production_client': 'client (production)',
-            'production_executor': 'executor (production)',
-            'rental_aggregator': 'rental (via aggregator)',
-            'rental_tenant': 'tenant',
-            'subcontractor_ip': 'subcontractor SP',
-        }.get(cat, cat))
+        cat_ru = _t(_CP_CATEGORY_LABEL.get(cat, cat))
         since = cp.get('since') or ''
         tags = cp.get('tags') or []
         notes = cp.get('notes') or ''
@@ -1109,6 +1331,316 @@ def render_client_behavior(beh):
     )
 
 
+# ============================================================
+# 📊 KPI row — key metrics surfaced at the top of the client card.
+# Jurisdiction-agnostic: turnover / taxes / headcount, read from
+# state/financials.json (+ identity for headcount). Added 2026-06-25.
+# All operator-facing labels go through _t() (i18n guard covers them).
+# ============================================================
+KPI_ROW_CSS = """
+/* Metric band: flex so columns size to CONTENT and group left (no full-width
+   grid stranding each number in empty space). The inline grid-template-columns
+   the renderer emits is inert under flex. */
+.kpi-row{display:flex;flex-wrap:wrap;gap:0;margin:0 0 var(--space-lg,20px);align-items:flex-start;}
+.kpi-band .kpi-card{background:transparent;border:none;border-radius:0;box-shadow:none;padding:2px 26px;}
+.kpi-band .kpi-card:first-child{padding-left:0;}
+.kpi-band .kpi-card + .kpi-card{border-left:1px solid var(--border);}
+.kpi-k{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);font-weight:500;}
+/* One uniform number size across all metrics — no lead/secondary mismatch. */
+.kpi-val{font-size:22px;font-weight:600;letter-spacing:-.015em;color:var(--accent);margin-top:8px;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.15;}
+.kpi-val small{font-size:.5em;color:var(--gold);font-weight:600;vertical-align:.18em;margin-left:3px;letter-spacing:.01em;}
+.kpi-sub{font-size:12.5px;color:var(--text-secondary);margin-top:10px;}
+.kpi-delta{font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px;}
+.kpi-delta.up{color:var(--accent-green);background:var(--green-bg);}
+.kpi-delta.down{color:var(--accent-red);background:var(--red-bg);}
+.kpi-spark{display:flex;align-items:flex-end;gap:5px;height:24px;margin-top:12px;}
+.kpi-spark i{width:9px;border-radius:2px;background:var(--border-strong);display:block;}
+.kpi-spark i.c{background:var(--accent);}
+/* Forward tier — flat, top hairline, gold diamond tick; same content-width band. */
+.kpi-fwd-row{border-top:1px solid var(--border);margin-top:6px;padding-top:20px;}
+.kpi-fwd-row .kpi-card{background:transparent;border:none;border-radius:0;box-shadow:none;position:relative;padding:0 44px 0 16px;}
+.kpi-fwd-row .kpi-card::before{content:"";position:absolute;left:0;top:6px;width:7px;height:7px;background:var(--gold);border-radius:2px;transform:rotate(45deg);}
+.kpi-fwd .kpi-val{font-size:19px;color:var(--text-primary);}
+.kpi-chip{display:inline-block;font-size:11.5px;font-weight:500;color:var(--accent);background:var(--accent-soft);border-radius:20px;padding:2px 9px;margin-left:8px;vertical-align:middle;}
+.kpi-chip.soon{color:var(--accent-red);background:var(--red-bg);}
+@media(max-width:760px){.kpi-row{flex-direction:column;}
+.kpi-band .kpi-card + .kpi-card,.kpi-fwd-row .kpi-card + .kpi-card{border-left:none;}
+.kpi-band .kpi-card{padding:0 0 4px;}
+.kpi-fwd-row .kpi-card{padding:10px 0 0 16px;}}
+/* Context strip — KPIs demoted below the focus/tasks: quieter, smaller numbers. */
+.ctx-strip{margin:0 0 var(--space-lg,20px);}
+.ctx-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);font-weight:600;margin:0 0 12px;}
+.ctx-strip .kpi-val{font-size:19px;color:var(--text-secondary);}
+.ctx-strip .kpi-val small{font-size:.6em;}
+.ctx-strip .kpi-fwd-row{margin-top:14px;padding-top:16px;}
+"""
+
+_KPI_EN_MONTH = {1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May',
+                 6: 'June', 7: 'July', 8: 'August', 9: 'September', 10: 'October',
+                 11: 'November', 12: 'December'}
+# Keys that live inside period.taxes but are NOT taxes (net payroll etc.) —
+# excluded from the tax total. Mirrors the financials period-table convention.
+_KPI_NON_TAX = ('payroll_net', 'payroll_net_idr', 'payroll_gross', 'headcount')
+
+
+def _kpi_num(v):
+    try:
+        return '{:,.0f}'.format(float(v)).replace(',', ' ')
+    except Exception:
+        return str(v)
+
+
+def _kpi_turnover(p):
+    v = p.get('turnover_idr')
+    if v is None:
+        v = p.get('income_usn')
+    if v is None:
+        v = p.get('turnover')
+    return v
+
+
+def _kpi_tax_sum(p):
+    total = 0.0
+    for k, v in (p.get('taxes') or {}).items():
+        if isinstance(v, bool):
+            continue  # boolean meta-flags are not amounts
+        if k in _KPI_NON_TAX:
+            continue
+        if isinstance(v, (int, float)):
+            total += v
+    return total
+
+
+def _kpi_period_label(p):
+    per = str(p.get('period', ''))
+    if p.get('period_type') == 'month' and '-' in per:
+        parts = per.split('-')
+        try:
+            return _t(_KPI_EN_MONTH[int(parts[1])])
+        except Exception:
+            return per
+    return per
+
+
+def _kpi_label_key(key):
+    """Label for a YYYY-MM month key (-> month name); pass anything else through."""
+    key = str(key)
+    if '-' in key:
+        parts = key.split('-')
+        if len(parts) >= 2 and parts[1].isdigit():
+            try:
+                return _t(_KPI_EN_MONTH[int(parts[1])])
+            except Exception:
+                pass
+    return key
+
+
+def _kpi_monthly_points(periods):
+    """Unified list of monthly data points {key, turnover, tax}, sorted by key.
+    Sources: top-level period_type=='month' rows AND nested monthly breakdowns
+    (e.g. AUSN clients keep months under period['ausn_monthly'][YYYY-MM])."""
+    pts = []
+    for p in periods:
+        if p.get('period_type') == 'month':
+            pts.append({'key': str(p.get('period', '')),
+                        'turnover': _kpi_turnover(p), 'tax': _kpi_tax_sum(p)})
+        nested = p.get('ausn_monthly') or p.get('monthly')
+        if isinstance(nested, dict):
+            for mk, entry in nested.items():
+                if not isinstance(entry, dict):
+                    continue
+                tv = entry.get('income_base')
+                if tv is None:
+                    tv = entry.get('turnover')
+                if tv is None:
+                    tv = entry.get('income')
+                tx = entry.get('tax_ausn')
+                if tx is None:
+                    tx = entry.get('tax')
+                pts.append({'key': str(mk), 'turnover': tv, 'tax': tx or 0})
+    pts.sort(key=lambda x: x['key'])
+    return pts
+
+
+def _kpi_quarter_points(periods):
+    """Quarterly data points {key, turnover, tax} for clients that report by
+    quarter (USN). Only quarters that actually carry a turnover figure are kept,
+    so an empty current quarter never blanks the card or skews the trend."""
+    pts = []
+    for p in periods:
+        if p.get('period_type') != 'quarter':
+            continue
+        tv = _kpi_turnover(p)
+        if tv is None:
+            continue
+        pts.append({'key': str(p.get('period', '')),
+                    'turnover': tv, 'tax': _kpi_tax_sum(p)})
+    pts.sort(key=lambda x: x['key'])
+    return pts
+
+
+def _kpi_card(label, value_html, cur, sub_html, spark_html, extra_cls=''):
+    val = ('<div class="kpi-val">' + value_html
+           + ((' <small>' + _esc(cur) + '</small>') if cur else '') + '</div>')
+    sub = ('<div class="kpi-sub">' + sub_html + '</div>') if sub_html else ''
+    cls = 'kpi-card' + ((' ' + extra_cls) if extra_cls else '')
+    return ('<div class="' + cls + '"><div class="kpi-k">' + _esc(label) + '</div>'
+            + val + sub + (spark_html or '') + '</div>')
+
+
+def render_kpi_row(fin, identity, jurisdiction='ru'):
+    """A compact 3-up KPI row: turnover / taxes / headcount. Cards appear only
+    when their data exists, so it degrades gracefully across jurisdictions."""
+    if not fin:
+        return ''
+    periods = fin.get('periods') or []
+    if not periods:
+        return ''
+    try:
+        import _jurisdiction as _J
+        _auth = _J.load_jurisdiction(jurisdiction).authorities
+    except Exception:
+        _auth = {}
+    cur = _auth.get('currency_symbol') or '₽'
+    sp = sorted(periods, key=lambda p: str(p.get('period', '')))
+    months = [p for p in sp if p.get('period_type') == 'month']
+    last = months[-1] if months else sp[-1]
+    cards = []
+
+    # Trend points, finest granularity available: monthly (+ nested AUSN) first,
+    # else quarterly. Keep only points that actually carry a turnover figure.
+    points = [p for p in _kpi_monthly_points(periods) if p['turnover'] is not None]
+    if not points:
+        points = _kpi_quarter_points(periods)
+    if points:
+        lp = points[-1]
+        pp = points[-2] if len(points) >= 2 else None
+        tov = lp['turnover']
+        tax = lp['tax']
+        label = _kpi_label_key(lp['key'])
+        prev_tov = pp['turnover'] if pp else None
+        spark_vals = [(p['turnover'] or 0) for p in points[-5:]]
+        n_pts = len(points)
+    else:
+        # Fallback: latest period that has a turnover figure (skip empty ones).
+        with_tov = [p for p in sp if _kpi_turnover(p) is not None]
+        base = with_tov[-1] if with_tov else last
+        tov = _kpi_turnover(base)
+        tax = _kpi_tax_sum(base)
+        label = _kpi_period_label(base)
+        prev_tov = None
+        spark_vals = []
+        n_pts = 0
+
+    # 1) Turnover (+ MoM delta). No sparkline — Context is a clean uniform band.
+    if tov is not None:
+        delta = ''
+        if prev_tov:
+            d = (tov - prev_tov) / prev_tov * 100.0
+            up = d >= 0
+            delta = ('<span class="kpi-delta ' + ('up' if up else 'down') + '">'
+                     + ('&#9650;' if up else '&#9660;') + ' '
+                     + '{:.0f}'.format(abs(d)) + '%</span> ' + _esc(_t('vs prev.')))
+        cards.append(_kpi_card(_t('Turnover') + ' · ' + label,
+                               _kpi_num(tov), cur, delta, ''))
+
+    # 2) Taxes for the period (clean total)
+    if tax and tax > 0:
+        cards.append(_kpi_card(_t('Taxes') + ' · ' + label,
+                               _kpi_num(tax), cur, '', ''))
+
+    # 3) Headcount / net payroll
+    hc = (identity or {}).get('headcount_payroll')
+    if hc:
+        sub = ''
+        pn = (last.get('taxes') or {}).get('payroll_net')
+        if pn:
+            sub = _esc(_t('net payroll')) + ' ' + _kpi_num(pn) + ' ' + _esc(cur)
+        cards.append(_kpi_card(_t('Headcount'),
+                               _esc(str(hc)) + ' <small>' + _esc(_t('pers.')) + '</small>',
+                               '', sub, ''))
+
+    # 4) Annual pace + PKP-threshold headroom — lives in Context with the rest,
+    #    so the whole strip is one uniform row (deadline moves up to the hero).
+    yp = fin.get('yearly_pace_2026') or {}
+    annual = (yp.get('estimated_annual_turnover_idr')
+              or yp.get('estimated_annual_income') or yp.get('estimated_annual'))
+    if annual:
+        sub = ''
+        thr = yp.get('pkp_threshold_idr')
+        if thr:
+            warn = bool(yp.get('pkp_warning'))
+            key = 'approaching PKP threshold' if warn else 'under PKP threshold'
+            sub = ('<span class="kpi-chip' + (' soon' if warn else '') + '">'
+                   + _esc(_t(key)) + '</span> ' + _kpi_num(thr) + ' ' + _esc(cur))
+        cards.append(_kpi_card(_t('Annual pace'), '~' + _kpi_num(annual), cur, sub, ''))
+
+    if not cards:
+        return ''
+    cols = min(len(cards), 4)
+    return ('<div class="kpi-row kpi-band" style="grid-template-columns:repeat('
+            + str(cols) + ',minmax(0,1fr))">' + ''.join(cards) + '</div>')
+
+
+_FWD_TERMINAL = ('paid', 'done', 'cancelled', 'auto_passed', 'sent')
+
+
+def render_forward_strip(fin, jurisdiction='ru', today_iso=None):
+    """Forward-looking companion to the KPI row: the nearest upcoming deadline
+    (countdown) + the annual pace / threshold headroom. Reads the tax calendar
+    and yearly_pace from state/financials.json. Cards appear only when data
+    exists, so it degrades gracefully across jurisdictions."""
+    if not fin:
+        return ''
+    from datetime import date
+    if not today_iso:
+        today_iso = date.today().isoformat()
+    try:
+        import _jurisdiction as _J
+        _auth = _J.load_jurisdiction(jurisdiction).authorities
+    except Exception:
+        _auth = {}
+    cur = _auth.get('currency_symbol') or '₽'
+    cards = []
+
+    # Card A — nearest upcoming deadline
+    cal = fin.get('tax_calendar_2026') or []
+    upcoming = sorted(
+        [e for e in cal
+         if str(e.get('date', '')) >= today_iso
+         and (e.get('status') or '') not in _FWD_TERMINAL],
+        key=lambda e: str(e.get('date', '')))
+    if upcoming:
+        ev = upcoming[0]
+        d = str(ev.get('date', ''))
+        try:
+            n = (date.fromisoformat(d) - date.fromisoformat(today_iso)).days
+        except Exception:
+            n = None
+        dd = (d[8:10] + '.' + d[5:7]) if len(d) >= 10 else d
+        chip = ''
+        if n is not None:
+            soon = ' soon' if n <= 7 else ''
+            chip = ('<span class="kpi-chip' + soon + '">'
+                    + _esc(_t('in {} d.').format(n)) + '</span>')
+        amt = ev.get('amount')
+        sub = _esc((ev.get('what') or '')[:90])
+        if amt:
+            sub = _kpi_num(amt) + ' ' + _esc(cur) + ' · ' + sub
+        cards.append('<div class="kpi-card kpi-fwd"><div class="kpi-k">'
+                     + _esc(_t('Next deadline')) + '</div>'
+                     '<div class="kpi-val">' + _esc(dd) + chip + '</div>'
+                     '<div class="kpi-sub">' + sub + '</div></div>')
+
+    # (Annual pace moved into the Context band in render_kpi_row.) This strip is
+    # now the single nearest-deadline element, surfaced in the hero.
+    if not cards:
+        return ''
+    return ('<div class="kpi-row kpi-fwd-row" style="grid-template-columns:repeat('
+            + str(len(cards)) + ',minmax(0,1fr))">'
+            + ''.join(cards) + '</div>')
+
+
 def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
     """Main function — client dashboard on top of mental_model."""
     import generate
@@ -1122,10 +1654,12 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
 
     mm = load_mental_models()
     # Analysis & recommendations zone — state-derived (no mental_model.md parsing).
-    from _brief import render_analysis_zone, build_client_analysis_from_state, ANALYSIS_CSS as _AN_CSS
+    from _brief import (render_analysis_zone, render_client_questions,
+                        build_client_analysis_from_state, ANALYSIS_CSS as _AN_CSS)
     import state_ops as _sop_an
     _an_data = build_client_analysis_from_state(c['id'], c.get('name_short'), _sop_an.state_read, TODAY)
     _an_zone = render_analysis_zone(_an_data, TODAY, last_change=None, esc=_esc, esca=_esca)
+    _an_questions = render_client_questions(_an_data, esc=_esc)
     mm_client = _filter_mm_by_client(mm, c['id'])
     # by_client bundle (snapshot firm/in_progress/unclear, history, v2 sections) — all
     # assembled from state/*.json + history.jsonl inside load_mental_models().
@@ -1153,9 +1687,14 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
     _grp = _client_group(c)
     _grp_slug = _slug_grp(_grp)
     back_url = 'clients_' + _grp_slug + '.html'
-    back_label = '← All ' + _grp_label(_grp) + ' clients'
+    back_label = '← ' + _t('All clients') + ' · ' + _grp_label(_grp)
     # client tagline (UX): take business_description from state/regime if present
     _biz_desc = ''
+    # Header badge = the SAME localised regime label shown on the client-list
+    # snippet (c['regime'], built by _jurisdiction.render_regime_label). We no
+    # longer concat the client-group name here — the breadcrumb above the title
+    # already shows it. _is_ausn only drives the badge colour.
+    _is_ausn = False
     # P2-fix 25.05.2026: DEPARTING/foreign_entities badges + team-meta
     _extra_badges = ''
     _team_meta = ''
@@ -1164,6 +1703,8 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
         _r = _lcsr(c['id'])
         if _r:
             _biz_desc = _r.get('business_description') or ''
+            _rt = ((_r.get('primary') or {}).get('type') or '').strip()
+            _is_ausn = (_rt == 'AUSN')
             _contour = _r.get('contour') or {}
             if _contour.get('type') == 'team':
                 _leader = _contour.get('leader', '')
@@ -1198,50 +1739,58 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
                     _extra_badges += ' <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">🌍 ' + _esc(_country) + ' ' + _esc(_st) + _kik + '</span>'
     except Exception:
         pass
+    _has_report = False
+    try:
+        import state_ops as _sops0
+        _finx = _sops0.state_read(c['id'], 'financials.json')
+        _has_report = bool(_finx and _finx.get('periods'))
+    except Exception:
+        _has_report = False
+    _av_ini, _av_style = client_avatar(c['name_short'])
+    # Full localised regime label, identical to the client-list snippet.
+    _regime_full = (c.get('regime') or '').strip()
+    _regime_badge_html = (
+        ' <span class="badge ' + ('badge-ausn' if _is_ausn else 'badge-direct') + '">'
+        + _esc(_regime_full) + '</span>'
+    ) if _regime_full else ''
     head = (
         '<div class="breadcrumb">'
         '<a href="' + back_url + '">' + back_label + '</a>'
         '</div>'
-        '<div class="client-head">'
-        '<div><h1><span class="h-dot health-' + health + '"></span>'
+        '<div class="client-topbar">'
+        '<div class="ct-id">'
+        '<span class="client-av health-' + health + '"' + _av_style + '>' + _esc(_av_ini) + '</span>'
+        '<h1>'
         + _esc(c['name_short'])
-        + (lambda: (
-            ' <span class="badge ' + (
-                'badge-ausn' if (c.get('scenario')=='F')
-                else 'badge-direct'
-            ) + '">' + _esc(
-                (_grp_label(_grp) + ' \u00b7 ' + {
-                    'A':'USN','B':'USN+Patent','B+E':'WB+Patent',
-                    'C':'video+SE','D':'rental','E':'WB','F':'AUSN',
-                }.get(c.get('scenario',''), c.get('scenario','')))
-                if c.get('scenario')
-                else _grp_label(_grp)
-            ) + '</span>'
-        ))()
+        + _regime_badge_html
         + _extra_badges
         + '</h1>'
-        + _team_meta
-        + (('<div class="client-tagline">' + _esc(_biz_desc) + '</div>') if _biz_desc else '')
-        + '<div class="client-actions">'
+        + '</div>'
+        '<div class="ct-act">'
+        + '<div class="ct-btns">'
         + render_action_buttons(
             kind='client',
             entity_id=c['id'],
             entity_name=c['name_short'],
-            prompt_text=('Let\'s review client ' + (c.get('name_short') or '') +
-                ': open their state/*.json (source of truth) and mental_model, '
-                'assess active tasks and risks, suggest today\'s priorities.'),
-            mic_kind='general note on client',
-            mic_title='general note from the client dashboard',
-            mic_extra='health=' + health,
+            prompt_text=_t('Review this client and propose today\'s priorities.'),
+            context_text=(_t('Client') + ': ' + (c.get('name_short') or '')
+                + (' — ' + _biz_desc if _biz_desc else '')),
         )
+        + (('<a class="tm-btn tm-btn-outline tm-btn-sm" href="report_' + _esc(c['id']) + '.html" target="_blank" rel="noopener">\U0001F4C4 ' + _esc(_t('Client report')) + '</a>') if _has_report else '')
         + '</div>'
         + '</div>'
-        '<div class="meta-info">'
-        '<span class="meta-label">' + _t('updated') + '</span> '
-        + _format_date_ru(TODAY)
-        + time_line +
-        '</div>'
-        '</div>'
+        + '</div>'
+        + '<div class="client-desc">'
+        + '<div class="client-desc-main">'
+        + (('<div class="client-desc-text">' + _esc(_biz_desc) + '</div>') if _biz_desc else '')
+        + _team_meta
+        + '</div>'
+        + '<span class="ct-meta">' + _t('updated') + ' ' + _format_date_ru(TODAY)
+        + (time_line if time_line else '') + '</span>'
+        + '</div>'
+        + '<script>(function(){var b=document.querySelector(".client-topbar");if(!b)return;'
+          'var f=function(){b.classList.toggle("stuck",(window.scrollY||document.documentElement.scrollTop||0)>6);};'
+          'window.addEventListener("scroll",f,{passive:true});f();})();</script>'
     )
 
     req_card = render_client_requisites(c)
@@ -1268,12 +1817,32 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
     quick_access_html = ''
     real_estate_html = ''
     behavior_html = ''
+    cheatsheet_html = ''
+    kpi_html = ''
+    fwd_html = ''
+    try:
+        cheatsheet_html = render_jurisdiction_cheatsheet(c.get('jurisdiction') or 'ru')
+    except Exception:
+        cheatsheet_html = ''
     try:
         from _loaders import (load_client_state_financials, load_client_state_counterparties,
                               load_client_state_accounts, load_client_state_behavior)
         _f = load_client_state_financials(c['id'])
         if _f:
             financials_html = render_client_financials(_f, tasks_lookup=_tasks_lookup, jurisdiction=c.get('jurisdiction') or 'ru')
+            try:
+                from _loaders import load_client_state_identity as _lci_kpi
+                _id_kpi = _lci_kpi(c['id'])
+            except Exception:
+                _id_kpi = None
+            try:
+                kpi_html = render_kpi_row(_f, _id_kpi, c.get('jurisdiction') or 'ru')
+            except Exception:
+                kpi_html = ''
+            try:
+                fwd_html = render_forward_strip(_f, c.get('jurisdiction') or 'ru', TODAY.isoformat() if hasattr(TODAY, 'isoformat') else str(TODAY))
+            except Exception:
+                fwd_html = ''
         _cp = load_client_state_counterparties(c['id'])
         if _cp:
             counterparties_html = render_client_counterparties(_cp)
@@ -1303,11 +1872,11 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
     from _plan_today import render_client_plan
     _client_plan = render_client_plan(c['id'], TODAY)
     if _client_plan:
-        tracks = ('<div class="section-title"><h2>' + _t('🎯 Active tracks') + '</h2></div>'
+        tracks = ('<div class="section-title" id="all-tasks"><h2>' + _t('🎯 Active tracks') + '</h2></div>'
                   + _client_plan)
     else:
         tracks = render_tracks_zone(mm_client) if n_tracks else (
-            '<div class="section-title"><h2>' + _t('🎯 Active tracks') + '</h2></div>'
+            '<div class="section-title" id="all-tasks"><h2>' + _t('🎯 Active tracks') + '</h2></div>'
             '<div class="side-list"><div class="empty">'
             + _t('Mental_model is empty or has no tracks') + '</div></div>'
         )
@@ -1320,18 +1889,8 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
     # v2 sections (Financial model, Calendar, Plan, Risks, Pattern, Links, Counterparties)
     v2_block = render_v2_block(by_client)
 
-    # Global «🎤 Dictate» button for the client — right under the header
-    global_mic = (
-        '<div style="margin:0 0 var(--space-md);text-align:right">'
-        + render_dictate_button(
-            kind='general note on client',
-            id=c['id'],
-            client=c['name_short'],
-            title='general note from the client dashboard',
-            extra='health=' + health,
-        ) +
-        '</div>'
-    )
+    # dictate button removed — header «Разобрать» (unified modal) is the one action
+    global_mic = ''
 
     # Stage 1 sidebar: active item = team or direct based on the client's track
     sidebar_active = 'clients_' + _slug_grp(_client_group(c))
@@ -1343,15 +1902,16 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + REQ_CARD_CSS \
-        + CLIENT_V2_EXTRA_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + SIDEBAR_CSS + V2_SECTIONS_CSS + TRACK_MODAL_CSS + _AN_CSS + QUICK_ACCESS_CSS + '</style>'
+        + CLIENT_V2_EXTRA_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + V2_SECTIONS_CSS + TRACK_MODAL_CSS + _AN_CSS + QUICK_ACCESS_CSS + CHEATSHEET_CSS + KPI_ROW_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active=sidebar_active)
         + '<main class="main-content">'
-        + head + quick_access_html + _an_zone + risks_html + tracks + req_card + accounts_html + real_estate_html + financials_html + counterparties_html + behavior_html + hist
+        + head + kpi_html + _an_zone + _an_questions
+        + cheatsheet_html + quick_access_html + risks_html + tracks + req_card + accounts_html + real_estate_html + financials_html + counterparties_html + behavior_html + hist
         + '</main></div>'
         + PROMPT_MODAL_HTML + PROMPT_MODAL_JS
-        + DICTATE_MODAL_HTML + DICTATE_JS + TRACK_MODAL_HTML + TRACK_MODAL_JS + QUICK_ACCESS_JS +
+          + TRACK_MODAL_HTML + TRACK_MODAL_JS + QUICK_ACCESS_JS +
         '</body></html>'
     )
 
@@ -1360,11 +1920,103 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
 # 🔗 Quick access (quick_access[] from state/accounts.json)
 # Added by request 2026-06-14.
 # ============================================================
+CHEATSHEET_CSS = """
+.cs-card{border:1px solid #e6ebf0;border-radius:12px;background:#fff;margin-bottom:var(--space-lg,20px);}
+.cs-summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:13px 16px;font-size:14px;font-weight:600;color:#1F4E79;}
+.cs-summary::-webkit-details-marker{display:none}
+.cs-summary::before{content:'\\25B8';color:#9aa3ad;font-size:11px}
+details.cs-card[open]>.cs-summary::before{content:'\\25BE'}
+.cs-summary .ic{width:17px;height:17px;color:#B79257;}
+.cs-body{padding:0 16px 14px;}
+.cs-facts{display:flex;flex-wrap:wrap;gap:6px 18px;padding:4px 0 12px;border-bottom:1px solid #eef0f3;margin-bottom:10px;}
+.cs-fact{font-size:12px;color:#3a4653;}
+.cs-fl{color:#8a93a0;}
+.cs-table{width:100%;border-collapse:collapse;font-size:12px;}
+.cs-table th{text-align:left;color:#8a93a0;font-weight:600;padding:4px 8px;border-bottom:1px solid #eef0f3;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+.cs-table td{padding:5px 8px;border-bottom:1px solid #f3f5f7;vertical-align:top;}
+.cs-table tr:last-child td{border-bottom:none;}
+.cs-term{font-weight:600;color:#2a3744;white-space:nowrap;}
+"""
+
+
+def render_jurisdiction_cheatsheet(jurisdiction):
+    """Inline reference for a client whose jurisdiction differs from the operator's
+    home (ru): authority/portal/currency + the pack glossary (term -> operator-locale
+    analogy). Collapsible; empty for ru clients so the RU book isn't cluttered."""
+    juris = (jurisdiction or 'ru').strip().lower()
+    if juris in ('', 'ru'):
+        return ''
+    try:
+        import os as _os
+        import _jurisdiction as _J
+        from _config import LOCALE as _LOC
+        from _icons import icon
+        pack = _J.load_jurisdiction(juris)
+    except Exception:
+        return ''
+    auth = pack.authorities or {}
+    man = pack.manifest or {}
+    jname = (man.get('name_i18n') or {}).get(_LOC) or man.get('name') or juris.upper()
+
+    facts = []
+    def _fact(label, val):
+        if val:
+            facts.append('<span class="cs-fact"><span class="cs-fl">' + _esc(_t(label))
+                         + ':</span> ' + _esc(str(val)) + '</span>')
+    _fs = auth.get('filing_systems') or []
+    _fact('Tax authority', auth.get('tax_authority'))
+    _fact('Portal', ', '.join(_fs) if isinstance(_fs, list) else _fs)
+    _fact('Currency', auth.get('currency'))
+    _fact('Social insurance', auth.get('social_authority'))
+    facts_html = ('<div class="cs-facts">' + ''.join(facts) + '</div>') if facts else ''
+
+    gloss_html = ''
+    grel = man.get('glossary')
+    if grel:
+        try:
+            text = open(_os.path.join(_J._PACKS_DIR, juris, grel), encoding='utf-8').read()
+            data = []
+            for ln in text.splitlines():
+                ln = ln.strip()
+                if not ln.startswith('|'):
+                    continue
+                cells = [c.strip() for c in ln.strip('|').split('|')]
+                if len(cells) < 2:
+                    continue
+                if all(set(c) <= set('-: ') for c in cells):   # separator row
+                    continue
+                if cells[0].lower() == 'term':                  # header row
+                    continue
+                term = cells[0].replace('**', '').strip()
+                analogy = (cells[2] if len(cells) >= 3 and cells[2] else cells[1]).replace('**', '').strip()
+                if term:
+                    data.append((term, analogy))
+            if data:
+                trs = ''.join('<tr><td class="cs-term">' + _esc(term) + '</td><td>'
+                              + _esc(analogy) + '</td></tr>' for term, analogy in data)
+                gloss_html = ('<table class="cs-table"><thead><tr><th>' + _esc(_t('Term'))
+                              + '</th><th>' + _esc(_t('In plain terms')) + '</th></tr></thead>'
+                              '<tbody>' + trs + '</tbody></table>')
+        except Exception:
+            gloss_html = ''
+
+    if not (facts_html or gloss_html):
+        return ''
+    return ('<details class="cs-card"><summary class="cs-summary">' + icon('book-open')
+            + ' ' + _esc(_t('Jurisdiction cheat sheet')) + ' · ' + _esc(jname)
+            + '</summary><div class="cs-body">' + facts_html + gloss_html + '</div></details>')
+
+
 QUICK_ACCESS_CSS = """
-.qa-section{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:var(--space-lg,20px);}
-.qa-tile{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:14px;}
+.qa-section{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:var(--space-lg,20px);align-items:start;}
+.qa-tile{background:#fff;border:1px solid #e6e8ec;border-left:3px solid #d7dbe0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;transition:box-shadow .15s ease;}
+.qa-tile:hover{box-shadow:0 3px 12px rgba(31,78,121,.08);}
+.qa-tile.qa-st-ok{border-left-color:#2e7d52;}
+.qa-tile.qa-st-need{border-left-color:#c2630f;}
+.qa-tile.qa-st-wait{border-left-color:#B79257;}
+.qa-tile.qa-st-unknown{border-left-color:#b6bcc4;}
 .qa-tile.qa-off{opacity:.5;}
-.qa-head{display:flex;align-items:center;gap:10px;}
+.qa-head{display:flex;align-items:flex-start;gap:10px;}
 .qa-ic{width:34px;height:34px;border-radius:8px;background:#eef3fb;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1F4E79;}
 .qa-ic .ic{width:18px;height:18px;}
 .qa-tt{line-height:1.25;min-width:0;}
@@ -1379,8 +2031,13 @@ QUICK_ACCESS_CSS = """
 .qa-btn:hover{background:#f4f7fc;}
 .qa-cp{margin-left:auto;}
 .qa-rev + .qa-cp{margin-left:6px;}
-.qa-note{font-size:12px;color:#6b7280;margin-top:10px;line-height:1.45;}
+.qa-note{font-size:12.5px;color:#566070;line-height:1.5;overflow-wrap:anywhere;word-break:break-word;}
 .qa-need{display:inline-block;font-size:11px;color:#9a6708;background:#faeeda;border-radius:6px;padding:1px 7px;margin-right:6px;}
+.qa-status{display:inline-block;font-size:11px;font-weight:600;border-radius:20px;padding:2px 9px;margin-top:4px;align-self:flex-start;}
+.qa-status.ok{color:#136c3a;background:#e6f4ec;}
+.qa-status.wait{color:#9a6708;background:#faeeda;}
+.qa-status.need{color:#9a3412;background:#fbe8e2;}
+.qa-status.unknown{color:#5b6470;background:#eef0f3;}
 """
 
 QUICK_ACCESS_JS = """
@@ -1410,7 +2067,8 @@ QUICK_ACCESS_JS = """
 # by the global sanitizer, leaving empty boxes).
 _QA_ICONS = {'prodamus':'acquiring','cloudpayments':'acquiring','ukassa':'acquiring',
              'bank':'bank_check','fns':'building','ofd':'kkt_check',
-             'finkoper':'primary_collection','onec':'posting_1c',
+             'finkoper':'primary_collection','onec':'posting_1c','1c':'posting_1c',
+             'acquiring':'acquiring','rosstat':'building',
              'assistant':'chat','mail':'email_action_required','tg':'chat'}
 
 def render_client_quick_access(acc):
@@ -1430,8 +2088,28 @@ def render_client_quick_access(acc):
         go = ''
         if url and not disabled:
             go = '<a class="qa-go" href="' + _esca(str(url)) + '" target="_blank" rel="noopener">' + _t('Open ↗') + '</a>'
+        _QA_STATUS = {
+            'connected': ('access ready', 'ok'), 'have': ('access ready', 'ok'),
+            'ok': ('access ready', 'ok'), 'active': ('access ready', 'ok'),
+            'client_holds': ('access with client', 'ok'),
+            'after_first_billing': ('access after first payment', 'wait'),
+            'pending': ('request access', 'need'), 'missing': ('request access', 'need'),
+            'need': ('request access', 'need'),
+            'unknown': ('set access status', 'unknown'),
+        }
+        # by_chat messengers (tg/whatsapp/max) have SESSION-LEVEL access only — one logged-in
+        # operator account reaches every chat/channel by search. A per-chat quick_access entry is
+        # a routing pointer, NOT a credentialed access point, so it carries no real cred_status:
+        # suppress the access chip (no spurious «уточнить»). See connectors/_chat_collector.md.
+        _svc = (it.get('service') or '').lower()
+        _u = (it.get('url') or '').lower()
+        _is_chat = _svc in ('tg', 'telegram', 'whatsapp', 'wa', 'max') or any(
+            d in _u for d in ('telegram.org', 't.me', 'whatsapp.com', 'wa.me', 'max.ru'))
+        _st = None if _is_chat else _QA_STATUS.get(it.get('cred_status'))
+        status_badge = ('<div class="qa-status ' + _st[1] + '">' + _t(_st[0]) + '</div>') if _st else ''
         head = ('<div class="qa-head"><div class="qa-ic">' + ic + '</div>'
-                '<div class="qa-tt"><div class="qa-name">' + _esc(str(label)) + '</div></div>'
+                '<div class="qa-tt"><div class="qa-name">' + _esc(str(label)) + '</div>'
+                + status_badge + '</div>'
                 + go + '</div>')
         creds = ''
         login = it.get('login')
@@ -1446,9 +2124,8 @@ def render_client_quick_access(acc):
                       '<button class="qa-btn qa-rev">' + _t('show') + '</button>'
                       '<button class="qa-btn qa-cp" data-v="' + _esca(str(pw)) + '">' + _t('copy') + '</button></div>')
         note = it.get('note') or ''
-        need = '<span class="qa-need">' + _t('login/password needed') + '</span>' if it.get('cred_status') == 'need' else ''
-        note_html = ('<div class="qa-note">' + need + _esc(str(note)) + '</div>') if (note or need) else ''
-        cls = 'qa-tile qa-off' if disabled else 'qa-tile'
+        note_html = ('<div class="qa-note">' + _esc(str(note)) + '</div>') if note else ''
+        cls = ('qa-tile qa-off' if disabled else 'qa-tile') + ((' qa-st-' + _st[1]) if _st else '')
         tiles.append('<div class="' + cls + '">' + head + creds + note_html + '</div>')
     return (
         '<div class="section-title"><h2>' + _t('🔗 Quick access') + '</h2></div>'

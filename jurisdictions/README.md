@@ -39,7 +39,12 @@ and `term_map` (abstract concept -> the term used in the instruction layer:
 `tax_account`, `classifier_code`, `tax_return`, …).
 
 **regimes.yaml** — `regimes: {<TYPE>: {label, show_rate, objects: {<object>: <label>}}}`
-plus `patent: {active_status, suffix}`. Drives the dashboard regime string.
+plus `patent: {active_status, suffix}`. Drives the dashboard regime string. The
+`label` / `object` / `patent.suffix` tokens are authored in **English** (pack =
+source language); `render_regime_label` localises them via `t()` at render time,
+so the operator surface (snippet card + client-page header, which share the same
+`c['regime']` string) is fully translated. Each token is therefore also an
+`engine/_strings.py` catalog key — see the localisation note under "How to add".
 
 **pipeline.yaml** — `stages: [{code, title:{<lang>}, task_types:[...], checklist, icon, glyph}]`
 plus `feeders: [...]`. Each stage declares its own `icon` (a lucide name) and
@@ -80,6 +85,15 @@ periods rendering. `engine/state_lint.py` reads `lint.yaml` per client.
 
 No Python change is required to add a jurisdiction. Touch the engine only if the
 rendered *view* itself needs a new capability.
+
+**Localisation caveat (the one non-data step):** pack tokens are English. For
+any **non-`en` operator locale**, add a matching entry to the locale catalog in
+`engine/_strings.py` for each regime `label` / `object` token and the
+`patent.suffix` you introduce — otherwise `t()` falls back to the English token
+and that English string shows on the operator's snippet card and client-page
+header. The `generate.py` i18n guard ("all operator-facing strings translated
+for locale 'ru'") catches a missed token. Example (ru): `'USN Income' →
+'УСН Доходы'`, `'+ PSN' → '+ ПСН'`, `'UMKM final (turnover)' → 'UMKM (оборот)'`.
 
 ## Packs present
 

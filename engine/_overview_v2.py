@@ -34,9 +34,6 @@ from _overview_shared import render_header, render_mail_block, render_news_block
 from _mental_model import (
     load_mental_models, _track_severity, _parse_date_in_text,
 )
-from _dictate import (
-    DICTATE_CSS, DICTATE_MODAL_HTML, DICTATE_JS, render_dictate_button,
-)
 from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 import state_ops  # source of truth for state/*.json (migration 2026-05-25)
 from _brief import (render_brief_zone, brief_lead_html, BRIEF_CSS,
@@ -604,12 +601,6 @@ def render_awaitings_zone(awaiting):
                 '</div>'
                 '<div class="row-actions">'
                 '<button class="btn-mini" data-prompt="' + _esca(prompt_remind) + '" title="' + t('Remind') + '">🔔</button>'
-                + render_dictate_button(
-                    kind='expectation',
-                    client=w.get('client_name', '') or '',
-                    title=w.get('what', '') or '',
-                    extra=when,
-                ) +
                 '</div>'
                 '</div>'
             )
@@ -647,11 +638,6 @@ def render_gaps_zone(mm):
                 '<div class="row-content">' + _esc(_translate_tech_terms(g["text"])) + client_tag + '</div>'
                 '<div class="row-actions">'
                 '<button class="btn-mini" data-prompt="' + _esca(prompt_clarify) + '" title="' + t('Clarify') + '">❓</button>'
-                + render_dictate_button(
-                    kind='knowledge gap',
-                    client=g.get('client_name', '') or '',
-                    title=g.get('text', '') or '',
-                ) +
                 '</div>'
                 '</div>'
             )
@@ -947,13 +933,6 @@ def render_clients_grid_compact(mm, deadlines, awaiting,
             '<div class="card-actions">'
             '<button class="btn-mini" data-prompt="' + _esca(prompt_open_client) + '">'
             + t('💬 Open in chat') + '</button>'
-            + render_dictate_button(
-                kind='client',
-                id=c['id'],
-                client=c['name_short'],
-                title='general thought about the client',
-                extra='health=' + color + (' · nearest deadline ' + nearest.strftime('%d.%m') if nearest else ''),
-            ) +
             '</div>'
             '<div class="card-actions card-nav">'
             '<a class="btn-mini" href="dashboard_' + c["id"] + '.html" '
@@ -1070,16 +1049,7 @@ def render_overview_v2():
         '</script>'
     )
 
-    # Shared "🎤 Dictate" button in the header
-    global_mic = (
-        '<div style="margin:0 0 var(--space-md);text-align:right">'
-        + render_dictate_button(
-            kind='general thought',
-            title='general thought about the dashboard',
-            extra='date: ' + _format_date_ru(TODAY),
-        ) +
-        '</div>'
-    )
+    global_mic = ''  # dictate button removed (one button / unified modal)
 
     # Analytics widgets (pure functions of state, always current)
     JOURNAL_PATH = os.path.join(PLAN_DIR, 'journal', 'decisions_log.md')
@@ -1128,7 +1098,7 @@ def render_overview_v2():
         '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUuNSIgZmlsbD0iIzFGNEU3OSIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjEyLjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0I3OTI1NyIgc3Ryb2tlLXdpZHRoPSIxLjMiLz48dGV4dCB4PSIxNiIgeT0iMTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJjZW50cmFsIiBmb250LWZhbWlseT0iQXJpYWwsSGVsdmV0aWNhLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNmZmZmZmYiPtCY0JI8L3RleHQ+PC9zdmc+">'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
-        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '</style>'
+        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active='dashboard')
@@ -1142,11 +1112,11 @@ def render_overview_v2():
         + global_mic
         + '</main></div>'
         + PROMPT_MODAL_HTML
-        + DICTATE_MODAL_HTML
+        
         + TRACK_MODAL_HTML
         + NEW_JS_FRAGMENT
         + PROMPT_MODAL_JS
-        + DICTATE_JS
+        
         + TRACK_MODAL_JS
         + track_filter_js +
         '</body></html>'

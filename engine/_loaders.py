@@ -404,6 +404,11 @@ def state_tasks_to_mm_format(tasks_data, client_name=None):
             'task_type': t.get('task_type'),
             'completed_at': t.get('completed_at'),
             'type_specific': t.get('type_specific', {}) or {},
+            # Carry the assist block (system hypothesis + actions) through to the
+            # mm format. Without this it was silently dropped here, so the brief,
+            # the track modal and the plan row all fell back to next_action even
+            # when state had an assist.hypothesis.
+            'assist': t.get('assist', {}) or {},
         })
     return {'tracks': out}
 
@@ -1028,12 +1033,52 @@ def build_snapshot_unclear_from_state(client_id):
     return items
 
 
+# Entries that are engine/schema bookkeeping, not operator decisions. They are
+# kept out of the client-facing "key decisions" timeline (they belong on the
+# technical Changelog page). This filter is also what fixes English text leaking
+# into an otherwise Russian, operator-facing surface — every English line in the
+# old block was a migration/assist-seeding audit record, never a real decision.
+def _history_is_noise(e):
+    src = str(e.get('source') or '').lower()
+    kind = str(e.get('kind') or '').lower()
+    ev = str(e.get('event') or '').lower()
+    # one-time schema/data migrations (startswith, so a human 'manual:…+migration'
+    # approval entry is NOT swept up)
+    if (e.get('migration_id') or src.startswith('migration')
+            or src.startswith('card_migration') or kind == 'cd_migration'):
+        return True
+    # automated maintenance / audit / notification-plumbing passes — developer
+    # bookkeeping, never an operator decision (e.g. "Хардненг open_questions…",
+    # source-backfill audits, bell-consumed events)
+    if src.startswith('lint_hardening') or src.startswith('process_audit'):
+        return True
+    if ev in ('assist_seeded', 'source_backfill') or kind == 'bell_consumed':
+        return True
+    return False
+
+
+# Markers that a human had a hand in the entry → filled dot. Anything purely
+# machine-generated (an external signal, an auto-created task) → hollow dot.
+_HISTORY_HUMAN_MARKERS = ('ирина', 'irina', 'manual', 'cowork', 'dictate',
+                          'approval', 'ассистент', 'assistant', 'дневник')
+
+
+def _history_is_auto(e):
+    if str(e.get('kind') or '').lower() == 'decision':
+        return False
+    blob = ' '.join(str(e.get(k) or '') for k in
+                    ('source', 'actor', 'decided_by', 'applied_by')).lower()
+    return not any(m in blob for m in _HISTORY_HUMAN_MARKERS)
+
+
 def build_history_from_state(client_id, limit=7):
     """Key-decisions history — derived from state/history.jsonl (newest first, top N).
 
-    Each rendered line = '**<DD.MM.YYYY>** — <summary>' so the existing
-    render_client_history (light **bold** markup) shows the date in bold.
-    Returns list[str]. None if there is no history at all (graceful).
+    Returns list[dict] {date: 'DD.MM.YYYY', summary: str, auto: bool} for the
+    timeline renderer, or None when there is no history. Engine/schema
+    bookkeeping (migrations, assist seeding) is filtered out — see
+    _history_is_noise; the `limit` applies AFTER filtering so the block shows N
+    real decisions, not N raw audit rows.
     """
     try:
         from state_ops import history_read
@@ -1056,13 +1101,20 @@ def build_history_from_state(client_id, limit=7):
     # newest first
     ordered = sorted(entries, key=lambda e: str(e.get('ts') or ''), reverse=True)
     out = []
-    for e in ordered[:limit]:
+    for e in ordered:
+        if _history_is_noise(e):
+            continue
         summary = (e.get('summary') or '').strip()
         if not summary:
             continue
-        ts = _fmt_ts(e.get('ts'))
-        out.append(('**' + ts + '** — ' if ts else '') + summary)
-    return out
+        out.append({
+            'date': _fmt_ts(e.get('ts')),
+            'summary': summary,
+            'auto': _history_is_auto(e),
+        })
+        if len(out) >= limit:
+            break
+    return out or None
 
 
 # ── v2 sections (financial model / tax calendar / work plan) FROM STATE ───────

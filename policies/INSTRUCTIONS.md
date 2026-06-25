@@ -14,6 +14,61 @@ Saldo serves clients in more than one tax jurisdiction (see `saldo/CLAUDE.md` In
 
 The §1 and §1.5-step-8 tables below are the **RU pack's** resolution (the default jurisdiction). Read them as `jurisdictions/ru/…`, not as global truth: a client in another jurisdiction resolves a different pack with different authorities, portals and checklists.
 
+## 0.1 Operator-facing language — write in the operator's locale, gloss foreign terms
+
+**Locale ≠ jurisdiction.** The operator UI language is `config/instance.yaml → instance.locale`; it is independent of the client's tax jurisdiction. When a client's jurisdiction differs from the operator's locale (e.g. an **Indonesian client served by a Russian-speaking operator**), every **operator-facing field you write or update** — a task's `title`, `context`, `next_action`, `assist.hypothesis`, `assignee`/`owner`; a **risk's `title`, `description`, `next_action`**; a calendar entry's `what`; a quick-access `label`/`note`; the client's `mental_model.md`; and any message shown to the operator — MUST be:
+
+1. **In the operator's language** (here: Russian). Do not leave operator-facing text in English or the jurisdiction's language.
+2. **Glossed on first use.** Never leave a raw foreign tax term or abbreviation unexplained — `PPh 21`, `PPh 23`, `PPh 4(2)`, `PP55`/`UMKM`, `PPh Badan`, `PPN`/`PKP`, `BPJS Kesehatan`/`Ketenagakerjaan` (`JHT`/`JKK`/`JKM`/`JP`), `TER`, `kode billing`, `NTPN`, `Coretax`, `SPT Masa`/`SPT Tahunan`, `unifikasi`, `bukti potong`, `LKPM`, `NPWP`, `NIB`, `Moka`, `peredaran bruto`. Keep the real term (it's the actual name) but attach a short plain-language explanation **and an analogy from the operator's own system** (e.g. "PPh 21 — подоходный налог с зарплат, местный аналог НДФЛ"). Source of glosses: **`jurisdictions/<code>/glossary.md`**. A **quick-access `note`** must say *what the service is for* and *what to do* (e.g. "кабинет налоговой: формируем платёжки и сдаём отчёты"), plus set `cred_status` to reflect whether access is ready or must be requested — **do not just paste the URL** (the link belongs in `url`, shown as the "Open" button). **Quick access is the client's *complete map* of external services:** list EVERY external system the client touches — tax authority portal, bank / client-bank, EACH social-insurance portal, the POS/cash system, the document store, the licensing/registration portal, the key email — **including those whose access must still be requested** (`cred_status: missing`). It is a map of *what is needed* with a description of *what & why*, not only what is already connected.
+
+The operator must be able to understand a task without knowing the jurisdiction's tax vocabulary. **Exception:** technical prompts addressed to the runtime/agent itself (`assist.actions[].prompt`) may use native terms without glossing — they are read by you, not the operator. This rule is part of the program: a task that leaves foreign jargon unexplained for the operator is **not** correctly formed, regardless of whether the dashboard renders.
+
+### 0.1.a Same-locale clients too — no stray English, no machine annotations
+
+This applies **even when the client's jurisdiction matches the operator's locale** (a Russian client under a Russian operator). Operator-facing fields must be **100% the operator's language**, plain human prose:
+
+- **No English/Latin common words in the prose.** Use «прямой» (not *direct*), «риск» (not *risk*), «команда» (not *team*), «срок» (not *deadline*), «платёж»/«оплата» (not *payment*), «готово»/«выполнено» (not *done*), «в ожидании» (not *pending*), «клиент» (not *client*), «разбор»/«проверка» (not *review*), «аванс» (not *advance*). Reference a linked entity in prose, not by its raw English label: «связан с риском R-…» — **not** «Связан с risk R-…».
+- **No internal machine annotations in an operator-facing field.** `key=value` paths (`regime.signature.holder=client`, `accounts.bank_access=no`, `account_owner_role=team_lead`), memory keys, raw status enums (`done`, `pending`), daemon tags (`silence_check`, `mm_update`) and debug breadcrumbs belong in the **structured state**, not in what the operator reads. If a fact matters to the operator, say it in a sentence («подписывает и платит сам клиент»); if it's only for the runtime, keep it out of `title`/`context`/`next_action`/`assist.hypothesis`.
+
+  > `assist.hypothesis` is operator-facing too. It is the one-line lens shown **under every track's title on the Plan and inside the track modal** (with `assist.confidence` + `assist.updated_at` rendered next to it — the renderer localises both, e.g. `(уверенность: средняя · 13 июня 2026)`). So the hypothesis prose obeys this rule in full — operator's language, no daemon tags like `(silence_check)`. The only runtime-only assist text is `assist.actions[].prompt` (per §0.1), never the hypothesis.
+
+The operator is a ~60-year-old bookkeeper who does not read English. A task whose operator text contains English words or machine annotations is **not correctly formed**, exactly like an unglossed foreign tax term in §0.1.
+
+### 0.1.b Client-facing prose is stricter still — `regime.client_facing`
+
+§0.1/§0.1.a govern what the **operator** reads. One surface goes a step further out — to the **client**: the monthly one-pager (`report_<id>.html`, rendered by `engine/_owner_report.py`). Its subtitle reads `regime.client_facing.summary`, and an optional `regime.client_facing.turnover_scope` annotates the headline turnover. These two fields are the **only** prose Saldo shows a client, so they carry the highest bar:
+
+- **Never reuse `regime.business_description` for the client.** That field is *internal operator prose* — it legitimately holds ticket numbers (`Finkoper #…`), credit codes, open uncertainties («требуется проверка»), recovery-track notes and risk flags. None of that goes to a client. The report does not read it; do not route it there.
+- **`client_facing.summary`**: the client's language, plain, finished. No internal IDs, no «требуется проверка»/«разобрать», no risk/anomaly mentions, no team-internal mechanics. Describe the business as the client would recognise it (e.g. «Производство мед. инструментов и аренда · УСН 6%»). Leave it `null` to let the report derive a neutral line from `regime.primary` + `identity.okved.main` + start year — the derived line is always client-safe, so **null is the correct default until you have client copy worth writing**.
+- **`client_facing.turnover_scope`**: a short caveat shown under the turnover number when it doesn't cover everything — e.g. «по основному счёту» when only one of several accounts is posted. Set it whenever the headline figure is partial; otherwise leave `null`. An unqualified turnover the operator knows is incomplete is a client-facing accuracy bug.
+- **The report never claims a payment that didn't happen.** It shows "уплачены ✓" only when the period actually has tax lines; an empty `taxes` renders «налоговых платежей не было», not a `0 ₽` "paid". Keep `financials.periods[].taxes` honest and the report follows.
+
+## 0.2 State consistency on update — actualize derived fields, don't leave stale ones
+
+When you change a task/track's **status**, bring its derived fields into line in the SAME update — don't leave a value that now contradicts the status. In particular: **closing a task clears its `next_action`** (a done task has no next step; a stale "request the NPWP" on a closed task is a bug). Likewise drop an `assist` whose hypothesis no longer holds, and update `next_action`/`context` when the situation moves. The engine guards the worst case at render time (a terminal task never shows a next step) and `state_lint` flags drift (`stale_next_action`), but the source of truth is the state you write — keep it self-consistent.
+
+## 0.3 Writing free-text fields — enumerated lists go on their own lines
+
+When a free-text field (`context`, `next_action`, an `assist.hypothesis`) carries a
+list of **two or more** items, write each item on its own line with a real
+newline (`\n`) — not inline as `1) … 2) … 3) …`. The dashboard renders these
+fields with `white-space:pre-wrap`, so newlines become line breaks; an inline
+list collapses into one unreadable run-on paragraph (the exact bug behind
+migration `0008`).
+
+```
+# bad  (one wall of text)
+context: "Посчитать три вещи. 1) PPh 21 — … 2) BPJS Kesehatan — … 3) BPJS Ketenagakerjaan — …"
+
+# good (introductory sentence, then one line per item)
+context: "Посчитать три вещи:\n1) PPh 21 — …\n2) BPJS Kesehatan — …\n3) BPJS Ketenagakerjaan — …"
+```
+
+This is only for genuine lists. Leave flowing prose, single items, parenthetical
+task references like `(i1)`, and inline asides like `(1)…(2)…` **as they are** —
+do not force newlines on them. Existing run-on lists already in state are fixed
+once by migration `0008`; this rule keeps new writes from re-introducing them.
+
 ## 1. What to open at the start of a new task
 
 > *RU pack (resolved when `regime.jurisdiction = ru`). Other jurisdictions resolve their own manifest — see §0.*
@@ -100,8 +155,9 @@ The algorithm is mandatory — **do not respond to the content of the task witho
 | "need an Alfa statement for X for <month>" | `policies/workflows/alfabank/get_statement.md` | `client_id=X, period_start, period_end, format=excel` |
 | "what about operations / did a payment go through for X at Alfa" | `policies/workflows/alfabank/list_operations.md` | `client_id=X, direction, query` |
 | "check Alfa" (no qualifier) | `policies/workflows/alfabank/incremental_update.md` | `since=last_run` |
+| "обнови систему Saldo" / "update Saldo" / pressed the dashboard «Доступно обновление» button | `connectors/update/SKILL.md` | Operator-facing engine upgrade: snapshot → preview pending migrations → **pause for «да»** → apply (delegates to `tools/update.py`) → `state_lint`/integrity/scenario-verify → report. The "is a new version available?" check is **inline in `generate.py`** (`engine/_updater.py`) — no daemon, no flag file. |
 
-Workflows are **reusable business logic**. The atomic ones (`read_task`, `read_chat`, `list_*`, `check_notifications`, `r1`-`r7`, `propose_patches`, `apply_t7`, etc.) do one operation. The composite ones (`morning_full_scan`, `incremental_update`) are pipelines of the atomic ones. `Scheduled/<name>/SKILL.md` is a thin loader that calls the composite `morning_full_scan` on a schedule. In a session I call the atomic ones directly (when the trigger is pointed) or the composite ones (when a sweep is needed). Architectural principle: one workflow, several executors. See `policies/workflows/<domain>/README.md` for an overview of the domain.
+Workflows are **reusable business logic**. The atomic ones (`read_task`, `read_chat`, `list_*`, `check_notifications`, `r1`-`r7`, `propose_patches`, `apply_t7`, etc.) do one operation. The composite ones (`morning_full_scan`, `incremental_update`) are pipelines of the atomic ones. `Scheduled/<name>/SKILL.md` is a thin loader that calls the composite `morning_full_scan` on a schedule. In a session I call the atomic ones directly (when the trigger is pointed) or the composite ones (when a sweep is needed). Architectural principle: one workflow, several executors. See `policies/workflows/<domain>/README.md` for an overview of the domain. **For web-driven providers, follow the per-provider `connectors/<x>/ui_playbook.md` for the UI mechanics (jump-to-chat, send, download…) instead of improvising — and when reality deviates, run the recover+capture loop (`policies/skill-evolution.md`), writing Field notes to the data-dir overlay, never the engine. Outbound atomic actions (`send_message`, `reply_message`, `upload_file`) are approval-gated; daemons never send.**
 
 **Available workflow domains (current as of 2026-06-07):**
 - `finkoper/` — Finkoper tasks and chats (8 files)
@@ -114,6 +170,7 @@ Workflows are **reusable business logic**. The atomic ones (`read_task`, `read_c
 - `egrul/` — company-registry (EGRIP) extracts (1 file)
 - `websbor/` — the statistics portal, annual statistics reporting (1 file)
 - `mm_update/` — the unified contract for updating state from any signal (1 file)
+- `update/` (in `connectors/`) — operator-facing engine upgrade, pause-for-«да»; the version check is inline in `generate.py`, not a daemon (1 file)
 
 > ⛔ `updater/` (T1-T7) and `analytic/` (R1-R7) — the operational domains were REMOVED 2026-05-24 (the daemons are self-contained, updates go through `mm_update`). The specifications `updater-rules.md` / `analytics-rules.md` are kept as a historical reference.
 
@@ -195,13 +252,18 @@ What NOT to do: do not edit the HTML directly. Only via state/mental_model and r
 
 **Track render:** `render_tracks_zone` reads `state/tasks.json` for ALL clients (the P1 fix applied 2026-05-25 CLOSED; fallback to mental_model only if state is empty).
 
+**Client report (`report_<id>.html`):** the same `generate.py` pass also writes a one-page monthly report per client that has financial periods (`engine/_owner_report.py`); the client card links to it. This is the **only client-facing surface** Saldo renders — print to PDF and send to the client. Before sending:
+- Its subtitle and turnover caveat come from `regime.client_facing` (`summary` / `turnover_scope`), NOT from `business_description`. Author/refresh those two fields per **§0.1.b** — leaving `summary` null is fine (the report derives a clean line), but **set `turnover_scope` whenever the headline turnover is partial** (e.g. only one of several bank accounts posted), or the figure misleads the client.
+- The taxes block is honest by construction (claims "уплачены ✓" only when the period has real tax lines). If a payment really was made, it belongs in `financials.periods[].taxes` — put it there, don't narrate it in prose.
+- **Sending to the client is approval-gated** (root CLAUDE.md safety): regenerate, show me the report, and only send on my OK. Never hand-edit the HTML — fix state and regenerate.
+
 **Backup policy:**
 - A backup is created BEFORE each substantive edit of `clients_data.json`, `generate.py`, registries, and the daemons' daily reports. Name: `<original>.bak_YYYYMMDD_<context>` (e.g. `clients_data.json.bak_20260516_p0a_anomaly_id`). Backups of daily reports from a daemon rerun — `<name>.before_rerun_YYYYMMDD_HHMMSS.bak`.
 - The working folder keeps the **2 latest** backups per base file. Older ones → `Archive/bak_history/<month>/<file name>/`.
 - Rotation — once a month by hand (or by a separate P2 daemon in the future). At the next rotation, check that no more than 2 backups per file have accumulated in the working folder.
 - A backup with a "key" context (apply_patches, p0a_anomaly_id, etc.) is considered more valuable than a plain "timestamp-updater" one — keep it in priority at rotation.
 
-The collectors (scheduled tasks) fill `journal/inbox/` and `journal/finkoper_state/` with fresh data for the day. The schedule is declared in `config/instance.yaml → schedule` (times local to `instance.timezone`); the default is 06:00 — `news`, 06:15 — `email`, 06:30 — `practice_management` (a snapshot of tasks+chats into JSON), **07:45 — `dashboards`** (regenerate). The old standalone `updater`/`analytic` daemons were retired (their logic moved into `mm_update` and the on-the-fly dashboard widgets); the `bank` collectors (T-Bank/Alfa) run on demand for the direct circuit. Each collector degrades gracefully — a failure or empty result yields an empty panel + a status dot, never a broken render.
+The collectors (scheduled tasks) fill `journal/inbox/` and `journal/finkoper_state/` with fresh data for the day. The schedule is declared in `config/instance.yaml → schedule` (times local to `instance.timezone`); the default is 06:00 — `news`, 06:15 — `email`, 06:30 — `practice_management` (a snapshot of tasks+chats into JSON), **07:00 — `question_resolver`** (AFTER the collectors: resolves only the open questions still unanswered, closing what a reachable source — Drive/EGRIP/1C/OFD/statement — settles; running after the collectors avoids re-doing what they just resolved; see `connectors/question_resolver/SKILL.md`), then the monitors (deadline/staleness/threshold/counterparty), **07:45 — `dashboards`** (regenerate). The set of jobs is **declarative** — to register/sync the daemons on an operator's machine (and after every upgrade), run the `scheduler` skill (`connectors/scheduler/SKILL.md`): it reconciles the actual scheduled tasks to this `schedule` block, dry-run first, touching only Saldo-owned (`saldo-<name>`) jobs and never the operator's personal ones. The old standalone `updater`/`analytic` daemons were retired (their logic moved into `mm_update` and the on-the-fly dashboard widgets); the `bank` collectors (T-Bank/Alfa) run on demand for the direct circuit. Each collector degrades gracefully — a failure or empty result yields an empty panel + a status dot, never a broken render.
 
 Hybrid reading architecture (since 2026-05-13):
 - **Finkoper** — a JSON snapshot `journal/finkoper_state/latest/tasks.json`, `chats.json`, `snapshot_meta.json`

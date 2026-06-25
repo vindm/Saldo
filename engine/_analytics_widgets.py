@@ -160,25 +160,38 @@ def pending_decisions(journal_path):
 
 
 def compute_focus_top5(all_tracks, overdue, upcoming, max_count=5):
-    """Top-5: overdue first (oldest), then today / 1-2 days out."""
-    seen = set()
-    result = []
-    def _add(t):
+    """Top-5 for today — simple deadline order: overdue (most overdue first),
+    then today / due ≤ 2 days. Same intuitive ordering as the client «Сводка»."""
+    def _days(t):
+        do = t.get("days_overdue")
+        if do is not None:
+            return -do
+        dl = t.get("days_left")
+        return dl if dl is not None else 10 ** 9
+    # NB: don't use `days_left or 99` — that wrongly treats 0 (due today) as falsy.
+    cands = list(overdue) + [u for u in upcoming
+                             if u.get("days_left") is not None and u.get("days_left") <= 2]
+    seen, uniq = set(), []
+    for t in cands:
         tid = t.get("id") or t.get("source_ref") or t.get("title", "")
         if tid in seen:
-            return
+            continue
         seen.add(tid)
-        result.append(t)
-    for t in overdue:
-        _add(t)
-        if len(result) >= max_count:
-            return result
-    for t in upcoming:
-        if t.get("days_left", 99) <= 2:
-            _add(t)
-            if len(result) >= max_count:
-                return result
-    return result
+        uniq.append(t)
+    uniq.sort(key=_days)
+    top = uniq[:max_count]
+    # Attach dependency info so the rows can show the SAME «🔒 blocked» marker and
+    # «разблокирует N» chip as the client «Сводка» (consistency across both views).
+    by_id = {t.get("id"): t for t in all_tracks if t.get("id")}
+    dep = {}
+    for t in all_tracks:
+        for b in (t.get("blocked_by") or []):
+            if b:
+                dep[b] = dep.get(b, 0) + 1
+    for t in top:
+        t["_unblocks"] = dep.get(t.get("id"), 0)
+        t["_blocker"] = next((by_id[b] for b in (t.get("blocked_by") or []) if b in by_id), None)
+    return top
 
 
 def _esc(s):
@@ -255,40 +268,40 @@ def render_focus_top5_widget(focus, plan_today_url="plan_today.html", embedded=F
     if not focus:
         body = '<div class="aw-empty">' + t('Nothing urgent for today') + '</div>'
     else:
-        rows = []
+        # Same row component as the client «Сводка» top-3 (engine/_brief) — one
+        # look app-wide: status marker · title · client · shared due badge · →.
+        from _brief import _render_task_rows
+        from _helpers import client_avatar
+        items = []
         for tk in focus:
-            client = tk.get("client_name") or ""
-            title = (tk.get("title") or "")[:100]
-            if tk.get("days_overdue") is not None:
-                badge_cls = "dl-overdue"
-                badge_txt = t("overdue {}d").format(tk["days_overdue"])
-            elif tk.get("days_left") == 0:
-                badge_cls = "dl-today"; badge_txt = t("today")
-            elif tk.get("days_left", 99) <= 2:
-                badge_cls = "dl-soon"; badge_txt = t("in {}d").format(tk["days_left"])
-            else:
-                badge_cls = "dl-plan"; badge_txt = t("{}d").format(tk.get("days_left", "?"))
-            attrs = _track_data_attrs(tk)
-            rows.append(
-                '<div class="aw-row aw-focus-row track-card-clickable"{a}>'
-                '<span class="aw-dl-badge {bc}">{bt}</span>'
-                '<span class="aw-text">{title}</span>'
-                ' <span class="aw-client">— {client}</span>'
-                '</div>'.format(a=attrs, bc=badge_cls, bt=_esc(badge_txt), title=_esc(title), client=_esc(client)))
-        body = "".join(rows)
+            do = tk.get("days_overdue")
+            days = (-do) if do is not None else tk.get("days_left")
+            cname = tk.get("client_name") or ""
+            blk = tk.get("_blocker")
+            hypo = ((tk.get("assist") or {}).get("hypothesis") or tk.get("next_action")
+                    or (tk.get("details") or {}).get("next_action") or "")
+            items.append({
+                "priority": tk.get("priority", "normal"),
+                "title": (tk.get("title") or "")[:100],
+                "client": cname,        # line 2 (identity)
+                "next_action": hypo,    # line 3 (hypothesis, or blocker when blocked)
+                "due_days": days,
+                "unblocks": tk.get("_unblocks", 0),
+                "blocker_title": (blk.get("title") or "") if blk else "",
+                "blocker_attrs": _track_data_attrs(blk) if blk else "",
+                "avatar": client_avatar(cname),  # cross-client → show who it's for
+                "attrs": _track_data_attrs(tk),
+            })
+        body = _render_task_rows(items, _esc, kind='task')
+    # Same structure as the client «Сводка» top-3 (engine/_brief): one label, the
+    # rows, then a «Показать все задачи →» link below — identical wording & style.
+    label = '<div class="an-recs-label">' + t('Top for today') + '</div>'
+    more = ('<a class="an-more" href="' + _esc(plan_today_url) + '">'
+            + t('Show all tasks') + ' &rarr;</a>')
+    inner = label + body + more
     if embedded:
-        return (
-            '<div class="brief-top5">'
-            '<div class="brief-top5-head">' + tp('Top-5 today', 'Топ-5 на сегодня') + ' '
-            '<a class="aw-link" href="{url}">' + t('→ full plan') + '</a></div>'
-            '<div class="aw-body">{body}</div></div>'
-        ).format(url=_esc(plan_today_url), body=body)
-    return (
-        '<div class="aw-widget aw-focus">'
-        '<div class="aw-head">' + t('🎯 Top-5 for today') + ' '
-        '<a class="aw-link" href="{url}">' + t('→ full plan') + '</a></div>'
-        '<div class="aw-body">{body}</div></div>'
-    ).format(url=_esc(plan_today_url), body=body)
+        return '<div class="brief-top5">' + inner + '</div>'
+    return '<div class="aw-widget aw-focus">' + inner + '</div>'
 
 
 def render_deadlines_widget(upcoming, overdue):
@@ -354,18 +367,20 @@ body.mode-team [data-track-type="direct"]{display:none !important}
 body.mode-direct [data-track-type="team"]{display:none !important}
 
 /* === Light stats in a single line === */
-.aw-stats{display:flex;gap:32px;padding:16px 20px;background:var(--bg-card);
-  border:1px solid var(--border);border-radius:var(--radius-card);
-  margin:0 0 14px;flex-wrap:wrap;align-items:flex-end}
-.aw-stats .stat{display:flex;flex-direction:column;gap:3px;padding:0;
-  border-right:none;min-width:0}
-.aw-stats .stat-num{font-size:22px;font-weight:500;color:var(--text-primary);line-height:1}
+.aw-stats{display:flex;gap:0;padding:0;background:transparent;
+  border:none;border-radius:0;
+  margin:0 0 var(--space-lg);flex-wrap:wrap;align-items:flex-start}
+.aw-stats .stat{display:flex;flex-direction:column-reverse;justify-content:flex-end;
+  gap:8px;padding:2px 26px;min-width:0}
+.aw-stats .stat:first-child{padding-left:0}
+.aw-stats .stat + .stat{border-left:1px solid var(--border)}
+.aw-stats .stat-num{font-size:22px;font-weight:600;color:var(--accent);line-height:1.15;font-variant-numeric:tabular-nums}
 .aw-stats a.stat-link{text-decoration:none;color:inherit;cursor:pointer}
-.brief-top5{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.brief-top5{margin-top:14px}
 .brief-top5-head{font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline}
 .aw-stats a.stat-link:hover .stat-num{color:var(--accent-blue)}
-.aw-stats .stat-lbl{font-size:11.5px;color:var(--text-muted);text-transform:uppercase;
-  letter-spacing:0.05em}
+.aw-stats .stat-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;
+  letter-spacing:0.12em;font-weight:500}
 .aw-stats .stat-red .stat-num{color:var(--accent-red)}
 .aw-stats .stat-amber .stat-num{color:var(--accent-yellow)}
 .aw-stats .stat-green .stat-num{color:var(--accent-green)}

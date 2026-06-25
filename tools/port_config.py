@@ -47,16 +47,24 @@ def _parse_value(rest):
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("usage: port_config.py <old.yaml> <new.yaml>")
+    argv = sys.argv[1:]
+    force = "--force" in argv
+    pos = [a for a in argv if not a.startswith("--")]
+    if len(pos) < 2:
+        print("usage: port_config.py <old.yaml> <new.yaml> [--force]")
         return 2
-    src, dst = sys.argv[1], sys.argv[2]
+    src, dst = pos[0], pos[1]
     if not os.path.exists(src):
         print("No source config to port (" + src + ") - skipping.")
         return 0
     if os.path.exists(dst):
-        print("Config already present at destination - leaving it untouched.")
-        return 0
+        if not force:
+            print("Config already present at destination - left untouched (use --force to overwrite).")
+            return 0
+        import shutil as _sh, time as _tm
+        bak = dst + ".bak_" + _tm.strftime("%Y%m%d_%H%M%S")
+        _sh.copy(dst, bak)
+        print("Backed up existing config to " + bak)
 
     src_cfg_dir = os.path.dirname(os.path.abspath(src))
     with open(src, encoding="utf-8") as f:

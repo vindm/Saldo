@@ -7,8 +7,49 @@ tracks, recently closed tracks, latest decisions). Same layout everywhere:
 
 Date is always rendered the same way and in the same place (right column).
 """
-from _strings import tp
+from _strings import tp, t
 from _helpers import _esc, client_avatar
+
+
+_PRIO_RANK = {'high': 0, 'normal': 1, 'low': 2}
+
+
+def due_label(days):
+    """THE due-date TEXT (relative wording), defined ONCE. Shared by the badge,
+    the plan rows, and the track modal's data-track-due — so the same task shows
+    the same words everywhere. None days = no deadline → muted «без срока»."""
+    if days is None:
+        return t('no due date')
+    if days < 0:
+        return t('overdue')
+    if days == 0:
+        return t('today')
+    if days == 1:
+        return t('tomorrow')
+    return t('in {} d.').format(days)
+
+
+def due_class(days):
+    """Urgency class suffix for the shared .due-badge (none/overdue/today/soon/far)."""
+    if days is None:
+        return 'none'
+    if days < 0:
+        return 'overdue'
+    if days == 0:
+        return 'today'
+    if days <= 7:
+        return 'soon'
+    return 'far'
+
+
+def due_badge(days):
+    """THE shared due-date badge — relative text (due_label) + urgency colour
+    (due_class). Reused everywhere (hero «Сводка», plan rows, track modal).
+    CSS lives in DESIGN_TOKENS_CSS (.due-badge) so it's available on every page."""
+    txt = due_label(days)
+    if not txt:
+        return ''
+    return '<span class="due-badge due-badge-' + due_class(days) + '">' + _esc(txt) + '</span>'
 
 
 EVENT_CSS = (
@@ -32,7 +73,7 @@ EVENT_CSS = (
     ".ev-status{font-size:12px;padding:2px 9px;border-radius:10px;white-space:nowrap;font-weight:500}"
     ".ev-when{font-size:12px;color:var(--text-muted);white-space:nowrap}"
     ".ev-more{display:block;width:100%;text-align:center;padding:9px;background:none;border:none;"
-    "border-top:1px solid var(--border);color:var(--accent-blue);font-size:13px;cursor:pointer}"
+    "border-top:1px solid var(--border);color:var(--accent-blue);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}"
 )
 
 

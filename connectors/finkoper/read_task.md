@@ -108,7 +108,7 @@ Claude in Chrome is authorized in Finkoper (`app.finkoper.com`).
 
 ### A direct URL `/tasks/<id>` does NOT open the task detail
 
-`https://app.finkoper.com/tasks/26779260` renders the general task list (with the row highlighted), not the task detail page. If you just navigate to the URL — the list shows up, but the task card (description, responsible, observers) does not open.
+`https://app.finkoper.com/tasks/10000001` renders the general task list (with the row highlighted), not the task detail page. If you just navigate to the URL — the list shows up, but the task card (description, responsible, observers) does not open.
 
 **To get the full card fields** — open the wizard modal with the `[3]` button (the "edit" arrow) in the `.TaskRow_item__Xj2bN` row:
 

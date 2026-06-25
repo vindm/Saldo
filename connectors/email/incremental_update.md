@@ -1,38 +1,33 @@
 # Composite skill: email/incremental_update
 
-Incremental sweep of Yandex.Mail since last_run — appends to the daily report.
+Incremental sweep **across all email accounts** since each one's watermark — appends to the
+daily report. Multi-account, same registry as the morning sweep (`connectors/_sources.md`).
 
 ## Parameters
 
 | Parameter | Type | Default |
 |---|---|---|
-| `since` | ISO datetime | `email_heartbeat.txt` last timestamp |
-| `client_filter` | client_id | `null` |
+| `since` | ISO datetime | per-account watermark (`journal/finkoper_state/email/<account>.json`) |
+| `client_filter` | client_id | `null` (narrows the account set to that client's mailbox + the operator inbox) |
 | `trigger_description` | string | `null` (for the marker in the daily report) |
 
 ## Algorithm
 
-### Step 1. Determine `since`
+### Step 1. Account set + `since`
 
-If the parameter is not set — read `journal/inbox/email_heartbeat.txt`, take the last line.
+Enumerate `enumerate_sources("email")` (drop non-connected, flag) exactly as
+`morning_full_scan.md` Step 1. `since` per account = its own watermark (or the `since`
+parameter if given). If `client_filter` is set, restrict to that client's mailbox + the
+operator inbox (`by_correspondent`).
 
-### Step 2. List new emails
+### Step 2. Fan out — one pass per account
 
-```
-Read `connectors/email/list_messages.md`. Execute with:
-  from = null
-  since = <since>
-  folder = "All"
-  limit = 100
-```
-
-If the result is empty — there is nothing new, finish (see the "If there are no changes" section).
-
-### Step 3. Filter and read
-
-Same as in `morning_full_scan.md` steps 3-4: filter by known correspondents, read each match via `read_message.md`.
-
-If `client_filter` is set — keep only this client's emails.
+For each account: **switch + verify** (read back the active login == handle, else stop/flag/skip),
+list `list_messages.md` (`from=null, since=<watermark>, folder="All", limit=100`), **route**
+(by_correspondent vs the client's own mailbox), **dedup across accounts** by message-id, read
+each match (`read_message.md`), advance that account's watermark. Identical to
+`morning_full_scan.md` Step 2; if every account returns empty → there is nothing new (see "If
+there are no changes").
 
 ### Step 4. R6 — preserving manual notes
 

@@ -8,7 +8,23 @@ import cycle at module level.
 """
 import os
 import json
+import hashlib
 from datetime import datetime as _dt
+
+
+def _avatar_color(name):
+    """Deterministic, near-unique pastel colour per client (stable hash → HSL).
+
+    Not a fixed palette: the hue spans the full 360° circle, so any number of
+    clients each get their own colour. A secondary hash dimension nudges
+    saturation/lightness so clients with near hues still separate. Text colour
+    tracks the hue at a fixed darker S/L for readable initials."""
+    d = hashlib.md5((name or 'x').strip().encode('utf-8')).hexdigest()
+    hue = int(d[:4], 16) % 360
+    v = int(d[4:6], 16)
+    sat = 56 + (v % 3) * 10          # 56 / 66 / 76
+    lig = 90 + ((v // 3) % 3)        # 90 / 91 / 92
+    return 'hsl(%d,%d%%,%d%%)' % (hue, sat, lig), 'hsl(%d,46%%,33%%)' % hue
 
 
 def _esc(s):
@@ -155,8 +171,8 @@ def _format_date_ru(d):
 
 _AVATAR_PALETTE = [
     '#E6F1FB:#185FA5', '#FBE9E6:#A53A18', '#EAF3DE:#3B5E2A', '#F3E6FB:#6B2AA5',
-    '#FBF3D9:#8A6730', '#E0F3F1:#1A6E64', '#FBE6F0:#A52A6B', '#EDEBFE:#534AB7',
-    '#F0EBE3:#6B5A3A', '#E6F7FB:#176B85', '#F1F0DC:#5F6B1A', '#FBEAD9:#A55A18',
+    '#FBF3D9:var(--accent-yellow)', '#E0F3F1:#1A6E64', '#FBE6F0:#A52A6B', '#EDEBFE:#534AB7',
+    'var(--bg-subtle):#6B5A3A', '#E6F7FB:#176B85', '#F1F0DC:#5F6B1A', '#FBEAD9:#A55A18',
 ]
 
 _SRC_LABELS = {
@@ -183,8 +199,7 @@ def client_avatar(name):
         ini = words[0][:2].upper()
     else:
         ini = (words[0][0] + words[1][0]).upper()
-    i = (sum(ord(ch) for ch in (name or 'x')) * 31 + len(name or '')) % len(_AVATAR_PALETTE)
-    bg, fg = _AVATAR_PALETTE[i].split(':')
+    bg, fg = _avatar_color(name)
     return ini, ' style="background:' + bg + ';color:' + fg + '"'
 
 

@@ -9,6 +9,12 @@
 #   if any active patent: append patent_suffix
 #
 # `object` keys are matched exactly; an unmatched object falls back to `label`.
+#
+# These tokens are ENGLISH (pack = source language). render_regime_label
+# localises `base` and `patent.suffix` through t() at render time, so the same
+# string drives both the operator's snippet card and the client-page header.
+# A non-en operator locale needs a matching engine/_strings.py entry per token
+# (e.g. "USN Income" -> "УСН Доходы", "+ PSN" -> "+ ПСН").
 
 regimes:
   USN:

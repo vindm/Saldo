@@ -48,9 +48,9 @@ The tag is a free-form `channel:detail` string. The examples below are illustrat
 | Source | Tag | Example |
 |---|---|---|
 | The operator in Cowork chat | `operator:chat` | `operator:chat` |
-| Client's Telegram | `tg:@username` | `tg:@artmatm` |
+| Client's Telegram | `tg:@username` | `tg:@vertex_tg` |
 | Letter | `email:sender` | `email:FTS`, `email:counterparty` |
-| Finkoper task/chat | `finkoper:#NNNNN` | `finkoper:#26779260` |
+| Finkoper task/chat | `finkoper:#NNNNN` | `finkoper:#10000001` |
 | News/law | `news:topic` | `news:USN` |
 | Bank (statement/feed) | `<bank>:statement` | `tbank:statement`, `alfa:statement` |
 | OFD | `ofd:z-report` | `ofd:z-report` |
@@ -89,11 +89,35 @@ News is a **system-wide signal**, not tied to a single client. The algorithm for
 
 ## Confidence (level of certainty — determines the action)
 
+> **Before reading this table: try to resolve the signal first.** Confidence is not a fixed property of the signal — it is what you have left *after* using the data already within reach. A "Medium" signal whose answer sits in a file you can already open (a bank statement in Drive, an existing `state/*.json`, a document a collector already pulled) is **not** a Medium signal to park for the operator — it is a High signal you have not finished resolving. See **§ Derive before asking** below. Assign Medium → operator task only once you have confirmed the answer is genuinely **not** derivable from data in hand.
+
 | Level | When to apply | Action |
 |---|---|---|
-| **High** | Explicit direct confirmation / a direct message from the operator | Apply immediately, audit-log |
-| **Medium** | An indirect sign, interpretation is needed | Put a `🔧` mark in a suitable place for review |
+| **High** | Explicit direct confirmation / a direct message from the operator / **a fact you derived from data already in hand** | Apply immediately, audit-log |
+| **Medium** | An indirect sign needing interpretation, **AND not resolvable from data you can already reach** | Put a `🔧` mark in a suitable place for review |
 | **Low** | Not enough to record | Skip, write nothing |
+
+### 🔴 Derive before asking — never queue what you can resolve yourself
+
+The runtime **is** the agent. Before creating any operator-facing track, open question, or `🔧 Clarify` item, ask: **can I answer this right now from data already within reach** — a file in the client's Drive/Accounting folder, an existing statement, another `state/*.json`, a document a collector already pulled? If yes, **do it now**: read the source, raise your own confidence to High, and write the fact directly via `state_ops`/`_tracks`. Do **not** emit a task whose `next_action` is "open the statement and determine X" when you can open the statement and determine X.
+
+A reliable tell of this anti-pattern: you can write a **complete, runnable `assist.actions[].prompt`** for the step (e.g. «Открой выписку … определи банк … проставь в accounts.json»). If you can fully specify the prompt, you already have everything needed to run it — so run it, instead of handing the operator a copy-paste chore. Producing the prompt *and* parking it as operator work is the worst outcome: the thinking was done, only the clicking was offloaded.
+
+**Surface to the operator only when resolution genuinely needs a human** — i.e. exactly one of:
+- **Missing external input the system genuinely cannot obtain itself** — a document only the client has, an answer only the client/authority can give, a credential. An input you *can* fetch yourself (run a skill/connector against a known key — an EGRIP/EGRUL extract by INN via the `egrul` workflow, a contract in 1C, an OFD record, a statement from a connected Drive) is **not** missing input: fetch it and resolve. The deciding test is *who holds the answer* — a registry/system the runtime can reach, or a person it must ask.
+- **Judgment / ambiguity that data can't settle** — the source is genuinely inconclusive *after you read it* (e.g. the statement does not show the issuer), or two sources conflict (`type=conflict`).
+- **An outbound or irreversible action** — anything *sent* to a client/authority, a submission/filing, moving money, a write into Finkoper/1C, or a track *close*. These keep the operator in the loop by the safety model (`safety-rules.md §5a`) regardless of confidence.
+
+**Acquiring data ≠ acting on the world — they sit at different rungs.** Most "open questions" are acquisition, and acquisition does not need a chore:
+1. **Zero-touch** — the answer is in a connected source (a file in Drive, another `state/*.json`, a collector report): read it and write the fact. No approval, no task.
+2. **One-tap** — the answer needs a **read-only fetch the runtime performs itself** (a public-registry lookup by a known key, a 1C/OFD read), even one that drives a browser. This is *acquisition*, gated only as a `browser_action` if the safety config requires it — so collapse it to a single **«Выполнить»** the runtime then runs (or auto-run if the operator pre-approved registry/1C reads), **not** a copy-paste prompt.
+3. **Genuine operator task** — reserved for the three bullets above: input only a person holds, real judgment, or an outbound/irreversible act.
+
+The fake-autonomy failure is offering rung 1 or 2 work as a rung-3 chore (worst of all: a copy-paste prompt). If you can write the full `assist` prompt, the work is rung 1 or 2 — run it.
+
+> **At scale this runs as a scheduled daemon.** `connectors/question_resolver/SKILL.md` runs **after the morning collectors**, walks every open question still open, applies this rung logic, performs the rung-1/2 reads itself, and closes what it can answer confidently — so the queue holds only rung-3 (genuine human) items. Running after the collectors means it never re-does what they just resolved. The rung classification here is the contract it executes.
+
+When you do resolve something autonomously, keep it **visible**: write the fact via `state_ops`, log it in `journal/operator_decisions.md` (`Confidence: high`, note "derived from <source>"), and let it surface in the overview «🔄 Последние обновлённые треки» zone — so the operator *sees* what the system figured out, with a one-tap undo, instead of a queue of chores. Autonomy means doing the work and showing it — not asking permission to do what needs no permission.
 
 ## Signal categories and where to write
 
@@ -101,7 +125,7 @@ News is a **system-wide signal**, not tied to a single client. The algorithm for
 - **Where:** `state/{identity|regime|accounts|counterparties|behavior}.json` — choose the file by the type of fact (see the header table). Write via `state_ops.state_write(client_id, '<file>.json', data, ctx='...')`.
 - **Examples:** new bank → `accounts.json`; new OKVED → `identity.json`; regime change → `regime.json`; new payment channel → `accounts.json` (acquiring); new employee → `regime.json` or `behavior.json`
 - **High:** straight into the corresponding `state/<file>.json`
-- **Medium:** create a track in `state/tasks.json` via `_tracks.upsert_track` with `title="🔧 Clarify: <fact>"`, `type="info_request"`
+- **Medium:** first apply **§ Derive before asking** — if the fact is confirmable from data in hand (e.g. the issuing bank from a statement already in Drive), read it, become High, and write straight to `state/<file>.json`. Create a `🔧 Clarify` track (`_tracks.upsert_track`, `type="info_request"`) **only** when the answer genuinely is not derivable (needs external input/judgment).
 
 ### B. An open thread arose (a new thread)
 - **Where:** `state/tasks.json → tasks[]` via `_tracks.upsert_track(client_id, new_track_dict)`
@@ -398,6 +422,7 @@ Not line by line for each micro-event. One block in `journal/operator_decisions.
 ❌ **Regex/anchor matching** as the primary mechanism — misses context, breeds duplicates
 ❌ **One signal — one event on every track where a word matched** — that is a false-positive farm
 ❌ **Closing tracks on weak signals** — the client wrote "sent" != the payment went through
+❌ **Fake autonomy** — parking a fact you could derive from data already in hand as an operator task (the tell: you've already written the full runnable `assist` prompt for it). Resolve it yourself and show the result; see § Derive before asking.
 ❌ **Ignoring links between tracks** — closing a statement automatically unblocks "month-end close in 1C"
 ❌ **Using `_signal_processor.py` as the main mechanism** — it is deprecated, kept only as inspiration
 ❌ **Writing into `clients_data.json` or into the removed sections of `mental_model` ("Firmly understood", "Red flags", "Dossier of key counterparties", "Tax calendar", "Client behavior pattern")** — after the 2026-05-25 migration these sections are not used, everything structurable lives in `state/*.json`
@@ -465,7 +490,9 @@ A fact is considered applied ONLY when all links are reconciled and the checks h
 
 - `hypothesis` — always explicitly a guess, not a fact; do not write it into state facts (identity/regime/financials…).
 
-**Who reads it:** `engine/_brief.py` (the brief: questions/decisions), in the future — the track modal (`_track_modal.py`) and the top-5. No `assist` → fall back to `next_action` + standard options.
+**Operator-facing free-text** (`title`, `context`, `next_action`, `assist.hypothesis`) follows INSTRUCTIONS §0.1–§0.3: the operator's configured locale (`instance.locale` — not hardcoded; Russian for this practice), foreign tax terms glossed (§0.1/§0.1.a), and **a list of 2+ items written one per line with real newlines, not inline `1) … 2) …`** (§0.3 — the dashboard renders these with `white-space:pre-wrap`).
+
+**Who reads it:** `engine/_brief.py` (the brief: questions/decisions), the track modal (`_track_modal.py`), and the Plan list row (`_plan_today.py` — the inline line under a hot task's title). All of them show `assist.hypothesis` as the lens and **fall back to `next_action`** (+ standard options) when there is no `assist`. This is one shared priority — the list row and the modal must not diverge (the modal showing the hypothesis while the row shows a different `next_action` was the bug this rule fixes).
 
 **Coverage:** `state_lint` gives `assist_gap` (info) on priority tracks/open questions without `assist` and `assist_stale` (>30 days). The goal is to fill it incrementally (from the surfacing/priority ones), with coverage growing toward 100%.
 

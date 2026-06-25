@@ -28,6 +28,25 @@ from _config import LOCALE
 UI = {
     'en': {},  # en is identity: the key IS the English string (see t()).
     'ru': {
+        # ── _updater.py — "Update Saldo" affordance ─────────────────
+        'Update available': 'Доступно обновление',
+        'Update Saldo': 'Обновить Saldo',
+        'A new version of Saldo is available': 'Доступна новая версия Saldo',
+        "What's new": 'Что нового',
+        'commits behind': 'отставание, коммитов',
+        'latest': 'новейшая',
+        'Press the button below, then paste into the chat with the assistant. Nothing is changed until you confirm.': 'Нажмите кнопку ниже и вставьте текст в чат с помощником. Ничего не изменится, пока вы не подтвердите.',
+        'When you press the button, the assistant will:': 'Когда вы нажмёте кнопку, помощник:',
+        'make a backup of your data': 'сделает резервную копию ваших данных',
+        'download the new engine version': 'скачает новую версию движка',
+        'show you exactly what will change and wait for your «yes»': 'покажет, что именно изменится, и дождётся вашего «да»',
+        'apply the update, migrate your data, and rebuild the dashboard': 'применит обновление, перенесёт данные и пересоберёт дашборд',
+        'check that everything works and report back': 'проверит, что всё работает, и отчитается',
+        'Copy the update command': 'Скопировать команду обновления',
+        'Copied.': 'Скопировано.',
+        'Switch to the chat with the assistant, paste, and send.': 'Перейдите в чат с помощником, вставьте текст и отправьте.',
+        'If the button does not work, just write to the assistant: «обнови систему Saldo» — it knows what to do.': 'Если кнопка не сработала, просто напишите помощнику: «обнови систему Saldo» — он знает, что делать.',
+        'You are on the latest version. There is nothing to update right now. When a new version appears, an «Update available» item will show up in the menu on the left.': 'У вас самая свежая версия. Обновлять сейчас нечего. Когда появится новая версия, в меню слева появится пункт «Доступно обновление».',
         # ── _sidebar.py — left menu ───────────────────────────────────────
         'Dashboard': 'Дашборд',
         'Plan': 'План',
@@ -121,7 +140,7 @@ UI = {
         'Bookkeeping — ': 'Бухгалтерия — ',
 
         # ── due-date chip / badge labels (shared across overview & plan) ───
-        'overdue {}d': 'просрочка {}д',
+        'overdue {}d': 'просрочено · {}дн',
         'today': 'сегодня',
         'in {}d · {}': 'через {}д · {}',
         '{} · {}d': '{} · {}д',
@@ -140,6 +159,20 @@ UI = {
 
         # scenario badge abbreviations (SCENARIO_RU values)
         'USN': 'УСН',
+        'Tax no. (NPWP)': 'ИНН (NPWP)',
+        'Reg. no. (NIB)': 'ОГРН (NIB)',
+        'Legal form': 'Форма',
+        'OKVED (KBLI)': 'ОКВЭД (KBLI)',
+        'Capital': 'Капитал',
+        'Investment': 'Инвестиции',
+        'Scale': 'Масштаб',
+        'Director': 'Директор',
+        'Supervisor': 'Комиссар',
+        'Management': 'Руководство',
+        'OSNO': 'ОСНО',
+        'PSN': 'ПСН',
+        'NPD': 'НПД',
+        'ESHN': 'ЕСХН',
         'USN+Patent': 'УСН+Патент',
         'WB+Patent': 'WB+Патент',
         'video+self-employed': 'видео+СЗ',
@@ -147,6 +180,18 @@ UI = {
         'rental': 'аренда',
         'WB': 'WB',
         'AUSN': 'АУСН',
+
+        # full regime labels — jurisdiction-pack object tokens (jurisdictions/
+        # <code>/regimes.yaml) rendered on the operator surface via
+        # _jurisdiction.render_regime_label. Keys must match the pack tokens
+        # exactly (incl. the U+2212 minus in Income−Expenses).
+        'USN Income': 'УСН Доходы',
+        'USN Income−Expenses': 'УСН Доходы минус расходы',
+        'AUSN Income': 'АУСН Доходы',
+        '+ PSN': '+ ПСН',
+        # id pack
+        'UMKM final': 'UMKM',
+        'UMKM final (turnover)': 'UMKM (оборот)',
 
         # ── _plan_today.py / _plan_week.py / _plan_month.py — page chrome ──
         'general ': 'общее ',
@@ -215,7 +260,17 @@ UI = {
         'client service payment': 'оплата услуг клиентом',
         'Client clarifications': 'Вопросы и уточнения по клиентам',
         '❓ Open questions': '❓ Открытые вопросы',
+        'tasks in flight': 'задач в работе',
+        'observations': 'наблюдения',
+        'Context': 'Контекст',
+        'Top 3 for today': 'Топ-3 на сегодня',
+        'Show all tasks': 'Показать все задачи',
+        'unblocks {}': 'разблокирует {}',
+        'no due date': 'без срока',
+        'blocked, waiting on': 'заблокировано — ждёт',
+        'Top for today': 'Главное на сегодня',
         'Show the rest': 'Показать остальные',
+        'show {} more': 'показать ещё {}',
         'ENS reconciliation': 'сверка ЕНС',
         'self-employed receipts reconciliation': 'сверка чеков СЗ',
         'client follow-up': 'запрос у клиента',
@@ -267,6 +322,23 @@ UI = {
         'Period': 'Период',
         'USN income': 'Доход УСН',
         'Taxes': 'Налоги',
+        # KPI row labels (client dashboard top metrics)
+        'Turnover': 'Оборот',
+        'Headcount': 'Сотрудники',
+        'pers.': 'чел',
+        'net payroll': 'ФОТ нетто',
+        'vs prev.': 'к пред.',
+        'Next deadline': 'Ближайший срок',
+        'in {} d.': 'через {} дн',
+        'Annual pace': 'Годовой прогон',
+        'Pace': 'Прогон',
+        'annual': 'в год',
+        'growth': 'рост',
+        'forecast': 'прогноз',
+        'est.': 'оценка',
+        'fixed': 'фикс.',
+        'under PKP threshold': 'под порогом PKP',
+        'approaching PKP threshold': 'у порога PKP',
         'Status': 'Статус',
         'Date': 'Дата',
         'What': 'Что',
@@ -294,6 +366,23 @@ UI = {
             'Выделите текст и нажмите Ctrl+C, затем Ctrl+V в Cowork',
         '✓ Copied': '✓ Скопировано',
         'Ctrl+C to copy': 'Ctrl+C чтобы скопировать',
+        'Edit or dictate (Win+H) below, then paste into Cowork.':
+            'Отредактируйте или надиктуйте (Win+H) ниже, затем вставьте в Cowork.',
+        'Tip: <kbd>Win</kbd>+<kbd>H</kbd> is the built-in Windows dictation — it works in any text field, including this one.':
+            'Подсказка: <kbd>Win</kbd>+<kbd>H</kbd> — встроенная диктовка Windows, работает в любом текстовом поле, в том числе в этом.',
+        'Press Win+H to dictate, then Copy': 'Нажмите Win+H, чтобы надиктовать, затем «Скопировать»',
+        'Task context · always included': 'Контекст задачи · добавляется всегда',
+        'Write your own prompt or dictate (Win+H)…': 'Напишите свой промпт или надиктуйте (Win+H)…',
+        'Review this client and propose today\'s priorities.':
+            'Разбери клиента и предложи приоритеты на сегодня.',
+        'Client': 'Клиент',
+        'Break it down and propose the next step.': 'Разбери и предложи следующий шаг.',
+        'Close the question: apply to state and remove it from open items.':
+            'Закрой вопрос: применить к state и убрать из открытых.',
+        'Clarify with the client — help me phrase the request.':
+            'Уточнить у клиента — помоги сформулировать запрос.',
+        'Defer it with a wake-up in a quarter.': 'Отложить с напоминанием через квартал.',
+        "I'll answer differently — my answer: ": 'Отвечу иначе — мой ответ: ',
 
         # ── _track_modal.py — modal headings & buttons ────────────────────
         'Close': 'Закрыть',
@@ -303,7 +392,8 @@ UI = {
         '🕒 Event history': '🕒 История событий',
         '🧭 System hypothesis': '🧭 Гипотеза системы',
         '🎯 Next action': '🎯 Следующее действие',
-        '🔒 Dependencies': '🔒 Зависимости',
+        '🔒 Dependencies': 'Зависит от',
+        '🔓 Blocks': 'Блокирует',
         '📑 Details': '📑 Детали',
         '💬 Comments': '💬 Комментарии',
         '💬 Draft reply to client': '💬 Готовый ответ клиенту',
@@ -327,6 +417,37 @@ UI = {
         'monitoring': 'мониторинг',
         'Coretax billing': 'начисление Coretax',
         'turnover collection': 'сбор оборота',
+        # id pack (Indonesia) task-type labels -> operator locale (INSTRUCTIONS §0.1)
+        'compute final tax 0.5%': 'расчёт налога 0,5%',
+        'payroll': 'зарплата',
+        'payroll: income tax + contributions': 'зарплата: подоходный + взносы',
+        'withholding (rent/services)': 'удержания (аренда/услуги)',
+        'tax payment': 'уплата налога',
+        'record payment receipt': 'фиксация квитанции об уплате',
+        'monthly tax return': 'ежемесячная декларация',
+        'annual tax return': 'годовая декларация',
+        'note': 'заметка',
+        'data request': 'запрос данных',
+        'access ready': 'доступ есть',
+        'access with client': 'доступ у клиента',
+        'access after first payment': 'после оплаты первого счёта',
+        'request access': 'нужно запросить',
+        'Income (turnover)': 'Выручка (оборот)',
+        'taxes total': 'налоги, итого',
+        # risk categories -> operator locale
+        'business': 'бизнес',
+        'client relationship': 'отношения с клиентом',
+        'regulatory': 'регуляторное',
+        'finance': 'финансы',
+        'operations': 'операционное',
+        'taxes': 'налоги',
+        'accounting': 'учёт',
+        'data gap': 'качество данных',
+        'infrastructure': 'инфраструктура',
+        'client behavior': 'поведение клиента',
+        'tax regime': 'налоговый режим',
+        'reporting': 'отчётность',
+        'legal': 'юридическое',
         'control': 'контроль',
         'reconciliation': 'сверка',
         'review checkpoint': 'контрольная проверка',
@@ -404,7 +525,7 @@ UI = {
         'later': 'позже',
         '🔍 Break it down': '🔍 Разобрать',
         'Recommendations': 'Рекомендации',
-        '🧠 Analysis and recommendations': '🧠 Анализ и рекомендации',
+        '🧠 Analysis and recommendations': 'Сводка на сегодня',
         'judgment, not fact': 'оценка, не факт',
 
         # ── _assistant_brief.py — narrative sentence fragments ─────────────
@@ -507,8 +628,11 @@ UI = {
         'Supplier': 'поставщик',
         'Agent': 'агент',
         'Self-employed contractor': 'самозанятый исполнитель',
+        'Self-employed supplier': 'самозанятый поставщик',
+        'Bookkeeping provider (team lead)': 'бухсопровождение (рук. команды)',
         'gov orders': 'госзаказы',
         'marketplace': 'маркетплейс',
+        'marketplace (taxi)': 'маркетплейс (такси)',
         'rental': 'аренда',
         'IT consulting': 'IT-консалтинг',
         'labor/individual contractors': 'физлица-исполнители',
@@ -519,6 +643,17 @@ UI = {
         'rental (via aggregator)': 'аренда (через агрегатор)',
         'tenant': 'арендатор',
         'subcontractor SP': 'субподрядчик ИП',
+        'creditor': 'кредитор',
+        'property management': 'управление недвижимостью',
+        'recruiting client': 'клиент (подбор персонала)',
+        'recurring executor': 'исполнитель (регулярный)',
+        'rental (short-term, agent)': 'аренда (краткосрочная, агент)',
+        'rental income': 'доход от аренды',
+        'services': 'услуги',
+        'services buyer': 'покупатель услуг',
+        'tenant (commercial)': 'арендатор (коммерческий)',
+        'tenant (direct, long-term)': 'арендатор (прямой, долгосрочный)',
+        'tenant (medical equipment)': 'арендатор (медоборудование)',
         'open questions:': 'открытые вопросы:',
         'tasks:': 'задачи:',
         'INN:': 'ИНН:',
@@ -590,8 +725,86 @@ UI = {
         'Direct': 'Прямые',
         'Ungrouped': 'Без группы',
         'All': 'Все',
+        'All clients': 'Все клиенты',
+        # owner report (one-pager)
+        'Client report': 'Отчёт клиенту',
+        'Turnover this month': 'Оборот за месяц',
+        'Taxes & contributions — paid': 'Налоги и взносы — уплачены',
+        'Taxes & contributions': 'Налоги и взносы',
+        'No tax payments were due this month.': 'В этом месяце налоговых платежей не было.',
+        'Total paid': 'Итого уплачено',
+        "What's next": 'Что дальше',
+        'Salaries paid; net payroll': 'Зарплата выплачена; фонд нетто',
+        'Print / Save PDF': 'Печать / Сохранить PDF',
+        'Prepared by': 'Подготовлено',
+        'Final tax 0.5% (PP55)': 'Налог 0,5% (PP55)',
+        'Final tax 0.5%': 'Налог 0,5%',
+        'Payroll income tax (PPh 21)': 'Подоходный с зарплат (PPh 21)',
+        'Rent withholding': 'Удержание с аренды',
+        'Services withholding (PPh 23)': 'Удержание с услуг (PPh 23)',
+        'Social insurance (BPJS)': 'Соцстрах (BPJS)',
+        'Construction final tax': 'Налог со стройуслуг',
+        'USN advance': 'Аванс УСН',
+        '1% surplus': '1% с превышения',
+        'Fixed contributions': 'Фиксир. взносы',
+        'Main tax: 0.5% of turnover': 'Основной налог: 0,5% с оборота',
+        'Income tax on salaries': 'Подоходный налог с зарплат',
+        'Tax on rent paid': 'Налог с арендной платы',
+        'Tax withheld on services': 'Удержано с оплаты услуг',
+        'Employee social contributions': 'Соцвзносы за сотрудников',
+        'Final tax on construction': 'Финальный налог со строительства',
+        'Simplified-tax advance': 'Аванс по упрощёнке',
+        '1% over the threshold': '1% сверх порога',
+        'Fixed insurance contributions': 'Фиксированные страховые взносы',
+        'Client report for the owner': 'Отчёт клиенту',
+        # jurisdiction cheat-sheet panel
+        'Jurisdiction cheat sheet': 'Шпаргалка по юрисдикции',
+        'Tax authority': 'Налоговый орган',
+        'Portal': 'Портал',
+        'Currency': 'Валюта',
+        'Social insurance': 'Соцстрах',
+        'Term': 'Термин',
+        'In plain terms': 'Простыми словами',
+        # quick_access service map (migration 0006 builds these via t())
+        'set access status': 'уточнить',
+        'Finkoper — client card': 'Finkoper — карточка клиента',
+        'Finkoper: tasks, chat, client documents.': 'Finkoper: задачи, чат, документы клиента.',
+        '1C:Fresh': '1С:Фреш',
+        '1C:Fresh: posting primary docs and reporting.': '1С:Фреш: разноска первички и отчётность.',
+        'Bank — portal': 'ЛК банка',
+        'Bank portal: statements and payment orders.': 'ЛК банка: выписки и платёжные поручения.',
+        'FNS — personal cabinet': 'ЛК ФНС',
+        'FNS cabinet: ENS reconciliation, notices, demands.': 'ЛК ФНС: сверка ЕНС, уведомления, требования.',
+        'OFD — fiscal data operator': 'ЛК ОФД',
+        'OFD cabinet: receipts and cash reports.': 'ЛК ОФД: отчёты по чекам и наличным.',
+        'Acquiring': 'Эквайринг',
+        'Acquiring: reconcile acquiring inflows.': 'Эквайринг: сверка эквайринговых поступлений.',
+        'Rosstat — statistics portal': 'ЛК Росстата',
+        'Rosstat: statistics reporting.': 'ЛК Росстата: статистическая отчётность.',
+        # proper nouns / channel + service tokens (identity, to keep the i18n guard clean)
+        'Telegram': 'Telegram',
+        'whatsapp': 'WhatsApp',
+        'coretax': 'Coretax',
+        'onboarding': 'онбординг',
+        'auto ausn': 'авто АУСН',
+        'excel parallel for control': 'excel для сверки',
+        'only': 'только',
+        # i18n gaps found by the coverage guard (genuine UI chrome)
+        'Real estate': 'Недвижимость',
+        'Show all': 'Показать все',
+        'Showing': 'Показано',
+        'hidden': 'скрыто',
+        'services': 'услуги',
+        'creditor': 'кредитор',
+        'submitted': 'сдано',
+        'reconciled': 'сверено',
+        'presumably paid': 'предположительно оплачено',
+        'scheduled (conditional)': 'запланировано (условно)',
+        'scheduled (finalization)': 'запланировано (финализация)',
+        'unknown': 'неизвестно',
+        'calculated, checking payment': 'рассчитано, проверяем оплату',
 
-        # ── _dictate.py — dictation modal & button ─────────────────────────
+        # ── dictation (folded into the prompt modal) ──────────────────────
         'Dictate': 'Надиктовать',
         'Dictate your thoughts': 'Надиктуйте мысли',
         'Press <kbd>Win</kbd>+<kbd>H</kbd> in the field and speak — or type by hand.':
@@ -636,6 +849,34 @@ import re as _re
 _EMOJI_RE = _re.compile('[\U0001F000-\U0001FAFF⌀-➿⬀-⯿️⃣]')
 
 
+# ── i18n coverage guard ────────────────────────────────────────────────────
+# t() falls back to the English key when the active locale lacks a translation.
+# For a non-EN operator that is a silent English leak. We record such misses so
+# generate.py can surface them loudly (an untranslated operator string is a bug,
+# per CLAUDE.md Invariant 4 — validate the operator-locale render, not just EN).
+_T_MISS = set()
+
+
+def _looks_untranslated(s):
+    # Flag only human UI chrome, not data/enum tokens that happen to pass through t().
+    if not s or len(s) < 4 or len(s) > 60:
+        return False
+    if '_' in s or '://' in s:          # snake_case identifiers / URLs are data
+        return False
+    if any(ch.isdigit() for ch in s):   # codes/dates are data
+        return False
+    try:
+        s.encode('ascii')               # non-ASCII (e.g. Cyrillic) -> already localized
+    except Exception:
+        return False
+    return bool(_re.search(r'[a-z]{2,}', s))   # has a lowercase word -> looks like EN UI
+
+
+def i18n_misses():
+    """Operator-facing strings that had no translation in the active locale."""
+    return sorted(_T_MISS)
+
+
 def t(s):
     """Return the localized chrome string for ``s`` (with emoji stripped).
 
@@ -643,7 +884,10 @@ def t(s):
     ``s`` itself when the active locale has no entry — so partial coverage
     renders English rather than crashing.
     """
-    v = UI.get(LOCALE, UI['en']).get(s, s)
+    catalog = UI.get(LOCALE, UI['en'])
+    if LOCALE != 'en' and s not in catalog and _looks_untranslated(s):
+        _T_MISS.add(s)
+    v = catalog.get(s, s)
     v = _EMOJI_RE.sub('', v)
     return _re.sub(r'\s{2,}', ' ', v).strip()
 

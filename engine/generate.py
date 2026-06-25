@@ -274,11 +274,25 @@ if __name__ == '__main__':
 
 
     from _client_dashboard_v2 import render_client_dashboard_v2
+    from _owner_report import build_owner_report
+    import state_ops as _sops
     for c in clients:
         out_path = os.path.join(OUT_DIR, f"dashboard_{c['id']}.html")
         with open(out_path, 'w', encoding='utf-8') as f:
             f.write(render_client_dashboard_v2(c, daemon_mail=_mail_all, daemon_anomalies=_anom_all))
         print(f"OK: {c['name_short']} \u2192 {out_path}")
+        # Owner-facing one-pager (report_<id>.html) \u2014 for clients with financial periods.
+        try:
+            _fin = _sops.state_read(c['id'], 'financials.json')
+            if _fin and _fin.get('periods'):
+                _reg = _sops.state_read(c['id'], 'regime.json') or {}
+                _juris = c.get('jurisdiction') or _reg.get('jurisdiction') or 'ru'
+                _rep = build_owner_report(c['id'], _fin, _sops.state_read(c['id'], 'identity.json'), _reg, _juris)
+                if _rep:
+                    with open(os.path.join(OUT_DIR, f"report_{c['id']}.html"), 'w', encoding='utf-8') as _rf:
+                        _rf.write(_rep)
+        except Exception:
+            pass
 
     from _overview_v2 import render_overview_v2
     ov_path = os.path.join(OUT_DIR, "dashboard_overview.html")
@@ -334,6 +348,14 @@ if __name__ == '__main__':
         f.write(render_guide())
     print(f"OK: guide \u2192 {g_path}")
 
+    # "Update Saldo" page \u2014 always generated; the sidebar only links to it when
+    # the update-status flag says a new engine version is available.
+    from _updater import render_update_page
+    u_path = os.path.join(OUT_DIR, "update.html")
+    with open(u_path, 'w', encoding='utf-8') as f:
+        f.write(render_update_page())
+    print(f"OK: update \u2192 {u_path}")
+
     # Finalize: strip decorative emoji from the rendered HTML so the UI shows the
     # project's monochrome line icons only (SVG icons + arrows survive).
     import glob as _glob, re as _re
@@ -367,3 +389,18 @@ if __name__ == '__main__':
         raise
     except Exception as _e:
         print('⚠\ufe0f  LINT did not run (not blocking publication):', _e)
+
+    # === i18n coverage — operator-locale leak guard (Invariant 4) ===
+    try:
+        from _strings import LOCALE as _LOC, i18n_misses as _i18n_misses
+        if _LOC != 'en':
+            _miss = _i18n_misses()
+            if _miss:
+                print('\n[!] i18n: %d operator-facing string(s) NOT translated for locale %r:' % (len(_miss), _LOC))
+                for _m in _miss[:60]:
+                    print('   - ' + _m)
+                print('   -> add them to engine/_strings.py UI[%r].' % _LOC)
+            else:
+                print('i18n: all operator-facing strings translated for locale %r OK' % _LOC)
+    except Exception as _e:
+        print('i18n check did not run:', _e)

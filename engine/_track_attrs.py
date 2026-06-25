@@ -77,23 +77,33 @@ _TASK_TYPE_LABEL = {
     'review_checkpoint': 'review checkpoint',
     'tax_calc': 'tax calc',
     'tax_reconciliation': 'tax reconciliation',
+    # Indonesia (id pack) task types. English canonical phrases here; operator-locale
+    # rendering comes from _strings UI (ru), so a non-RU client's chips still read in
+    # the operator's language — see INSTRUCTIONS.md §0.1.
+    'inputs_collection': 'source documents collection',
+    'compute_final_pph': 'compute final tax 0.5%',
+    'payroll': 'payroll',
+    'payroll_pph21_bpjs': 'payroll: income tax + contributions',
+    'withholding_unifikasi': 'withholding (rent/services)',
+    'tax_pay': 'tax payment',
+    'record_ntpn': 'record payment receipt',
+    'spt_masa': 'monthly tax return',
+    'monthly_close_pt': 'month close',
+    'annual_spt_badan': 'annual tax return',
+    'note': 'note',
+    'data_request': 'data request',
 }
 
 
 def _format_due_str(due_raw, today):
-    """Due-date format: "overdue 5d", "today", "in 2d · 27.05", "15.07 · 51d"."""
+    """data-track-due text for the track modal. Uses THE shared due_label so the
+    modal shows the exact same wording as the card/hero/plan for the same task."""
     if not due_raw or not today:
         return ''
     try:
         dobj = datetime.strptime(str(due_raw)[:10], '%Y-%m-%d').date()
-        delta = (dobj - today).days
-        if delta < 0:
-            return _t('overdue {}d').format(-delta)
-        if delta == 0:
-            return _t('today')
-        if delta <= 3:
-            return _t('in {}d · {}').format(delta, dobj.strftime('%d.%m'))
-        return _t('{} · {}d').format(dobj.strftime('%d.%m'), delta)
+        from _components import due_label
+        return due_label((dobj - today).days)
     except Exception:
         return str(due_raw)[:10]
 
@@ -243,6 +253,11 @@ def build_track_data_attrs(
         nxt = (t.get('details') or {}).get('next_action') or ''  # cross-file details-dict key (see _aggregator.py, _plan_today.py)
         if nxt and nxt != '—':
             next_action = nxt
+    # A closed/terminal task has no "next action" — suppress any stale value so the
+    # modal/plan never shows an outdated next step on a done task (render-side guard;
+    # the stored field is also normalized at the source by migration 0007).
+    if status_canon in ('done', 'archived', 'cancelled'):
+        next_action = ''
     reply_draft = base.get('reply_draft') or ''
 
     due_raw = base.get('due_date') or ''
@@ -292,6 +307,40 @@ def build_track_data_attrs(
         if not ttitle:
             ttitle = bid
         bb_titles.append({'id': bid, 'title': ttitle})
+
+    # Reverse dependency — the tasks THIS one blocks ("Блокирует"): same-client
+    # tasks whose blocked_by names this track. The inverse of blocked_by, resolved
+    # from the same state/tasks.json. Skip terminal blockers (a done/cancelled task
+    # is no longer being held up). Self-references are dropped.
+    blocks_titles = []
+    if client_id:
+        _self_ids = {x for x in (track_id, base.get('id'), base.get('source_ref')) if x}
+        try:
+            from _status import normalize_status as _nstat
+        except Exception:
+            _nstat = lambda s: (s or '').strip().lower()
+        _terminal = {'done', 'cancelled', 'archived', 'dropped', 'deferred'}
+        if _bt_cache is None:
+            try:
+                import state_ops as _sops3
+                _all_tasks = (_sops3.state_read(client_id, 'tasks.json').get('tasks') or [])
+            except Exception:
+                _all_tasks = []
+        else:
+            try:
+                import state_ops as _sops3
+                _all_tasks = (_sops3.state_read(client_id, 'tasks.json').get('tasks') or [])
+            except Exception:
+                _all_tasks = []
+        for _ot in _all_tasks:
+            if _nstat(_ot.get('status')) in _terminal:
+                continue
+            _obb = _ot.get('blocked_by') or []
+            if _self_ids & set(_obb):
+                _oid = _ot.get('id')
+                if _oid in _self_ids:
+                    continue
+                blocks_titles.append({'id': _oid, 'title': _ot.get('title') or _oid})
 
     # assemble details here uniformly (track/status/context/next_action) instead of
     # trusting the passed t['details'] (which has different formats from plan and dashboard).
@@ -346,6 +395,7 @@ def build_track_data_attrs(
         ' data-track-due-raw="' + esca(str(due_raw)) + '"',
         ' data-track-source="' + esca(source_text) + '"',
         ' data-track-blocked-by-json="' + esca(json.dumps(bb_titles, ensure_ascii=False)) + '"',
+        ' data-track-blocks-json="' + esca(json.dumps(blocks_titles, ensure_ascii=False)) + '"',
         ' data-track-labels-json="' + esca(json.dumps(list(labels), ensure_ascii=False)) + '"',
         ' data-track-type-specific-json="' + esca(json.dumps(type_specific, ensure_ascii=False)) + '"',
         ' data-track-comments-json="' + esca(json.dumps(comments, ensure_ascii=False)) + '"',

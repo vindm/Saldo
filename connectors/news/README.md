@@ -15,7 +15,16 @@
 | [`morning_full_scan.md`](morning_full_scan.md) | composite | Morning sweep of all relevant topics + categorization + daily report |
 | [`incremental_update.md`](incremental_update.md) | composite | News since last_run — appends to the daily report |
 
-## Search topics (filter for full_scan)
+## Search topics — per jurisdiction (not a single hardcoded list)
+
+> **Multi-jurisdiction (2026-06-25).** Topics and sources are **per jurisdiction**, declared in
+> `jurisdictions/<code>/authorities.yaml → news`. The sweep resolves the active jurisdiction set
+> from the clients (`regime.json → jurisdiction`, default `ru`) and searches each pack's topics,
+> applying an item only to clients in that jurisdiction. The RU table below is the **`ru` pack's**
+> topics; the **`id` pack** declares its own (PP55, PPN/PKP 4.8B, BPJS, Coretax/SPT, LKPM/OSS).
+> `config → connectors.news.topics` is an optional operator override only.
+
+### RU topics (= `jurisdictions/ru/authorities.yaml → news.topics`)
 
 | Topic | Key sources | Relevance |
 |---|---|---|

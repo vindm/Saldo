@@ -76,7 +76,7 @@ Check a client's cash operations via the Platforma OFD Z-Report for a given peri
 2. Rename per the template: `ZReport_<Surname>_<month-year>.xlsx`
    - `Surname` — the client's short name (from `clients_data.json[client_id].name_short`)
    - `month-year` — format `april-2026` (Russian month + year via a hyphen)
-   - Examples: `ZReport_Zubareva_april-2026.xlsx`
+   - Examples: `ZReport_Pueblo_april-2026.xlsx`
 
 ### Step 8. Parse the xlsx
 
@@ -107,7 +107,7 @@ else:
   "status": "ok",
   "client_id": "<client_id>",
   "period": "2026-04-01..2026-04-30",
-  "file_path": "<client doc folder>/ZReport_Zubareva_april-2026.xlsx",
+  "file_path": "<client doc folder>/ZReport_Pueblo_april-2026.xlsx",
   "cash_total": 0,
   "sessions": [
     {

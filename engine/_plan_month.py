@@ -7,6 +7,7 @@ Today is purple. A cell shows the task chips.
 import json
 from datetime import date, timedelta
 from calendar import monthrange
+from urllib.parse import quote as _quote
 
 from generate import (
     clients, TODAY,
@@ -19,13 +20,12 @@ _t = t  # alias: nested helpers bind `t` to the task dict, shadowing the import
 from _overview_v2 import OVERVIEW_V2_CSS
 from _overview_shared import render_header
 from _sidebar import render_sidebar, SIDEBAR_CSS
-from _dictate import DICTATE_CSS, DICTATE_MODAL_HTML, DICTATE_JS
 from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS
 from _aggregator import aggregate_by_day, aggregate_tasks, get_loose_tasks
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _track_attrs import build_track_data_attrs
-from _plan_waves import cluster_tasks, _op_title, horizon_counts
+from _plan_waves import cluster_tasks, _op_title, horizon_counts, _wave_op_token
 
 
 DOW_RU = [t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat'), t('Sun')]
@@ -325,7 +325,7 @@ def render_plan_month():
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS
-        + SIDEBAR_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + TRACK_MODAL_CSS + MODE_SWITCH_CSS + extra_css + '</style>'
+        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + TRACK_MODAL_CSS + MODE_SWITCH_CSS + extra_css + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(
@@ -340,8 +340,8 @@ def render_plan_month():
         + month_grid + loose_html
         + legend
         + '</main></div>'
-                + PROMPT_MODAL_HTML + DICTATE_MODAL_HTML + TRACK_MODAL_HTML
-        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS + DICTATE_JS + TRACK_MODAL_JS + MODE_SWITCH_JS +
+                + PROMPT_MODAL_HTML  + TRACK_MODAL_HTML
+        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS  + TRACK_MODAL_JS + MODE_SWITCH_JS +
         '</body></html>'
     )
 
@@ -450,8 +450,14 @@ def render_calendar(today=None):
         op_short = (op[:15] + '…') if len(op) > 16 else op
         n = len({mm.get('client_id') for mm in members})
         names = ', '.join(sorted({_short_name(mm.get('client_name', '')) for mm in members}))
-        return ('<div class="m-ev m-wave ' + wcls + '" title="' + _esc(op + ' · ' + names) + '">'
-                '<b>' + _esc(op_short) + '</b> · ' + str(n) + '</div>')
+        # A wave chip is a recurring/batched operation, not a single track — so it
+        # links to that wave on the Plan (expanded + scrolled + highlighted),
+        # exactly like the Periods page jumps to a stage's wave. The Plan groups by
+        # the same canonical op token, so #wave=<token> lands on the right wave.
+        href = 'plan_today.html#wave=' + _quote(str(_wave_op_token(members)))
+        return ('<a class="m-ev m-wave ' + wcls + '" href="' + _esca(href) + '" '
+                'title="' + _esc(op + ' · ' + names) + '">'
+                '<b>' + _esc(op_short) + '</b> · ' + str(n) + '</a>')
 
     def _grid(year, month):
         first = date(year, month, 1)
@@ -495,7 +501,7 @@ def render_calendar(today=None):
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS
-        + SIDEBAR_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + TRACK_MODAL_CSS + MODE_SWITCH_CSS + CAL_CSS + '</style>'
+        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + TRACK_MODAL_CSS + MODE_SWITCH_CSS + CAL_CSS + '</style>'
         '</head><body><div class="layout-shell">'
         + render_sidebar(active='calendar')
         + '<main class="main-content">' + head
@@ -503,7 +509,7 @@ def render_calendar(today=None):
         + MODE_SWITCH_HTML + nav
         + '<div id="cal-months">' + ''.join(month_divs) + '</div>'
         + '</main></div>'
-        + PROMPT_MODAL_HTML + DICTATE_MODAL_HTML + TRACK_MODAL_HTML
-        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS + DICTATE_JS + TRACK_MODAL_JS + MODE_SWITCH_JS + cal_js
+        + PROMPT_MODAL_HTML  + TRACK_MODAL_HTML
+        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS  + TRACK_MODAL_JS + MODE_SWITCH_JS + cal_js
         + '</body></html>'
     )

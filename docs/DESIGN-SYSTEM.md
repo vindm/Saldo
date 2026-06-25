@@ -40,9 +40,16 @@ miss work:
   accent. `--accent-blue` is an alias of `--accent`, so legacy interactive rules
   follow the accent without per-rule edits.
 - **Semantic colours are stable and meaning-bearing — do not repurpose:**
-  `--accent-red` = overdue / blocked / bad health, `--accent-yellow` = due-soon /
-  waiting, `--accent-green` = ready / good health. Their `*-bg` tints back the
+  `--accent-red` = overdue / bad health, `--accent-yellow` = due-soon / waiting /
+  **blocked**, `--accent-green` = ready / good health. Their `*-bg` tints back the
   matching badges and rows. When the accent changes for fashion, these stay put.
+  *`blocked` is yellow, not red* (single source `_status.py → CANON_PILL`): a
+  blocked task waits on something else — nothing to do on it now — so it must not
+  pull attention like an overdue item. Red is reserved for "act now".
+- **Client identity colour:** each client's avatar tint is a deterministic
+  hash→HSL hue (`_helpers._avatar_color`, used by `client_avatar`), not a fixed
+  palette — so any number of clients each get a distinct, memorable colour
+  (the colour *is* the meaning: same client = same colour everywhere).
 - **Neutrals are cool greys:** `--bg-canvas` (the desk), `--bg-card` (white
   surface), `--bg-page` / `--bg-subtle` (insets, hovers), `--border` /
   `--border-strong`.
@@ -55,7 +62,26 @@ miss work:
 - **Radii:** `--radius-card` 10px, `--radius-btn` 6px, `--radius-badge` 4px.
 - **Spacing:** `--space-xs … -xl` = 4 / 8 / 16 / 24 / 32px.
 - **Shadows:** `--shadow-card` (resting surface), `--shadow-pop` (lifted / indigo).
-- **Motion:** `--transition` 150ms. **Type:** system sans; sizes via `--fs-*`.
+- **Motion:** see **Motion** below. **Type:** system sans; sizes via `--fs-*`.
+
+## Motion
+
+- **Token:** `--transition` = `150ms ease` — the value **already includes the
+  easing keyword**. Write `transition:<prop> var(--transition)`; **never**
+  `var(--transition) ease` (it expands to `150ms ease ease`, which is invalid and
+  silently drops the whole declaration — this bit us on the wave animation). When
+  you need a different curve or a delay, write the value in full (the wave reveal
+  uses `240ms cubic-bezier(.16,1,.3,1)`).
+- **Reduced motion:** a global guard in `DESIGN_TOKENS_CSS`
+  (`@media (prefers-reduced-motion: reduce)`) collapses every transition/animation
+  duration to ~0. New animations inherit it automatically — don't special-case.
+- **Open/collapse (the wave "drawer"):** height animates via the CSS grid-rows
+  technique — `grid-template-rows:0fr↔1fr` on a `.wave-reveal` wrapper whose single
+  child is `overflow:hidden;min-height:0` (no JS height measuring). Content fades
+  via `opacity`; the header eases grey→`--accent-soft`; the chevron rotates.
+  Collapsed content is pulled out of tab order/clicks (`visibility:hidden`, delayed
+  to the end of the collapse). `display:none` can't be transitioned — use this
+  pattern for any future expand/collapse.
 
 ## Component patterns (established conventions — reuse, don't reinvent)
 
@@ -66,7 +92,20 @@ miss work:
 - **Expanded container / "drawer"** (`_plan_waves.py`, `.wave:not(.collapsed)`):
   an open group lifts into its own card — full border, an `--accent` left-rail, a
   soft-lavender (`--accent-soft`) header, a light shadow — so its start and end are
-  unambiguous. (We deliberately chose this calm variant over a full-indigo bar.)
+  unambiguous. (We deliberately chose this calm variant over a full-indigo bar.) It
+  **animates open** (grid-rows reveal + content fade + grey→lavender header) — see
+  **Motion**.
+- **Client identity = one avatar everywhere** (`_helpers.client_avatar`): the
+  coloured initials circle is the single identity marker for a client. Fill colour
+  is a deterministic hash of the client's name, so the *same* client is the *same*
+  colour on every surface — task/event rows, the client cards
+  (`_clients_group.py` `.dc-av`), and the client-page header
+  (`_client_dashboard_v2.py` `.client-av`, where a health-coloured **ring** around
+  the avatar carries health, replacing the old standalone dot). Always render
+  identity through this helper; never invent a per-surface avatar. Colour itself
+  comes from `_helpers._avatar_color` (stable name→HSL hash, near-unique per
+  client); `client_avatar` is the single producer of the initials + inline style,
+  used by task rows, event rows, cards, and the page header alike.
 - **Transient focus highlight** (e.g. Periods → Plan deep-link): use a *removable
   class* (`.wave-focus` → `outline`), never an inline style. Wire user actions
   (collapse, collapse-all) to clear it and strip the deep-link hash via
@@ -76,6 +115,84 @@ miss work:
   "{N} in the next 7 days" summary both use `horizon_counts(...)['near']`.
 - **Interaction affordances:** row hover = visible `--bg-page` tint; keyboard
   focus = 2px `--accent` `:focus-visible` outline.
+- **The shared task-row snippet clamps every text line to one line** (`_brief.py`
+  `render_task_snippet`: `.an-rec-title` and `.an-why` are
+  `white-space:nowrap;overflow:hidden;text-overflow:ellipsis`). Rows stay a uniform
+  height across every surface (overview «Сводка», client «Сводка», Plan, active
+  tracks) and the avatar never looks size-mismatched against a tall wrapped row; the
+  full text is in the track modal on click. Don't reintroduce multi-line wrapping in
+  a row — put detail in the modal.
+- **A summary count sits on the right of its section header**, not inline after the
+  title (`section-title`/`an-head` are `flex; justify-content:space-between`; the
+  count is a *sibling* of the title span, never nested inside it).
+- **The overview header metrics use the same KPI-band treatment as the client header
+  KPIs** (`.aw-stats` ≡ `.kpi-band`): transparent — **no card/island**, no border —
+  label-over-value, navy `--accent` value, vertical `--border` dividers between
+  tiles. Semantic value colours (red overdue / amber due-today / green closed) are
+  kept as signal. One metric look across overview and client pages.
+- **A list row has one action — open its card — with one deliberate exception: the
+  dependency chip.** The whole `.track-card-clickable` row opens the track modal; do
+  **not** add per-row controls that merely duplicate that (a hover "→" to the client
+  page was removed 2026-06-25). The **one** sanctioned second target is the
+  «🔒 → blocker» dependency chip (`.an-dep`, and the modal’s `.tm-dep-link`): it is
+  its own `track-card-clickable` and jumps to the *blocker’s* card, not this row’s. It
+  carries a trailing `→` so it reads as a link at rest, and fills its background only
+  on its *own* hover — both signal it is a separate target. The modal also shows the
+  inverse «🔓 →» «Блокирует» section (reverse deps, `_track_attrs` blocks-json).
+- **One task-row snippet everywhere** (`_brief.render_task_snippet`, `.an-*`): the
+  overview «Сводка», the client «Сводка», the Plan and the client card’s
+  «Активные треки» all render the SAME row component. The only per-surface
+  difference is the «признаки клиента» (avatar + client line), shown on
+  cross-client lists and omitted on a single client’s card — driven purely by whether
+  the item carries `avatar` / `client`. Right-aligned chips read left→right: status
+  («заблокировано» / «ждём», yellow `_status.py` palette), «разблокирует N»
+  (reverse-dependency count), the shared due badge, then the go-arrow. Change a row
+  once, here — never fork a parallel renderer (the old `.task-*` plan grid was retired
+  into this on 2026-06-25).
+- **Fixed trailing columns so chips don’t jump.** Status/due on task rows and the
+  readiness-bar + due-badge on wave headers (`.wave-meta`: a 64px bar slot + a 92px
+  badge cell) sit in fixed-width, right-aligned columns so they align vertically down
+  the list instead of shifting with text width.
+- **Event/history timeline** (`_track_modal.py` `.tm-history-*`,
+  `_client_dashboard_v2.py` `.kdh-*`): chronological lists render as a vertical
+  rail with one dot per entry. The dot legend is fixed and meaning-bearing:
+  **filled `--accent` dot = an operator/system action or decision; hollow ring
+  (`--border-strong`) = an automatic event.** Reuse this legend wherever events
+  are shown; never invent per-list dot meanings.
+- **Operator history shows decisions, not engine bookkeeping.** The key-decisions
+  timeline filters audit rows out of `history.jsonl` (schema migrations,
+  `lint_hardening`, `assist_seeded`, `source_backfill`, `bell_consumed`,
+  `cd_migration`) via `_loaders._history_is_noise`; those are developer audit —
+  they belong on the Changelog page, never the client view. This was also the
+  sole source of English text leaking into the Russian surface (see i18n below).
+  When a new engine process writes to `history.jsonl`, add its source/kind/event
+  to `_history_is_noise` so it can't resurface in the operator view.
+- **One prompt modal for every "act on this" affordance** (`_css.py`
+  `PROMPT_MODAL_*`). Every button that hands work to the runtime — track-modal
+  "Разобрать", client header, wave "Разобрать", analysis recommendations, the
+  open-questions options — opens the **same shared editable modal**, never a
+  bespoke editor. Wiring: put the editable default in `data-prompt` and (optional)
+  the immutable facts in `data-prompt-ctx`; a single document-level handler reads
+  both. If a button must `stopPropagation` (it sits on a clickable row), it has to
+  call `window.openPromptModal(this.dataset.prompt, {ctx})` itself — a stopped
+  event never reaches the global handler (this silently broke the header button
+  once). Dictation is **inside** the modal (Win+H), so there is **one button, not
+  a button + a mic** — the old `_dictate.py` module has been removed.
+- **Prompt = context + ask, never the program.** `data-prompt-ctx` is the
+  **immutable** context block (client/task facts, question + hypothesis) shown
+  read-only and always prepended on copy; `data-prompt` is a **short editable**
+  ask (e.g. «Разбери задачу и предложи конкретное следующее действие»). Do **not**
+  restate the standing operating procedure (resolve jurisdiction, pick the
+  checklist, apply via `mm_update` with approval, send nothing outward) inside a
+  prompt — that is the runtime's program and lives in `policies/INSTRUCTIONS.md`;
+  the pasted prompt is a *pointer*, not a copy of the rules. This keeps prompts
+  thin and means the operator can clear the ask and write/dictate their own
+  without losing the context.
+- **Action buttons use the `tm-btn` family; "Разобрать" is primary-outline.**
+  The shared verb-button is `.tm-btn.tm-btn-outline` (accent border + accent text,
+  light fill on hover) — present but not heavy, so several on a page don't fight
+  for attention. Use the compound selector (`.tm-btn.tm-btn-outline`) so a later
+  plain `.tm-btn{border:…}` can't reset the accent border.
 
 ## Localization (i18n) — every visible label goes through `t()`
 
@@ -110,13 +227,29 @@ Concretely:
 - **The build catches gaps for you — don't rely on eyeballing.** `state_lint`
   enforces label coverage so a new enum value or detail key can't silently ship
   untranslated: `status_noncanon` (status outside the canonical set),
-  `i18n_task_type` (a `task_type` with no `_TASK_TYPE_LABEL` entry), and
+  `i18n_task_type` (a `task_type` with no `_TASK_TYPE_LABEL` entry),
   `i18n_ts_key` (a `type_specific` key with no `_TS_RU_LOC` label and not in
-  `INTERNAL_TS_KEYS`). These run on every `generate`. When you add a new enum
+  `INTERNAL_TS_KEYS`), and `i18n_cp_label` (a counterparty `relation_type` or
+  `category` with no entry in `_CP_RELATION_LABEL` / `_CP_CATEGORY_LABEL` in
+  `_client_dashboard_v2.py`; these render in `.cp-meta`, which is
+  `text-transform:uppercase`, so an unmapped value leaked as a SCREAMING raw enum
+  — `BOOKKEEPING_SERVICE_PROVIDER_TEAM_LEAD`). These run on every `generate`. When you add a new enum
   value or detail field, run `state_lint`; if it lists the token, add its label
   (or mark it internal) before shipping. Bespoke keys that bake a date/id into
   the key itself (e.g. `q1_2026_paid`) are a data-shape smell — fix the data, not
   the label table.
+
+## Glyphs & the emoji sanitizer (gotcha)
+
+`generate.py` runs a final pass that strips decorative emoji from the rendered HTML
+(`_EMOJI` regex, `\U0001F000-\U0001FAFF` + symbol blocks) so the UI shows the
+monochrome line icons only — **arrows (→) survive, but any literal emoji in a render
+string is silently removed.** To keep a specific glyph (e.g. the lock 🔒 on a
+dependency chip), emit it as an **HTML entity** (`&#128274;`; `&#128275;` = open lock):
+entities are ASCII, so they pass the sanitizer untouched and the browser decodes them.
+A literal `\U0001F512` in Python vanishes from the output (this bit the plan dep chip +
+track-modal on 2026-06-25). SVG icons (`_icons.py`) are the preferred path; the entity
+trick is only for the few semantic glyphs we keep (lock / open-lock).
 
 ## How to evolve it
 

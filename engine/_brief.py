@@ -226,72 +226,40 @@ def render_brief_zone(clients, state_read, plan_dir, today, fmt_date=None,
         '<div class="aw-body">' + body + '</div></div>'
     )
 
-    # 3) Let's clarify 1-2 things
-    # Open questions — ONE expandable block. Default shows 2, chosen by priority +
-    # daily rotation (so different questions surface over time); the rest expand below.
-    def _rich_q(q):
-        attrs = make_attrs(q) if make_attrs else ''
-        base = (q['client'] + ': ' + q['text']).strip(': ')
-        age = ('<span class="brief-age">' + esc(t('pending {}d').format(q['age'])) + '</span>') if q['age'] else '<span class="brief-age">' + esc(t('question')) + '</span>'
-        stale_chip = (' <span class="brief-stale">⏳ ' + esc(t('{}d without movement').format(q['stale'])) + '</span>') if q.get('stale') else ''
-        opts = q.get('options') or [
-            {'label': t('Close'),
-             'prompt': base + ' — close the question: ' + (q['hypothesis'] or '') + '. Apply to state and remove from open items.'},
-            {'label': t('Ask the client'),
-             'prompt': base + ' — need to clarify with the client, help me phrase the request.'},
-            {'label': t('Defer a quarter'),
-             'prompt': base + ' — defer it with a wake-up in a quarter.'},
-        ]
-        rec = q.get('recommended')
-        btns = []
-        for i, o in enumerate(opts):
-            is_rec = rec is not None and i == rec
-            btns.append('<button class="brief-opt' + (' rec' if is_rec else '') + '" '
-                        'data-prompt="' + esca(o.get('prompt', '')) + '">' + esc(o.get('label', ''))
-                        + ('<span class="rec-tag">' + esc(t('recommended')) + '</span>' if is_rec else '') + '</button>')
-        btns.append('<button class="brief-opt brief-opt-free" data-prompt="'
-                    + esca(base + " — I'll answer differently, my answer: ") + '">' + esc(t('answer differently')) + '</button>')
-        hyp = ('<div class="brief-hyp">' + esc(t('hypothesis:')) + ' ' + esc(q['hypothesis']) + '</div>') if q['hypothesis'] else ''
-        return ('<div class="brief-q">'
-                '<div class="aw-row track-card-clickable brief-q-head"' + attrs + '>' + age
-                + '<span class="aw-text">' + esc(base) + stale_chip + '</span></div>' + hyp
-                + '<div class="brief-opts">' + ''.join(btns) + '</div></div>')
-
+    # 3) Open questions — ONE block of the shared .an-rec question snippet (same as
+    # the client dashboard). Needs-answer surfaced, the rest collapsed.
     _qs = vm['questions']
     _srt = sorted(_qs, key=lambda q: (_PRIO.get(q.get('priority', 'normal'), 1),
                                       -(q.get('stale') or 0), -(q.get('age') or 0)))
+    # Surface the genuinely-needed (high-priority) questions; collapse the rest as
+    # «наблюдения» — the same needs-answer-vs-observations split the client card uses.
     _high = [q for q in _srt if q.get('priority') == 'high']
-    _rest = [q for q in _srt if q.get('priority') != 'high']
-    _shown = list(_high[:2])
-    if len(_shown) < 2 and _rest:
-        _off = today.toordinal() % len(_rest)          # daily rotation through the pool
-        _rot = _rest[_off:] + _rest[:_off]
-        for q in _rot:
-            if len(_shown) >= 2:
-                break
-            _shown.append(q)
+    _shown = _high if _high else _srt[:3]
     _shown_ids = {id(q) for q in _shown}
     _remaining = [q for q in _srt if id(q) not in _shown_ids]
 
-    _shown_html = ''.join(_rich_q(q) for q in _shown)
-    from collections import OrderedDict as _OD
-    _byc = _OD()
-    for q in _remaining:
-        _byc.setdefault(q['client'], []).append(q)
-    _more = []
-    for _cl, _cqs in _byc.items():
-        _more.append('<div class="qa-client">' + esc(_cl) + ' <span class="qa-n">' + str(len(_cqs)) + '</span></div>')
-        for q in _cqs:
-            _at = make_attrs(q) if make_attrs else ''
-            _st = (' <span class="brief-stale">⏳ ' + esc(t('{}d without movement').format(q['stale'])) + '</span>') if q.get('stale') else ''
-            _more.append('<div class="aw-row track-card-clickable qa-row"' + _at + '><span class="aw-text">' + esc(q['text']) + _st + '</span></div>')
-    _more_html = ('<details class="qa-more"><summary>' + t('Show the rest') + ' (' + str(len(_remaining)) + ')</summary>'
-                  '<div class="qa-more-body">' + ''.join(_more) + '</div></details>') if _remaining else ''
-
+    def _q_item(q):
+        # Map an aggregated open question onto the shared snippet item — the SAME
+        # .an-rec row the client dashboard renders (one snippet everywhere). Acting
+        # on a question happens in its modal (click), not via inline buttons.
+        return {
+            'title': (q.get('text') or '').strip(),
+            'client': q.get('client') or '',
+            'next_action': q.get('hypothesis') or '',
+            'attrs': make_attrs(q) if make_attrs else '',
+            'priority': q.get('priority', 'normal'),
+            'due_days': None,
+        }
+    _shown_html = _render_task_rows([_q_item(q) for q in _shown], esc, kind='question')
+    _more_html = (
+        '<details class="an-bg"><summary>' + esc(t('observations'))
+        + ' <span class="an-count">' + str(len(_remaining)) + '</span></summary>'
+        + _render_task_rows([_q_item(q) for q in _remaining], esc, kind='question')
+        + '</details>') if _remaining else ''
     questions = (
-        '<div class="aw-widget aw-questions"><div class="aw-head">' + t('❓ Open questions') + ' '
-        '<span class="aw-count">' + str(len(_qs)) + '</span></div>'
-        '<div class="aw-body">' + _shown_html + _more_html + '</div></div>'
+        '<div class="an-widget an-questions"><div class="an-head"><span class="an-title">'
+        + esc(t('❓ Open questions')) + '</span><span class="an-count">' + str(len(_qs)) + '</span></div>'
+        + _shown_html + _more_html + '</div>'
     ) if _qs else ''
 
     _parts = {'brief': brief, 'decisions': decisions, 'questions': questions}
@@ -355,61 +323,205 @@ def load_analysis_text(txt):
 
 
 def build_client_analysis_from_state(client_id, client_name, state_read, today):
-    """State-derived {summary, recommendations[]} for one client.
+    """State-derived view for one client, SPLIT by task_type.
 
-    Replaces the old ```analysis JSON block that used to be parsed out of
-    mental_model.md. Built purely from state/tasks.json: a one-line summary of
-    what's in flight + the highest-leverage open items as recommendations.
-    Returns {} when there is nothing actionable (zone then renders empty).
+    A `task_type == 'open_question'` item is an unknown to resolve, not an action
+    the operator performs — so it goes to a separate `questions` list, never into
+    `recommendations`. Recommendations are REAL tasks (top 3 by priority/due).
+    Every row carries the track data-attrs so a click opens the real task/question
+    modal (identical to the Plan). Returns {} when there is nothing active.
     """
     try:
         tdata = state_read(client_id, 'tasks.json') or {}
     except Exception:
         tdata = {}
     tasks = tdata.get('tasks', []) if isinstance(tdata, dict) else (tdata or [])
-    active = [tr for tr in tasks
-              if isinstance(tr, dict) and tr.get('status') in ('active', 'open', 'in_progress', 'awaiting', 'awaiting_external')]
+    _ACTIVE = ('active', 'open', 'in_progress', 'awaiting', 'awaiting_external')
+    active = [tr for tr in tasks if isinstance(tr, dict) and tr.get('status') in _ACTIVE]
     if not active:
         return {}
+    real = [tr for tr in active if tr.get('task_type') != 'open_question']
+    questions = [tr for tr in active if tr.get('task_type') == 'open_question']
+    # Triage questions: a question earns queue space only if it fills a required
+    # field (resolves_when) OR is high/normal priority. Low-priority items with no
+    # resolves_when are speculative observations (e.g. auto-derived from analysis) →
+    # collapsed + UNCOUNTED, so they never inflate the attention queue.
+    def _needs_answer(tr):
+        return bool(tr.get('resolves_when')) or tr.get('priority') in ('high', 'normal')
+    q_needed = [tr for tr in questions if _needs_answer(tr)]
+    q_bg = [tr for tr in questions if not _needs_answer(tr)]
 
-    nearest = None
-    for tr in active:
-        dd = _to_date(tr.get('due_date'))
-        if dd and (nearest is None or dd < nearest[0]):
-            nearest = (dd, tr.get('title') or '')
+    # data-track-* attrs so a row opens the canonical task/question modal.
+    try:
+        from _track_attrs import build_track_data_attrs as _bda
+    except Exception:
+        _bda = None
 
-    n = len(active)
-    summary = (t('{} active item in flight').format(n) if n == 1
-               else t('{} active items in flight').format(n))
-    if nearest:
-        summary += t('; nearest due {} — {}').format(nearest[0].strftime('%d.%m'), nearest[1])
-    summary += '.'
+    def _attrs(tr):
+        if not _bda:
+            return ''
+        try:
+            return _bda(dict(tr, client_id=client_id), _esca, today=today)
+        except Exception:
+            return ''
 
     def _prio(tr):
         return _PRIO.get(tr.get('priority', 'normal'), 1)
 
-    recs = []
-    for tr in sorted(active, key=lambda x: (_prio(x), _to_date(x.get('due_date')) or date.max))[:3]:
-        title = tr.get('title') or ''
-        na = (tr.get('next_action') or '').strip()
-        due = tr.get('due_date') or ''
-        why_bits = []
-        if due:
-            why_bits.append(t('due {}').format(due))
-        if na:
-            why_bits.append(na)
-        recs.append({
+    # summary — tasks and (only the needs-answer) questions, counted SEPARATELY.
+    # The single nearest deadline is NOT computed here: it lives once, in the
+    # Context strip, sourced from the tax calendar (the authoritative deadline
+    # source). Computing a second "nearest" from task due-dates produced a
+    # contradictory, less-urgent date — so it's removed.
+    nt, nq = len(real), len(q_needed)
+    bits = []
+    if nt:
+        bits.append(str(nt) + ' ' + t('tasks in flight'))
+    if nq:
+        bits.append(str(nq) + ' ' + t('open questions'))
+    counts = ' · '.join(bits)
+    if counts:
+        counts += '.'
+    # Operator situation brief — authored by mm_update and stored in state
+    # (state/brief.json); the engine never reads mental_model.md. Falls back to
+    # the plain counts line when the brief is absent.
+    try:
+        _brief_state = state_read(client_id, 'brief.json') or {}
+    except Exception:
+        _brief_state = {}
+    ai_summary = ((_brief_state.get('summary') or '').strip()
+                  if isinstance(_brief_state, dict) else '')
+    summary = ai_summary or counts
+
+    # How many tasks each task UNBLOCKS — a real dependency (others' blocked_by
+    # point at it), not prose. A prerequisite that gates other work must be done
+    # first, so it ranks ahead of them regardless of its own priority/due.
+    _dep_count = {}
+    for _t in tasks:
+        for _b in (_t.get('blocked_by') or []):
+            if _b:
+                _dep_count[_b] = _dep_count.get(_b, 0) + 1
+
+    # Lookup + "is it still open" + "the open blocker" — for the blocked marker.
+    from _status import normalize_status as _ns
+    _DONE = ('done', 'paid', 'cancelled', 'dropped', 'deferred')
+    _by_id = {tr.get('id'): tr for tr in tasks if isinstance(tr, dict) and tr.get('id')}
+    _open = lambda tr: _ns(tr.get('status', '')) not in _DONE
+
+    def _blocker_of(tr):
+        for b in (tr.get('blocked_by') or []):
+            bt = _by_id.get(b)
+            if bt and _open(bt):
+                return bt          # first still-open blocker
+        return None
+
+    def _row(tr):
+        # third line = the system's hypothesis (assist lens), else next_action —
+        # SAME priority the plan rows use. Replaced by the blocker when blocked.
+        na = ((tr.get('assist') or {}).get('hypothesis') or tr.get('next_action') or '').strip()
+        dd = _to_date(tr.get('due_date'))
+        _blk = _blocker_of(tr)
+        return {
             'priority': tr.get('priority', 'normal'),
-            'title': title,
-            'why': ' · '.join(why_bits),
-            'prompt': (client_name or client_id) + ': ' + title +
-                      ('. ' + na if na else '') + ' Open state/*.json and propose the next step.',
-        })
-    return {'updated_at': today.isoformat(), 'summary': summary, 'recommendations': recs}
+            'title': tr.get('title') or '',
+            'due': dd.strftime('%d.%m') if dd else '',
+            'due_days': ((dd - today).days if dd else None),
+            'next_action': na,
+            'unblocks': _dep_count.get(tr.get('id'), 0),
+            'blocker_title': (_blk.get('title') or '') if _blk else '',
+            'blocker_attrs': _attrs(_blk) if _blk else '',
+            'attrs': _attrs(tr),
+        }
+
+    # SIMPLE deadline order (intuitive, transparent). Blocked tasks are NOT hidden
+    # or reordered — they keep their urgency slot, get a clear «🔒 blocked» marker,
+    # and link straight to the blocker so the operator can jump to what unblocks them.
+    real_open = [tr for tr in tasks if isinstance(tr, dict)
+                 and tr.get('task_type') != 'open_question' and _open(tr)]
+
+    def _due_key(tr):
+        dd = _to_date(tr.get('due_date'))
+        return ((dd - today).days if dd else 10 ** 9, _prio(tr))
+    _qsort = lambda L: sorted(L, key=lambda x: (_prio(x), _to_date(x.get('due_date')) or date.max))
+    recs = [_row(tr) for tr in sorted(real_open, key=_due_key)[:3]]
+    qrows = [_row(tr) for tr in _qsort(q_needed)]
+    qbg_rows = [_row(tr) for tr in _qsort(q_bg)]
+    return {'updated_at': today.isoformat(), 'summary': summary, 'counts': counts,
+            'recommendations': recs, 'questions': qrows, 'questions_bg': qbg_rows,
+            'task_count': nt, 'question_count': nq, 'bg_count': len(q_bg)}
+
+
+_PR_CLS = {"high": "an-pr-high", "normal": "an-pr-normal", "low": "an-pr-low"}
+
+
+def render_task_snippet(r, esc, kind='task'):
+    """THE one task-row snippet, used everywhere — overview «Сводка», client
+    «Сводка», the Plan and the per-client plan ("Активные треки"). A
+    `track-card-clickable` carrying canonical data-track-* attrs, so a click opens
+    the REAL task/question modal. Keyboard-activable.
+
+    The ONLY per-surface difference is the «признаки клиента» (avatar + client
+    line): present on cross-client lists, omitted on a single client's card. That
+    is driven purely by whether the item carries `avatar` / `client` — the caller
+    decides, the snippet does not branch on the surface.
+
+    Item keys: title, attrs, avatar=(initials, style) | None, client, priority,
+    next_action, blocker_title, blocker_attrs, unblocks, due_days,
+    status_html (pre-rendered chip; if absent an «заблокировано» badge is derived
+    from an open blocker), kind."""
+    pcls = _PR_CLS.get(r.get("priority", "normal"), "an-pr-normal")
+    na = (r.get("next_action") or "").strip()
+    sub = ('<div class="an-why">' + esc(na) + '</div>') if na else ""
+    # THE shared due badge (engine/_components.due_badge) — defined once, reused.
+    from _components import due_badge
+    due_chip = due_badge(r.get('due_days'))
+    unb = r.get('unblocks') or 0
+    unb_chip = ('<span class="an-unblocks">' + esc(t('unblocks {}').format(unb)) + '</span>') if unb else ""
+    # Dependency: rendered like the track-modal's «Зависит от» — «🔒 → <blocker>»,
+    # clickable (its own track-card-clickable) so the operator jumps straight to the
+    # blocker. Replaces the hypothesis line when blocked.
+    blk_html = ""
+    if r.get("blocker_title"):
+        blk_html = ('<div class="an-dep track-card-clickable"' + (r.get("blocker_attrs") or "")
+                    + '><span class="an-dep-arrow">&#128274;</span> '
+                    + esc(r["blocker_title"])
+                    + '<span class="an-dep-go">&rarr;</span></div>')
+    # Status chip: an explicit pre-rendered chip (the Plan passes its «ждём» /
+    # «заблокирован» pill) wins; otherwise derive «заблокировано» from an open
+    # blocker so the Сводка rows still read as blocked.
+    status_chip = r.get("status_html") or ""
+    if not status_chip and r.get("blocker_title"):
+        status_chip = '<span class="an-blocked">' + esc(t('blocked')) + '</span>'
+    # Marker: a client avatar when given (cross-client lists), else the priority
+    # ring / ? mark. Omitting the avatar IS how a single client's card drops it.
+    _av = r.get('avatar')
+    if _av:
+        _ini, _avst = _av
+        marker = '<span class="an-av"' + (_avst or '') + '>' + esc(_ini) + '</span>'
+    elif kind == 'question':
+        marker = '<span class="an-q" aria-hidden="true">?</span>'
+    else:
+        marker = '<span class="an-check ' + pcls + '" aria-hidden="true"></span>'
+    return (
+        '<div class="an-rec track-card-clickable" role="button" tabindex="0"' + (r.get('attrs') or '')
+        + " onkeydown=\"if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}\">"
+        + marker
+        + '<div class="an-rec-body"><div class="an-rec-title">' + esc(r.get("title", "")) + '</div>'
+        + (('<div class="an-client">' + esc(r.get("client")) + '</div>') if r.get("client") else "")
+        + (blk_html if r.get("blocker_title") else sub) + '</div>'
+        + status_chip + unb_chip + due_chip
+        + '<span class="an-go">&rarr;</span>'
+        '</div>')
+
+
+def _render_task_rows(items, esc, kind='task'):
+    """Render a list of items with the shared snippet."""
+    return ''.join(render_task_snippet(r, esc, kind=kind) for r in items)
 
 
 def render_analysis_zone(analysis, today, last_change=None, esc=None, esca=None):
-    """The "Analysis and recommendations" block. Self-contained (an-* classes). '' if empty."""
+    """"Analysis & recommendations": situation summary + the top REAL tasks
+    (clickable through to the real task). Questions live in their own section."""
     esc = esc or _esc; esca = esca or _esca
     if not analysis or not (analysis.get("summary") or analysis.get("recommendations")):
         return ""
@@ -417,23 +529,42 @@ def render_analysis_zone(analysis, today, last_change=None, esc=None, esca=None)
     stale = bool(upd_d and last_change and last_change > upd_d)
     upd_txt = (t("updated {}").format(upd_d.strftime("%d.%m")) if upd_d else t("date ?"))
     stale_pill = ' <span class="an-stale">' + esc(t("stale — refresh")) + '</span>' if stale else ""
-    _BADGE = {"high": ("an-bh", t("important")), "normal": ("an-bn", t("medium")), "low": ("an-bl", t("later"))}
-    rows = []
-    for r in (analysis.get("recommendations") or []):
-        cls, lbl = _BADGE.get(r.get("priority", "normal"), _BADGE["normal"])
-        why = ('<div class="an-why">' + esc(r.get("why", "")) + '</div>') if r.get("why") else ""
-        btn = ('<button class="an-btn" data-prompt="' + esca(r.get("prompt", "")) + '">' + esc(t("🔍 Break it down")) + '</button>') if r.get("prompt") else ""
-        rows.append('<div class="an-rec"><span class="an-badge ' + cls + '">' + lbl + '</span>'
-                    '<div class="an-rec-body"><div class="an-rec-title">' + esc(r.get("title", "")) + '</div>' + why + '</div>'
-                    + btn + '</div>')
-    recs_html = ('<div class="an-recs-label">' + esc(t("Recommendations")) + '</div>' + ''.join(rows)) if rows else ""
-    summ = ('<p class="an-summary">' + esc(analysis.get("summary", "")) + '</p>') if analysis.get("summary") else ""
+    rows = _render_task_rows(analysis.get("recommendations") or [], esc, kind='task')
+    # "show all" → scrolls to the full operations list (#all-tasks)
+    more = ('<a class="an-more" href="#all-tasks">' + esc(t('Show all tasks')) + ' &rarr;</a>') if rows else ""
+    recs_html = ('<div class="an-recs-label">' + esc(t("Top for today")) + '</div>' + rows + more) if rows else ""
+    summary = analysis.get("summary", "")
+    counts = analysis.get("counts", "")
+    summ = ('<p class="an-summary">' + esc(summary) + '</p>') if summary else ""
+    # counts as a small secondary line, only when the hero summary is the AI brief
+    counts_line = ('<div class="an-counts">' + esc(counts) + '</div>') if (counts and counts != summary) else ""
     return (
         '<div class="an-widget">'
         '<div class="an-head"><span class="an-title">' + esc(t('🧠 Analysis and recommendations')) + '</span>'
         '<span class="an-meta">' + esc(upd_txt) + ' · ' + esc(t('judgment, not fact')) + stale_pill + '</span></div>'
-        + summ + recs_html + '</div>'
+        + summ + counts_line + recs_html + '</div>'
     )
+
+
+def render_client_questions(analysis, esc=None):
+    """Open-questions section. Split: needs-answer (counted, surfaced) vs
+    background observations (collapsed, UNCOUNTED) — speculative items that fill
+    no required field don't inflate the attention queue."""
+    esc = esc or _esc
+    analysis = analysis or {}
+    needed = analysis.get("questions") or []
+    bg = analysis.get("questions_bg") or []
+    if not needed and not bg:
+        return ""
+    head = ('<div class="an-head"><span class="an-title">' + esc(t('❓ Open questions'))
+            + '</span><span class="an-count">' + str(len(needed)) + '</span></div>')
+    body = _render_task_rows(needed, esc, kind='question')
+    bg_html = ''
+    if bg:
+        bg_html = ('<details class="an-bg"><summary>' + esc(t('observations'))
+                   + ' <span class="an-count">' + str(len(bg)) + '</span></summary>'
+                   + _render_task_rows(bg, esc, kind='question') + '</details>')
+    return '<div class="an-widget an-questions">' + head + body + bg_html + '</div>'
 
 
 ANALYSIS_CSS = (
@@ -445,20 +576,70 @@ ANALYSIS_CSS = (
     ".an-meta{font-size:14px;color:var(--text-muted)}"
     ".an-stale{color:var(--accent-red);font-weight:600}"
     ".an-summary{font-size:15px;line-height:1.6;color:var(--text-primary);margin:0 0 var(--space-md)}"
-    ".an-recs-label{font-size:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}"
-    ".an-rec{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid var(--border)}"
-    ".an-badge{font-size:13px;padding:3px 10px;border-radius:6px;font-weight:600;white-space:nowrap;"
-    "flex-shrink:0;min-width:64px;text-align:center}"
-    ".an-bh{background:var(--red-bg);color:#791F1F}"
-    ".an-bn{background:var(--blue-bg);color:#0C447C}"
-    ".an-bl{background:var(--bg-page);color:var(--text-secondary)}"
+    ".an-recs-label{font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 2px}"
+    ".an-count{font-size:13px;color:var(--text-muted);font-weight:500}"
+    # AI brief is the main summary; the counts sit under it as a quiet line
+    ".an-summary{font-size:15px;line-height:1.6;color:var(--text-primary);margin:0 0 6px}"
+    ".an-counts{font-size:13px;color:var(--text-muted);margin:0 0 var(--space-md)}"
+    # 'show all tasks' → scrolls to the operations list
+    ".an-more{display:inline-block;margin-top:12px;font-size:13.5px;font-weight:500;color:var(--accent);cursor:pointer}"
+    ".an-more:hover{color:var(--accent-text)}"
+    # Clickable task / question row — opens the canonical modal (track-card-clickable).
+    ".an-rec{display:flex;align-items:center;gap:13px;padding:12px;margin:0 -12px;"
+    "border-top:1px solid var(--border);cursor:pointer;border-radius:8px;transition:background var(--transition)}"
+    ".an-rec:hover{background:var(--bg-page)}"
+    ".an-rec:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}"
+    # status marker — a ring; colour encodes priority (real tasks)
+    ".an-check{flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid var(--text-muted);box-sizing:border-box}"
+    ".an-check.an-pr-high{border-color:var(--accent-red)}"
+    ".an-check.an-pr-normal{border-color:var(--accent-blue)}"
+    ".an-check.an-pr-low{border-color:var(--border-strong)}"
+    # question marker — a '?' chip (distinct from a task)
+    ".an-q{flex-shrink:0;width:18px;height:18px;border-radius:50%;background:var(--bg-subtle);"
+    "color:var(--text-muted);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}"
+    # client avatar marker (cross-client rows) — same look as the plan avatars
+    ".an-av{flex-shrink:0;width:30px;height:30px;border-radius:50%;display:inline-flex;"
+    "align-items:center;justify-content:center;font-size:12px;font-weight:600;border:1px solid var(--border)}"
     ".an-rec-body{flex:1;min-width:0}"
-    ".an-rec-title{font-size:15px;font-weight:500;color:var(--text-primary)}"
-    ".an-why{font-size:14px;color:var(--text-secondary);margin-top:2px;line-height:1.45}"
-    ".an-btn{flex-shrink:0;font-size:14px;padding:6px 12px;border:1px solid var(--border);background:var(--bg-card);"
-    "color:var(--text-primary);border-radius:var(--radius-btn);cursor:pointer;font-family:inherit;font-weight:500;"
-    "transition:all var(--transition)}"
-    ".an-btn:hover{border-color:var(--accent-blue);color:var(--accent-blue);background:var(--blue-bg)}"
+    ".an-rec-title{font-size:15px;font-weight:600;color:var(--text-primary);"
+    "overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+    ".an-client{font-size:12.5px;color:var(--text-muted);margin-top:2px}"
+    ".an-why{font-size:13px;color:var(--text-secondary);margin-top:3px;line-height:1.45;"
+    "overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+    # dependency box — mirrors the track-modal's «Зависимости» (yellow, 🔒→link),
+    # clickable to jump to the blocker. Replaces the hypothesis line when blocked.
+    # background stays transparent until the row (or the chip) is hovered — keeps
+    # the snippet calm; the padding is always reserved so nothing reflows on hover.
+    # margin-left:-10px cancels the chip's own left padding so its lock/text align
+    # to the title's left edge; the padding still gives the hover background room.
+    ".an-dep{display:inline-flex;align-items:center;gap:6px;margin:-2px 0 0 -10px;padding:5px 10px;"
+    "background:transparent;border-radius:6px;font-size:12.5px;color:#8A6730;"
+    "font-weight:500;cursor:pointer;max-width:100%;transition:background var(--transition)}"
+    ".an-dep .an-dep-arrow{color:var(--text-muted);flex-shrink:0;white-space:nowrap}"
+    # trailing go-arrow on the right — signals the chip is a link even without hover
+    ".an-dep .an-dep-go{padding-left:8px;color:var(--text-muted);flex-shrink:0}"
+    # background appears only on the dep's OWN hover — signals it is separately
+    # clickable (jumps to the blocker), distinct from clicking the whole row.
+    ".an-dep:hover{background:var(--yellow-bg)}"
+    ".an-dep:hover .an-dep-go{color:var(--accent)}"
+    # 'заблокировано' — status chip for a row whose blocker is still open
+    ".an-blocked{flex-shrink:0;font-size:12px;font-weight:600;color:#854F0B;"
+    "background:#FAEEDA;border-radius:6px;padding:3px 9px;white-space:nowrap}"
+    # generic status chip (Plan passes «ждём»/«заблокирован»/… with inline colours)
+    ".an-status{flex-shrink:0;font-size:12px;font-weight:600;border-radius:6px;"
+    "padding:3px 9px;white-space:nowrap}"
+    # (due date uses the shared .due-badge from DESIGN_TOKENS_CSS — no local copy)
+    # 'unblocks N' — marks a prerequisite that gates other tasks (why it's first)
+    ".an-unblocks{flex-shrink:0;font-size:12px;font-weight:600;color:var(--gold);"
+    "background:var(--gold-soft);border-radius:6px;padding:3px 9px;white-space:nowrap}"
+    ".an-go{flex-shrink:0;font-size:15px;color:var(--text-muted);opacity:.5;transition:opacity var(--transition)}"
+    ".an-rec:hover .an-go{opacity:1;color:var(--accent)}"
+    ".an-questions{margin-bottom:14px}"
+    ".an-bg{margin-top:6px}"
+    ".an-bg>summary{cursor:pointer;list-style:none;font-size:13px;color:var(--text-muted);font-weight:500;padding:7px 0}"
+    ".an-bg>summary::-webkit-details-marker{display:none}"
+    ".an-bg>summary::before{content:'\\25B8 ';color:var(--text-muted);font-size:11px}"
+    ".an-bg[open]>summary::before{content:'\\25BE '}"
 )
 
 

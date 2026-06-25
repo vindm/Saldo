@@ -17,7 +17,10 @@ threshold IDR 4.8B/year). Browser-driven on Coretax under the client's own NPWP.
 - [ ] Record the NTPN against the period.
 
 ## Stage 4. SPT
-- [ ] Monthly turnover feeds the annual SPT Tahunan (individual: due 31 March).
+- [ ] Monthly turnover feeds the annual **SPT Tahunan** — UMKM-final files **no SPT Masa**,
+  only the annual return (Coretax pre-fills it from the monthly payments). Deadline depends on
+  the client's legal form: **orang pribadi (OP) — 31 March; badan / PT — 30 April** (see
+  `new-client-id.md` legal-form pivot). Do not assume individual.
 
 ## Safety
 - Do NOT submit/sign on the client's behalf without operator confirmation.
