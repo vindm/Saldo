@@ -63,7 +63,7 @@ Overwrite `email_heartbeat.txt` with the current timestamp.
 
 ### Step 7. Applying to state + the mandatory mm_update finale
 
-Same as `morning_full_scan.md` step 9 (applying to state) — and MANDATORILY the same mm_update finale: cross-link reconciliation across all `state/*.json` of the affected client, `resolves_when` on new questions, read-modify-write (don't overwrite `tasks_overrides`/the operator's decisions), `generate.py`/lint, self-check, audit-log. **An incremental parse updates links just as fully as the morning one — source-agnostic.**
+Same as `morning_full_scan.md` step 9 (applying to state) — and MANDATORILY the same mm_update finale: cross-link reconciliation across all `state/*.json` of the affected client, `resolves_when` on new questions, read-modify-write (don't overwrite `tasks_overrides`/the operator's decisions), lint + scoped render (`connectors/_rebuild.md`), self-check, audit-log. **An incremental parse updates links just as fully as the morning one — source-agnostic.**
 
 ### If there are no changes
 
@@ -92,10 +92,10 @@ _Version 1.0 — 2026-05-16._
 
 ---
 
-## 🔴 Unconditional dashboard render — ALWAYS, as the last action
+## 🔴 Closing render — ALWAYS, as the last action (shared service pages)
 
 > The dashboard render is NOT gated on whether there were changes. Whatever happened above — whether state was edited or not, whether at least one client was affected or zero — **as the last action the daemon MUST**:
 >
-> `python3 engine/generate.py` (runs `state_lint`); on exit 0, publish `cp _tmp_html/*.html ..` (from the `_data` directory).
+> `python3 engine/generate.py --aggregates` (runs `state_lint`; refreshes the shared service pages — today's date, overdue, "in N days" — and fits the per-command 45s budget; see `connectors/_rebuild.md`). Per-client cards roll their date at the **`dashboards` 07:45** full render. NEVER a bare full `generate.py` here — that froze the dashboard (incident 2026-06-11→13).
 >
 > Reason: the dashboard carries time-dependent content (today's date in the header, overdue items, "in N days") that must be refreshed **daily**, regardless of whether there were changes in state. Skipping the render on a "quiet day" = a frozen date (incident 2026-06-11→13, the operator's decision: the render is unconditional).

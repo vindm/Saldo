@@ -124,7 +124,7 @@ For team email (Anastasia/Alyona) that concerns the work process — update `sys
 1. **Cross-link reconciliation** across all their `state/*.json` (and related clients): close answered `open_question`/tracks in `tasks.json` (status=completed + history), reassess `risks.json`, fill in ❓ elsewhere, update `mental_model.md` + append `history.jsonl`.
 2. **`resolves_when`** on every NEW open_question track.
 3. **Read-modify-write** — never overwrite `tasks_overrides` / the operator's manual decisions (via `_tracks`/`state_ops`).
-4. **lint + publish**: `python3 engine/generate.py` (runs `state_lint`); publish only on exit 0.
+4. **lint + scoped render** (see `connectors/_rebuild.md`): `python3 engine/state_lint.py` as the gate (exit≠0 → do NOT publish, fix first), then render the affected client(s) — `python3 engine/generate.py --clients=<affected ids>` — and refresh the shared views with `python3 engine/generate.py --aggregates`. Never a bare full `generate.py` here — it overruns the 45s sandbox budget (the frozen-date incident).
 5. **Self-check**: grep for leftover active `open_question`/`❓` on the topic — if hanging, the finale isn't finished.
 6. **Audit-log** as one block in `journal/operator_decisions.md`.
 
@@ -153,12 +153,12 @@ _v1.0 2026-05-16; v1.1 2026-05-25 (state/ architecture); v1.2 2026-06-25 (multi-
 
 ---
 
-## 🔴 Unconditional dashboard render — ALWAYS, as the last action
+## 🔴 Closing render — ALWAYS, as the last action (shared service pages)
 
 > The render is NOT gated on whether there were changes. Whatever happened above — state edited
 > or not, one client affected or zero — **as the last action the daemon MUST**:
 >
-> `python3 engine/generate.py` (runs `state_lint`); on exit 0, publish.
+> `python3 engine/generate.py --aggregates` (runs `state_lint`; refreshes the shared service pages — today's date, overdue, "in N days" — and fits the per-command 45s budget; see `connectors/_rebuild.md`). Per-client cards roll their date at the **`dashboards` 07:45** full render. NEVER a bare full `generate.py` here — that froze the dashboard (incident 2026-06-11→13).
 >
 > Reason: the dashboard carries time-dependent content (today's date, overdue items, "in N
 > days") that must refresh **daily** regardless of changes. Skipping the render on a quiet day =

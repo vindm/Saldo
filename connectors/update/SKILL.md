@@ -112,7 +112,8 @@ apply (step 6) until the operator has said «да»** to the step-5 preview.
 
      ```bash
      python3 engine/migrate.py up --apply --data-dir "$DATA_DIR"
-     python3 engine/generate.py
+     # Rebuild — CHUNKED, see step 6r (a full serial generate over all
+     # clients overruns the sandbox per-command limit and is killed mid-run).
      ```
 
    - **A runtime-work migration is pending** (step 3 showed a `runtime_pass` /
@@ -126,8 +127,45 @@ apply (step 6) until the operator has said «да»** to the step-5 preview.
      reports done, regenerate:
 
      ```bash
-     python3 engine/generate.py
+     # Rebuild — CHUNKED, see step 6r (a full serial generate over all
+     # clients overruns the sandbox per-command limit and is killed mid-run).
      ```
+
+6r. **Rebuild within the per-command time budget — CHUNKED.** The sandbox kills
+   any single command at ~45s. A full serial `generate.py` over all clients
+   (~0.75s/client + ~4s of shared pages) overruns that on a real operator
+   machine and is killed mid-render — leaving a **stale** dashboard. This is the
+   actual reason an in-sandbox rebuild "does nothing". A backgrounded process
+   does **not** survive either: the sandbox tears down the whole process tree
+   when the command returns. So rebuild in batches, **each batch as its OWN
+   separate command** (never loop all batches in one command — that re-creates
+   the timeout). `ABA_SKIP_UPDATE_CHECK=1` drops the render-time git fetch (~8s).
+
+   1. Render the clients in slices of ~8 (use a smaller slice on a slow machine),
+      one command per slice:
+
+      ```bash
+      ABA_SKIP_UPDATE_CHECK=1 python3 engine/generate.py --clients=id1,id2,id3,id4,id5,id6,id7,id8
+      ```
+      ```bash
+      ABA_SKIP_UPDATE_CHECK=1 python3 engine/generate.py --clients=id9,id10,id11,id12,id13,id14,id15,id16
+      ```
+      (continue until every client id from `$DATA_DIR/clients` is covered)
+
+   2. Final command — the shared pages + finalize + **LINT** (this is where
+      `✅ LINT OK` must appear; a `--clients` batch deliberately skips lint):
+
+      ```bash
+      ABA_SKIP_UPDATE_CHECK=1 python3 engine/generate.py --aggregates
+      ```
+
+   The chunked output is **byte-identical** to a full `generate.py` (verified):
+   client batches write the same `dashboard_*`/`report_*` pages, and the
+   `--aggregates` pass rewrites overview/groups/plan/calendar/periods + strips
+   emoji across every page exactly as the full run does. A bare
+   `python3 engine/generate.py` (no flags) is still the full run — use it only
+   where there is no per-command time limit (a native Windows terminal /
+   `tools/update.py`, which have no sandbox cap).
 
 6a. **Reconcile the schedule — register any newly-shipped daemon.** A pull can
    add, rename, or retire jobs in `config/instance.example.yaml → schedule` (e.g.

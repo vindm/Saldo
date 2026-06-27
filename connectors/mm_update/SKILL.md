@@ -447,7 +447,7 @@ A fact is considered applied ONLY when all links are reconciled and the checks h
    - the other state files — fill in ❓, remove outdated assumptions.
    - `mental_model.md` — close ❓, move ✅ into History; `history.jsonl` — append.
 3. **`resolves_when` on every NEW `open_question`.** When creating a question track, you MUST set the `resolves_when` field = the path in state where the answer will appear (format `<file>:<dotpath>` with a list filter `[key=val]`, e.g. `accounts:bank_accounts[id=tbank_main].account`). Then `state_lint` will automatically fail if the path is filled but the track is not closed — the machine guards the link instead of memory.
-4. **lint:** `python3 engine/generate.py` itself runs `state_lint.lint_all()`. If there is an error (exit≠0) — **do NOT publish** (`cp _tmp_html/*.html ..` only on exit 0), fix it first.
+4. **lint + scoped render** (see `connectors/_rebuild.md`): `python3 engine/state_lint.py` as the gate (exit≠0 → do NOT publish, fix first), then render the affected client(s) — `python3 engine/generate.py --clients=<affected ids>` — and refresh the shared views with `python3 engine/generate.py --aggregates`. Never a bare full `generate.py` here — it overruns the 45s sandbox budget (the frozen-date incident).
 5. **Self-check:** `python3 engine/state_lint.py <client>` + grep for residual active `open_question`/`❓` on the topic. If anything is hanging — the pipeline is not finished.
 6. **Snapshot:** on substantial edits — `python3 engine/snapshot.py <label>` (a rollback point; git on the mount is unavailable due to the unlink block).
 

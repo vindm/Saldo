@@ -140,7 +140,7 @@ using the read-modify-write scheme (since 2026-06-07, `_tracks` was moved to sta
 1. **Cross-link reconciliation** across all of the client's files: close answered `open_question`, reassess `risks.json`, fill in ❓, update `mental_model.md` + append to `history.jsonl`.
 2. **Do not overwrite the operator's decisions** — read-modify-write only: `_tracks`/`state_ops` read the whole file and write it in full, `tasks_overrides` and manual fields are preserved. No partial overwrites.
 3. **Audit-log** as one block in `journal/operator_decisions.md`.
-4. **lint**: `python3 engine/generate.py` (runs `state_lint`); publish dashboards only on exit 0.
+4. **lint + scoped render** (see `connectors/_rebuild.md`): `python3 engine/state_lint.py` as the gate (exit≠0 → do NOT publish, fix first), then render the affected client(s) — `python3 engine/generate.py --clients=<affected ids>` — and refresh the shared views with `python3 engine/generate.py --aggregates`. Never a bare full `generate.py` here — it overruns the 45s sandbox budget (the frozen-date incident).
 
 ### If there are no significant messages
 
@@ -159,10 +159,10 @@ Apply nothing. The `tg_<date>.md` file and the heartbeat are still written by th
 
 ---
 
-## 🔴 Unconditional dashboard render — ALWAYS, as the last action
+## 🔴 Closing render — ALWAYS, as the last action (shared service pages)
 
 > The dashboard render is NOT gated on whether there were changes. Whatever happened above — whether state was edited or not, whether at least one client was affected or zero — **as the last action the daemon MUST**:
 >
-> `python3 engine/generate.py` (runs `state_lint`); on exit 0, publish `cp _tmp_html/*.html ..` (from the `_data` directory).
+> `python3 engine/generate.py --aggregates` (runs `state_lint`; refreshes the shared service pages — today's date, overdue, "in N days" — and fits the per-command 45s budget; see `connectors/_rebuild.md`). Per-client cards roll their date at the **`dashboards` 07:45** full render. NEVER a bare full `generate.py` here — that froze the dashboard (incident 2026-06-11→13).
 >
 > Reason: the dashboard carries time-dependent content (today's date in the header, overdue items, "in N days") that must be refreshed **daily**, regardless of whether there were changes in state. Skipping the render on a "quiet day" = a frozen date (incident 2026-06-11→13, the operator's decision: the render is unconditional).

@@ -27,6 +27,13 @@ Option --print-summary: after generation it prints two blocks to stdout —
 "=== SOURCES ===" and "=== HEALTH ===". Used by the scheduled
 `dashboard` task for the regeneration log.
 
+Chunked rendering (to stay under a per-command time budget, e.g. a 45s
+sandbox limit; default with no flags is the full run, byte-identical to before):
+  --clients=id1,id2,...  render only those client pages (no aggregates/LINT)
+  --aggregates           render only the shared pages + finalize + LINT
+The runtime renders client batches with --clients, each as its own command,
+then a final --aggregates call. See connectors/update/SKILL.md step 6r.
+
 Client dashboard (dashboard_<client>.html — the same Scandinavian
 minimalism as the overview):
 
@@ -262,6 +269,34 @@ def print_summary():
         print(f"{icon} {h['color'].upper():<6} {c['name_short']:<22} {n} reasons: {_short(first, 70)}")
 
 
+# Per-client page render, module-level so a fork-based process pool can call it.
+# Reads daemon mail/anomalies from module globals so workers inherit them on fork
+# (no per-task re-pickling). Read-only on state; each call writes its own files.
+_MAIL_ALL = None
+_ANOM_ALL = None
+
+def _render_client_pages(c):
+    from _client_dashboard_v2 import render_client_dashboard_v2
+    from _owner_report import build_owner_report
+    import state_ops as _sops
+    out_path = os.path.join(OUT_DIR, "dashboard_%s.html" % c['id'])
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write(render_client_dashboard_v2(c, daemon_mail=_MAIL_ALL, daemon_anomalies=_ANOM_ALL))
+    # Owner-facing one-pager (report_<id>.html) for clients with financial periods.
+    try:
+        _fin = _sops.state_read(c['id'], 'financials.json')
+        if _fin and _fin.get('periods'):
+            _reg = _sops.state_read(c['id'], 'regime.json') or {}
+            _juris = c.get('jurisdiction') or _reg.get('jurisdiction') or 'ru'
+            _rep = build_owner_report(c['id'], _fin, _sops.state_read(c['id'], 'identity.json'), _reg, _juris)
+            if _rep:
+                with open(os.path.join(OUT_DIR, "report_%s.html" % c['id']), 'w', encoding='utf-8') as _rf:
+                    _rf.write(_rep)
+    except Exception:
+        pass
+    return "OK: %s \u2192 %s" % (c['name_short'], out_path)
+
+
 if __name__ == '__main__':
     # Auto-wake of deferred tracks (deferred + wake_date<=today → awaiting).
     # Must run BEFORE rendering: the renderers re-read tasks.json from disk.
@@ -272,27 +307,67 @@ if __name__ == '__main__':
     _mail_all = load_daemon_mail(DIARY_INBOX, TODAY)
     _anom_all = load_daemon_anomalies(DIARY_INBOX, TODAY)
 
+    # --- Chunked rendering (sandbox per-command time budget) ----------------
+    # Default (no flags) = full run, byte-identical to before. When the runtime
+    # must stay under a per-command time limit it renders in batches:
+    #   generate.py --clients=id1,id2,...   client pages only (no aggregates/LINT)
+    #   ... more --clients batches ...
+    #   generate.py --aggregates            shared pages + finalize + LINT
+    _argv = sys.argv[1:]
+    def _flag_val(_name):
+        _pref = _name + '='
+        for _a in _argv:
+            if _a == _name:
+                return ''
+            if _a.startswith(_pref):
+                return _a[len(_pref):]
+        return None
+    _clients_arg = _flag_val('--clients')
+    _only_clients = _clients_arg not in (None, '')
+    _only_aggregates = '--aggregates' in _argv
+    if _only_clients:
+        _ids = {x.strip() for x in _clients_arg.split(',') if x.strip()}
+        _client_iter = [c for c in clients if c['id'] in _ids]
+        _missing = _ids - {c['id'] for c in _client_iter}
+        if _missing:
+            print('[generate] unknown client id(s): ' + ', '.join(sorted(_missing)))
+    elif _only_aggregates:
+        _client_iter = []
+    else:
+        _client_iter = clients
 
-    from _client_dashboard_v2 import render_client_dashboard_v2
-    from _owner_report import build_owner_report
-    import state_ops as _sops
-    for c in clients:
-        out_path = os.path.join(OUT_DIR, f"dashboard_{c['id']}.html")
-        with open(out_path, 'w', encoding='utf-8') as f:
-            f.write(render_client_dashboard_v2(c, daemon_mail=_mail_all, daemon_anomalies=_anom_all))
-        print(f"OK: {c['name_short']} \u2192 {out_path}")
-        # Owner-facing one-pager (report_<id>.html) \u2014 for clients with financial periods.
+
+    # Warm the renderers in the parent so forked workers inherit them loaded.
+    from _client_dashboard_v2 import render_client_dashboard_v2  # noqa: F401
+    from _owner_report import build_owner_report                 # noqa: F401
+    import state_ops as _sops                                    # noqa: F401
+    _MAIL_ALL = _mail_all
+    _ANOM_ALL = _anom_all
+    # Render client pages in parallel across processes (each is read-only on
+    # state and writes its own files), so a full run fits a per-command time
+    # budget (e.g. a 45s sandbox cap). Falls back to serial on any error, when
+    # ABA_GEN_SERIAL=1, on <=4 clients, or where fork is unavailable (native
+    # Windows — which has no such cap anyway).
+    _results = None
+    if len(_client_iter) > 4 and os.environ.get('ABA_GEN_SERIAL') != '1':
         try:
-            _fin = _sops.state_read(c['id'], 'financials.json')
-            if _fin and _fin.get('periods'):
-                _reg = _sops.state_read(c['id'], 'regime.json') or {}
-                _juris = c.get('jurisdiction') or _reg.get('jurisdiction') or 'ru'
-                _rep = build_owner_report(c['id'], _fin, _sops.state_read(c['id'], 'identity.json'), _reg, _juris)
-                if _rep:
-                    with open(os.path.join(OUT_DIR, f"report_{c['id']}.html"), 'w', encoding='utf-8') as _rf:
-                        _rf.write(_rep)
-        except Exception:
-            pass
+            import multiprocessing as _mp
+            from concurrent.futures import ProcessPoolExecutor as _PPE
+            _nw = int(os.environ.get('ABA_GEN_WORKERS') or min(8, (os.cpu_count() or 2)))
+            with _PPE(max_workers=_nw, mp_context=_mp.get_context('fork')) as _ex:
+                _results = list(_ex.map(_render_client_pages, _client_iter))
+        except Exception as _pe:
+            print('[generate] parallel render -> serial fallback: %s' % _pe)
+            _results = None
+    if _results is None:
+        _results = [_render_client_pages(c) for c in _client_iter]
+    for _ln in _results:
+        print(_ln)
+
+    if _only_clients:
+        # Chunked client batch: aggregates, finalize and LINT run in the final
+        # `--aggregates` call so they see every page exactly once.
+        sys.exit(0)
 
     from _overview_v2 import render_overview_v2
     ov_path = os.path.join(OUT_DIR, "dashboard_overview.html")
