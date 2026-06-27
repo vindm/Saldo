@@ -137,7 +137,7 @@ def _resolution_render(status_canon, blocked_by):
     The precise auto/needs split is the SWEEP's job; the render shows the operator
     axis only: is this task WAITING (blocked/awaiting external) or does it NEED YOU.
     Terminal -> 'done'. Cheap: status + blocked_by, no lint/theta at render."""
-    if status_canon in ('done', 'archived', 'cancelled'):
+    if status_canon in ('done', 'archived', 'cancelled', 'dropped'):
         return 'done'
     if status_canon in ('blocked', 'deferred') or str(status_canon).startswith('await') or blocked_by:
         return 'wait_external'
