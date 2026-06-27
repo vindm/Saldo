@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "client_id": "kirana",
+  "employees": [
+    {
+      "id": "emp_putu",
+      "name": "Putu Sari (synthetic)",
+      "foreign_national": false,
+      "tax_residency": "id",
+      "pph_method": "ter",
+      "bpjs": {
+        "kesehatan": "active",
+        "ketenagakerjaan": "active"
+      },
+      "permit": null
+    },
+    {
+      "id": "emp_made",
+      "name": "Made Wijaya (synthetic)",
+      "foreign_national": false,
+      "tax_residency": "id",
+      "pph_method": "ter",
+      "bpjs": {
+        "kesehatan": "active",
+        "ketenagakerjaan": "active"
+      },
+      "permit": null
+    },
+    {
+      "id": "emp_kadek",
+      "name": "Kadek Ayu (synthetic)",
+      "foreign_national": false,
+      "tax_residency": "id",
+      "pph_method": "ter",
+      "bpjs": {
+        "kesehatan": "active",
+        "ketenagakerjaan": "active"
+      },
+      "permit": null
+    },
+    {
+      "id": "emp_wayan",
+      "name": "Wayan Putra (synthetic)",
+      "foreign_national": false,
+      "tax_residency": "id",
+      "pph_method": "ter",
+      "bpjs": {
+        "kesehatan": "active",
+        "ketenagakerjaan": "active"
+      },
+      "permit": null
+    },
+    {
+      "id": "emp_nyoman",
+      "name": "Nyoman Sari (synthetic)",
+      "foreign_national": false,
+      "tax_residency": "id",
+      "pph_method": "ter",
+      "bpjs": {
+        "kesehatan": "active",
+        "ketenagakerjaan": "active"
+      },
+      "permit": null
+    },
+    {
+      "id": "emp_expat",
+      "name": "Expat Manager (synthetic)",
+      "foreign_national": true,
+      "tax_residency": "id",
+      "pph_method": "ter",
+      "bpjs": {
+        "kesehatan": "missing",
+        "ketenagakerjaan": null
+      },
+      "permit": {
+        "kitas_expires": "2026-09-15",
+        "rptka_expires": "2026-09-15",
+        "dpkk_paid": null
+      }
+    }
+  ]
+}

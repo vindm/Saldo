@@ -18,7 +18,7 @@ mailboxes **and** each client's mailbox — into one daily report. Multi-account
 1. **Enumerate the accounts** — `enumerate_sources("email")` (`connectors/_sources.md`):
    operator-owned from `config → sources.email` (team Yandex.Mail, personal Gmail) **∪** every
    client's `state/accounts.json → quick_access` with `service: email` (e.g. `melati`'s
-   `melatispa@gmail.com`). Dedup by `(provider, handle)`.
+   `melatispa@example.com`). Dedup by `(provider, handle)`.
 2. **Drop what can't run now** — keep `access: auto` with `cred_status: connected`; **skip +
    flag** the rest (e.g. «Gmail melati — доступ не выдан»). Never fail the run.
 3. **Build the known-correspondents map once** (shared across accounts) — clients' emails from

@@ -1,0 +1,19 @@
+# Cycle: AUSN (АУСН). AUSN clients run a different monthly shape from the standard
+# close — the bank partner marks operations and computes the tax, so there is no 1C
+# posting/close the same way. Bank-side operation marking -> tax calc + payment.
+code: ausn_monthly
+cadence: monthly
+order: 3
+title: { ru: "АУСН", en: "AUSN" }
+stages:
+  - code: ausn_markup
+    title: { ru: "Разметка операций",          en: "Operation marking" }
+    task_types: [ausn_markup_review, ausn_bank_marking]
+    icon: pen-line
+    glyph: "🏷️"
+  - code: ausn_calc
+    title: { ru: "Расчёт + уплата",            en: "Calc + pay" }
+    task_types: [ausn_monthly]
+    icon: credit-card
+    glyph: "💳"
+feeders: [ausn_reconciliation]

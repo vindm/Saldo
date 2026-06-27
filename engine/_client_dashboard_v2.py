@@ -24,6 +24,29 @@ from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _strings import t
 _t = t  # alias: several functions use a local var named `t` (loop/dict comp)
 
+
+def _linked_ref_chip(lt_id, tasks_lookup, client_id, today, client_name=''):
+    """Render ONE linked task id as the shared clickable reference chip
+    (engine/_brief.ref_chip) — the SAME «referenced task» pattern the Plan uses for
+    blockers. Resolve the title from tasks_lookup and build the data-track-* attrs
+    via build_track_data_attrs so a click opens the canonical track modal. Only a
+    task that actually resolves in tasks_lookup becomes clickable; an unknown id
+    degrades to a non-clickable label. No leading icon — the trailing → already
+    signals the chip navigates (keeps the cards calm)."""
+    from _brief import ref_chip
+    _has = bool(tasks_lookup) and lt_id in tasks_lookup
+    title = (tasks_lookup.get(lt_id) if _has else None) or lt_id
+    attrs = ''
+    if _has and client_id:
+        try:
+            from _track_attrs import build_track_data_attrs
+            attrs = build_track_data_attrs(
+                {'id': lt_id, 'client_id': client_id, 'client_name': client_name or ''},
+                _esca, today=today)
+        except Exception:
+            attrs = ''
+    return ref_chip(title, attrs, _esc, glyph='')
+
 # Internal enum tokens (accounting_system / filing.submission / signature_holder
 # and a few access values) → clean English keys that flow through _t() for ru.
 # Unknown tokens fall back to a humanized snake_case form.
@@ -479,7 +502,85 @@ REQ_CARD_CSS = (
 
 
 
-def render_client_risks(risks_data, tasks_lookup=None):
+_RISK_CATEGORY_RU = {
+    'business': 'business',
+    'business_positive': 'business',
+    'client_relationship': 'client relationship',
+    'regulatory': 'regulatory',
+    'compliance': 'regulatory',
+    'financial': 'finance',
+    'operational': 'operations',
+    'tax': 'taxes',
+    'accounting': 'accounting',
+    'data_quality': 'data gap',
+    'infrastructure': 'infrastructure',
+    'client_behavior': 'client behavior',
+    'tax_regime': 'tax regime',
+    'reporting': 'reporting',
+    'legal': 'legal',
+}
+
+
+def _render_risk_card(r, tasks_lookup=None, client_id=None, today=None, client_name=''):
+    """ONE risk card — the shared DS component used by BOTH the client
+    «Client risks» section and the employee card «Risk zones», so the two read
+    identically. Collapsible <details> with a severity edge; the summary is
+    title + → next_action, the body reveals meta / description / linked tasks / law."""
+    sev = str(r.get('severity') or 'grey').lower()
+    sev = {'high': 'red', 'critical': 'red', 'medium': 'yellow', 'warn': 'yellow'}.get(sev, sev)
+    if sev not in ('red', 'yellow', 'grey'):
+        sev = 'grey'
+    title = r.get('title', '') or ''
+    desc = r.get('description', '') or ''
+    next_action = r.get('next_action') or ''
+    linked_tasks = r.get('linked_tasks') or []
+    linked_law = r.get('linked_law') or ''
+
+    meta_bits = []
+    if r.get('category'):
+        meta_bits.append(_t(_RISK_CATEGORY_RU.get(r['category'], r['category'])))
+    if r.get('since'):
+        meta_bits.append(_t('since') + ' ' + r['since'])
+    meta = ' · '.join(meta_bits)
+
+    summ_next = ('<span class="risk-next-inline">→ ' + _esc(next_action) + '</span>') if next_action else ''
+    summary = (
+        '<summary class="risk-summary">'
+        '<span class="risk-title">' + _esc(title) + '</span>'
+        + summ_next
+        + '</summary>'
+    )
+
+    body_parts = []
+    if meta:
+        body_parts.append('<div class="risk-meta">' + _esc(meta) + '</div>')
+    if desc:
+        body_parts.append('<div class="risk-desc">' + _esc(desc) + '</div>')
+    if linked_tasks:
+        _n_lt = len(linked_tasks[:3])
+        _lt_label = 'task already created' if _n_lt == 1 else 'tasks already created'
+        _chips = ''.join(
+            _linked_ref_chip(_lt_id, tasks_lookup, client_id, today, client_name)
+            for _lt_id in linked_tasks[:3]
+        )
+        _more = ('<span class="risk-linked-more">…</span>' if len(linked_tasks) > 3 else '')
+        body_parts.append(
+            '<div class="risk-linked-tasks">'
+            '<span class="risk-linked-label">' + _t(_lt_label) + ':</span> '
+            + _chips + _more + '</div>'
+        )
+    if linked_law:
+        body_parts.append('<div class="risk-law">⚖ ' + _esc(linked_law) + '</div>')
+
+    return (
+        '<details class="risk-card risk-sev-' + sev + '">'
+        + summary
+        + '<div class="risk-body">' + ''.join(body_parts) + '</div>'
+        + '</details>'
+    )
+
+
+def render_client_risks(risks_data, tasks_lookup=None, client_id=None, today=None, client_name=''):
     """Section '⚠️ Client risks' — renders state/risks.json.
     Iter 9 (kind-split), 2026-06-13: only real risks are shown as cards
     (kind=risk or no kind — backward-compat for unmigrated). Open
@@ -498,23 +599,6 @@ def render_client_risks(risks_data, tasks_lookup=None):
         return ''
 
     sev_order = {'red': 0, 'yellow': 1, 'grey': 3}
-    _CATEGORY_RU = {
-        'business': 'business',
-        'business_positive': 'business',
-        'client_relationship': 'client relationship',
-        'regulatory': 'regulatory',
-        'compliance': 'regulatory',
-        'financial': 'finance',
-        'operational': 'operations',
-        'tax': 'taxes',
-        'accounting': 'accounting',
-        'data_quality': 'data gap',
-        'infrastructure': 'infrastructure',
-        'client_behavior': 'client behavior',
-        'tax_regime': 'tax regime',
-        'reporting': 'reporting',
-        'legal': 'legal',
-    }
 
     def _kind(r):
         k = r.get('kind')
@@ -524,55 +608,10 @@ def render_client_risks(risks_data, tasks_lookup=None):
     questions = [r for r in active_risks if _kind(r) == 'question']
     blockers = [r for r in active_risks if _kind(r) == 'blocker']
 
-    cards = []
-    for r in sorted(real_risks, key=lambda x: sev_order.get(x.get('severity', 'grey'), 9)):
-        sev = r.get('severity', 'grey')
-        title = r.get('title', '')
-        desc = r.get('description', '')
-        next_action = r.get('next_action') or ''
-        linked_tasks = r.get('linked_tasks') or []
-        linked_law = r.get('linked_law') or ''
-
-        meta_bits = []
-        if r.get('category'):
-            meta_bits.append(_t(_CATEGORY_RU.get(r['category'], r['category'])))
-        if r.get('since'):
-            meta_bits.append(_t('since') + ' ' + r['since'])
-        meta = ' · '.join(meta_bits)
-
-        summ_next = ('<span class="risk-next-inline">→ ' + _esc(next_action) + '</span>') if next_action else ''
-        summary = (
-            '<summary class="risk-summary">'
-            '<span class="risk-title">' + _esc(title) + '</span>'
-            + summ_next
-            + '</summary>'
-        )
-
-        body_parts = []
-        if meta:
-            body_parts.append('<div class="risk-meta">' + _esc(meta) + '</div>')
-        if desc:
-            body_parts.append('<div class="risk-desc">' + _esc(desc) + '</div>')
-        if linked_tasks:
-            _lt_parts = []
-            for _lt_id in linked_tasks[:3]:
-                _lt_title = (tasks_lookup or {}).get(_lt_id, _lt_id) or _lt_id
-                _lt_parts.append(_lt_title)
-            body_parts.append(
-                '<div class="risk-linked-tasks">🔗 linked: '
-                + ', '.join(_esc(t) for t in _lt_parts)
-                + ('…' if len(linked_tasks) > 3 else '')
-                + '</div>'
-            )
-        if linked_law:
-            body_parts.append('<div class="risk-law">⚖ ' + _esc(linked_law) + '</div>')
-
-        cards.append(
-            '<details class="risk-card risk-sev-' + sev + '">'
-            + summary
-            + '<div class="risk-body">' + ''.join(body_parts) + '</div>'
-            + '</details>'
-        )
+    cards = [
+        _render_risk_card(r, tasks_lookup, client_id, today, client_name)
+        for r in sorted(real_risks, key=lambda x: sev_order.get(x.get('severity', 'grey'), 9))
+    ]
 
     def _plural(n, one, few, many):
         n10, n100 = n % 10, n % 100
@@ -608,7 +647,30 @@ def render_client_risks(risks_data, tasks_lookup=None):
     )
 
 
-def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
+def _period_parity_chip(p):
+    """Inline parity/cash chips for a period row (slots from migration 0017).
+
+    Pure lens over `financials.json → periods[]`. Returns '' when nothing is
+    recorded (parity_status null AND cash_reconciled not explicitly False), so a
+    period that has never been reconciled renders exactly as before — additive and
+    behaviour-preserving. Operator-locale labels via _t (i18n-guarded)."""
+    bits = []
+    ps = p.get('parity_status')
+    if ps == 'pass':
+        bits.append(('ok', _t('reconciled to source')))
+    elif ps == 'fail':
+        bits.append(('bad', _t('parity mismatch')))
+    elif ps == 'pending':
+        bits.append(('warn', _t('awaiting parity')))
+    if p.get('cash_reconciled') is False:
+        bits.append(('bad', _t('cash not reconciled')))
+    return ''.join(
+        '<span class="fin2-chip fin2-chip-%s">%s</span>' % (lvl, _esc(lbl))
+        for lvl, lbl in bits
+    )
+
+
+def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru", client_id=None, today_d=None, client_name=''):
     """💰 Financial model and calendar — from state/financials.json. Iter 19b (R4/R5/R6), 2026-05-25."""
     if not fin:
         return ''
@@ -671,23 +733,43 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
         except Exception:
             return str(v)
 
+    # Pace caption — was a full-width grey bar; now a muted line beside the title.
     pace_html = ''
     if yp:
-        ea = yp.get('estimated_annual_income')
+        ea = (yp.get('estimated_annual_income') or yp.get('estimated_annual_turnover_idr')
+              or yp.get('estimated_annual'))   # multi-jurisdiction: ID stores turnover_idr
         gx = yp.get('growth_vs_prev_year_x')
         bits = []
         if ea:
             bits.append('~' + _fmt_money(ea) + ' ' + cur + ' ' + _t('annual'))
         if gx:
-            bits.append(_t('growth') + ' ×' + str(gx))
+            bits.append(_t('growth') + ' \u00d7' + str(gx))
         if bits:
-            pace_html = (
-                '<div class="fin-pace">📈 ' + _t('Pace') + ' 2026: '
-                + _esc(' · '.join(bits)) + '</div>'
-            )
+            pace_html = ('<span class="fin2-pace">\U0001F4C8 ' + _t('Pace') + ' 2026: '
+                         + _esc(' \u00b7 '.join(bits)) + '</span>')
 
-    periods_html = ''
+    # Status word -> chip tone. Chip-only signal, no rail (operator pick 2026-06-26).
+    _STATUS_TONE = {
+        'paid': 'ok', 'calculated_paid': 'ok',
+        'current': 'info', 'current_ausn': 'info', 'in_progress': 'info',
+        'last_period_serviced': 'info',
+        'calculated_payment_pending_check': 'warn', 'decision_required': 'warn',
+        'overdue': 'bad',
+    }
+
+    periods_section = ''
     if periods:
+        from _strings import LOCALE as _LOC
+        _RU_MONTHS = ('Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль',
+                      'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь')
+
+        def _fmt_period(per):
+            import re as _re
+            m = _re.fullmatch(r'(\d{4})-(\d{2})', str(per))
+            if m and _LOC == 'ru':
+                return _RU_MONTHS[int(m.group(2)) - 1] + ' ' + m.group(1)
+            return str(per)
+
         rows = []
         for p in periods:
             per = p.get('period', '')
@@ -706,93 +788,124 @@ def render_client_financials(fin, tasks_lookup=None, jurisdiction="ru"):
                 tbits.append(_t('fixed') + ' ' + _fmt_money(taxes['fixed_insurance_paid']))
             if not tbits and taxes:
                 # Generic (non-RU) taxes column: sum the period's tax amounts.
-                # Skip non-tax payload keys (e.g. net payroll) so the total is clean.
                 _tax_vals = [v for k, v in taxes.items()
                              if isinstance(v, (int, float)) and k not in ('payroll_net', 'payroll_net_idr')]
                 if _tax_vals:
                     tbits.append(_t('taxes total') + ' ' + _fmt_money(sum(_tax_vals)) + ' ' + cur)
-            tax_s = ' · '.join(tbits) if tbits else '—'
+            tax_s = ' \u00b7 '.join(tbits) if tbits else '\u2014'
             status_raw = p.get('status', '')
             status_ru = _t(_PERIOD_STATUS_RU.get(status_raw, status_raw))
+            tone = _STATUS_TONE.get(status_raw, 'neutral')
+            parity = _period_parity_chip(p)
+            # Готовность column: the readiness pill is primary; the archived/status
+            # word shows only when no readiness is recorded (RU periods / year rows).
+            if parity:
+                ready_cell = parity
+            elif status_ru:
+                ready_cell = '<span class="fin2-chip fin2-chip-' + tone + '">' + _esc(status_ru) + '</span>'
+            else:
+                ready_cell = ''
             rows.append(
-                '<tr><td class="fin-period">' + _esc(per) + '</td>'
-                '<td class="fin-income">' + _esc(inc + ' ' + cur + est) + '</td>'
-                '<td class="fin-tax">' + _esc(tax_s) + '</td>'
-                '<td class="fin-status">' + _esc(status_ru) + '</td></tr>'
+                '<div class="fin2-row">'
+                '<span class="fin2-per">' + _esc(_fmt_period(per)) + '</span>'
+                '<span class="fin2-turn">' + _esc(inc + ' ' + cur + est) + '</span>'
+                '<span class="fin2-tax">' + _esc(tax_s) + '</span>'
+                '<span class="fin2-st">' + ready_cell + '</span>'
+                '</div>'
             )
-        periods_html = (
-            '<div class="fin-subtitle">' + _t('📊 Periods') + '</div>'
-            '<table class="fin-table">'
-            '<thead><tr><th>' + _t('Period') + '</th><th>' + _t(inc_label) + '</th><th>' + _t('Taxes') + '</th><th>' + _t('Status') + '</th></tr></thead>'
-            '<tbody>' + ''.join(rows) + '</tbody></table>'
+        # Current open month — synthesize an "in progress" row when the latest closed
+        # period is behind the current month, so the actionable period is always visible.
+        from datetime import date as _date
+        _cur_m = _date.today().strftime('%Y-%m')
+        _ms = [s for s in (str(p.get('period', '')) for p in periods)
+               if len(s) == 7 and s[:4].isdigit() and s[4] == '-']
+        if _cur_m not in _ms and (not _ms or _cur_m > max(_ms)):
+            rows.append(
+                '<div class="fin2-row">'
+                '<span class="fin2-per">' + _esc(_fmt_period(_cur_m)) + '</span>'
+                '<span class="fin2-turn fin2-muted">' + _esc(_t('collecting…')) + '</span>'
+                '<span class="fin2-tax">—</span>'
+                '<span class="fin2-st"><span class="fin2-chip fin2-chip-info">'
+                + _esc(_t('in progress')) + '</span></span>'
+                '</div>'
+            )
+        _head = (
+            '<div class="fin2-row fin2-head">'
+            '<span class="fin2-per">' + _t('Period') + '</span>'
+            '<span class="fin2-turn">' + _t('Turnover') + '</span>'
+            '<span class="fin2-tax">' + _t('Taxes') + '</span>'
+            '<span class="fin2-st">' + _t('Readiness') + '</span>'
+            '</div>'
+        )
+        periods_section = (
+            '<div class="section-title"><h2>' + _t('\U0001F4CA Periods') + '</h2>' + pace_html + '</div>'
+            '<div class="fin2-card">' + _head + ''.join(rows) + '</div>'
+            '<div class="fin2-note">' + _t('readiness note') + '</div>'
         )
 
-    calendar_html = ''
+    calendar_section = ''
     if cal:
-        from datetime import date
-        today_iso = date.today().isoformat()
-        past_rows = []
-        future_rows = []
+        from datetime import date, timedelta
+        today = date.today()
+        today_iso = today.isoformat()
+        cur_year = str(today.year)
+        near_iso = (today + timedelta(days=70)).isoformat()   # detail horizon
+        soon_iso = (today + timedelta(days=14)).isoformat()   # red date
+
+        def _fmt_cal_date(d):
+            parts = str(d).split('-')
+            if len(parts) == 3:
+                return parts[2] + '.' + parts[1] + ('' if parts[0] == cur_year else '.' + parts[0][2:])
+            return str(d)
+
+        def _ev_item(ev):
+            what = _gloss_text(ev.get('what', ''), jurisdiction)
+            amt, amt_est = ev.get('amount'), ev.get('amount_estimated')
+            amt_html = ''
+            if amt is not None:
+                amt_html = '<span class="cal2-amt">' + _esc(_fmt_money(amt) + ' ' + cur) + '</span>'
+            elif amt_est is not None:
+                amt_html = '<span class="cal2-amt">~' + _esc(_fmt_money(amt_est) + ' ' + cur) + '</span>'
+            task_html = ''
+            lt = ev.get('linked_task') or ''
+            if lt and (tasks_lookup or {}).get(lt):
+                task_html = ('<span class="cal2-task">'
+                             + _linked_ref_chip(lt, tasks_lookup, client_id, today_d or today, client_name)
+                             + '</span>')
+            return ('<div class="cal2-item"><span class="cal2-what">' + what + '</span>'
+                    + amt_html + task_html + '</div>')
+
+        def _group(events):
+            evs = sorted(events, key=lambda e: e.get('date', ''))
+            out, i = [], 0
+            while i < len(evs):
+                d = evs[i].get('date', '')
+                grp = []
+                while i < len(evs) and evs[i].get('date', '') == d:
+                    grp.append(evs[i]); i += 1
+                soon = ' cal2-soon' if (today_iso <= d <= soon_iso) else ''
+                out.append('<div class="cal2-row"><div class="cal2-date' + soon + '">'
+                           + _esc(_fmt_cal_date(d)) + '</div><div class="cal2-items">'
+                           + ''.join(_ev_item(e) for e in grp) + '</div></div>')
+            return '<div class="cal2">' + ''.join(out) + '</div>'
+
+        near, later, past = [], [], []
         for ev in cal:
             d = ev.get('date', '')
-            amt = ev.get('amount')
-            amt_est = ev.get('amount_estimated')
-            if amt is not None:
-                amt_s = _fmt_money(amt) + ' ' + cur
-            elif amt_est is not None:
-                amt_s = '~' + _fmt_money(amt_est) + ' ' + cur + ' (' + _t('forecast') + ')'
-            else:
-                amt_s = '—'
-            st_raw = ev.get('status', '')
-            st_ru = _t(_CAL_STATUS_RU.get(st_raw, st_raw))
-            st_class = 'cal-st-' + ('past' if d < today_iso else 'future')
-            lt = ev.get('linked_task') or ''
-            if lt:
-                _lt_title_v = (tasks_lookup or {}).get(lt) or ''
-                if _lt_title_v:
-                    lt_s = '<span class="cal-task-title">' + _esc(_lt_title_v) + '</span>'
-                else:
-                    lt_s = '<code>' + _esc(lt) + '</code>'
-            else:
-                lt_s = '—'
-            row_html = (
-                '<tr class="' + st_class + '"><td class="cal-date">' + _esc(d) + '</td>'
-                '<td>' + _gloss_text(ev.get('what', ''), jurisdiction) + '</td>'
-                '<td class="cal-amt">' + _esc(amt_s) + '</td>'
-                '<td class="cal-st">' + _esc(st_ru) + '</td>'
-                '<td class="cal-task">' + lt_s + '</td></tr>'
-            )
-            if d < today_iso:
-                past_rows.append(row_html)
-            else:
-                future_rows.append(row_html)
-        _cal_head = (
-            '<thead><tr><th>' + _t('Date') + '</th><th>' + _t('What') + '</th><th>' + _t('Amount') + '</th>'
-            '<th>' + _t('Status') + '</th><th>' + _t('Task') + '</th></tr></thead>'
-        )
-        future_table = (
-            '<table class="fin-table fin-cal-table">' + _cal_head
-            + '<tbody>' + ''.join(future_rows) + '</tbody></table>'
-        ) if future_rows else ''
-        past_block = ''
-        if past_rows:
-            past_block = (
-                '<details class="cal-past"><summary>' + _t('Past in') + ' 2026 ('
-                + str(len(past_rows)) + ')</summary>'
-                '<table class="fin-table fin-cal-table">' + _cal_head
-                + '<tbody>' + ''.join(past_rows) + '</tbody></table></details>'
-            )
-        calendar_html = (
-            '<div class="fin-subtitle">' + _t('📅 Tax calendar 2026') + '</div>'
-            + future_table + past_block
+            (past if d < today_iso else (near if d <= near_iso else later)).append(ev)
+
+        near_html = _group(near) if near else (
+            '<div class="fin2-empty">' + _t('nothing due soon') + '</div>')
+        later_html = ('<details class="cal2-more"><summary>' + _t('Further ahead') + ' ('
+                      + str(len(later)) + ')</summary>' + _group(later) + '</details>') if later else ''
+        past_html = ('<details class="cal2-more"><summary>' + _t('Past in') + ' ' + cur_year + ' ('
+                     + str(len(past)) + ')</summary>' + _group(past) + '</details>') if past else ''
+        calendar_section = (
+            '<div class="section-title"><h2>' + _t('\U0001F4C5 Tax calendar 2026') + '</h2></div>'
+            '<div class="fin2-card fin2-cal">' + near_html + later_html + past_html + '</div>'
         )
 
-    return (
-        '<div class="section-title"><h2>' + _t('💰 Financial model and calendar') + '</h2></div>'
-        '<section class="fin-section">'
-        + pace_html + periods_html + calendar_html +
-        '</section>'
-    )
+    return periods_section + calendar_section
 
 
 # Counterparty enum → English label (also a t() catalog key, routed through _t()
@@ -838,7 +951,7 @@ _CP_CATEGORY_LABEL = {
 }
 
 
-def render_client_counterparties(cp_data):
+def render_client_counterparties(cp_data, tasks_lookup=None, client_id=None, today=None, client_name=''):
     """🤝 Counterparties — from state/counterparties.json. Iter 21, 2026-05-25."""
     if not cp_data:
         return ''
@@ -896,9 +1009,12 @@ def render_client_counterparties(cp_data):
             )
         lt_html = ''
         if linked_t:
+            _cp_chips = ''.join(
+                _linked_ref_chip(_lt, tasks_lookup, client_id, today, client_name) for _lt in linked_t
+            )
             lt_html = (
-                '<div class="cp-linked">' + _t('tasks:') + ' '
-                + ', '.join('<code>' + _esc(t) + '</code>' for t in linked_t)
+                '<div class="cp-linked cp-linked-tasks">' + _t('tasks:') + ' '
+                + _cp_chips
                 + '</div>'
             )
 
@@ -1198,6 +1314,754 @@ def render_client_real_estate(re_data):
     )
 
 
+def _parse_iso_date(v):
+    """YYYY-MM-DD -> date, else None. Local to the roster panel."""
+    try:
+        from datetime import datetime as _dtp
+        return _dtp.strptime(str(v)[:10], '%Y-%m-%d').date()
+    except Exception:
+        return None
+
+
+_EMPC_ASSETS = """
+<style id="empc-css">
+.empc-backdrop{position:fixed;inset:0;background:rgba(18,18,28,.34);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;
+  align-items:center;justify-content:center;padding:var(--space-lg);z-index:1200}
+.empc-backdrop.open{display:flex}
+.empc-modal{position:relative;width:100%;max-width:980px;max-height:90vh;
+  background:var(--bg-card);border-radius:16px;overflow:hidden;display:flex;
+  flex-direction:column;box-shadow:0 24px 64px -16px rgba(16,16,26,0.30),0 4px 12px rgba(16,16,26,0.06);
+  border:1px solid var(--border);animation:empcpop .15s ease-out}
+@keyframes empcpop{from{transform:translateY(6px) scale(.99);opacity:0}to{transform:none;opacity:1}}
+.empc-bc{display:inline-block;font-size:14px;margin-bottom:14px}
+.empc-x{position:absolute;top:18px;right:18px;width:32px;height:32px;border-radius:8px;border:none;
+  background:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1;z-index:2;
+  display:flex;align-items:center;justify-content:center;transition:all 120ms}
+.empc-x:hover{background:var(--bg-page);color:var(--text-primary)}
+.empc-body{flex:1 1 auto;overflow:auto;padding:34px 44px 28px;color:var(--text-primary);
+  font-size:var(--fs-base);line-height:1.5}
+.empc-name{font-size:23px;font-weight:600;letter-spacing:-0.02em;color:var(--text-primary);line-height:1.28;margin:2px 0 0}
+.empc-sub{color:var(--text-muted);font-size:var(--fs-meta);margin-top:3px}
+.empc-id{color:var(--text-muted);background:var(--bg-subtle);border-radius:var(--radius-badge);
+  padding:1px 6px;font-size:11px;margin-left:6px}
+.empc-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;margin-bottom:18px}
+.empc-tag{font-size:12px;padding:2px 10px;border-radius:20px;border:1px solid var(--border);
+  background:var(--bg-page);color:var(--text-secondary)}
+.empc-tag.flag{background:var(--accent-soft);border-color:var(--accent-soft-border);color:var(--accent-text)}
+.empc-tag.gold{background:var(--bg-page);border-color:var(--border);color:var(--text-secondary)}
+/* section (no card-island) — for risks, like the client card */
+.empc-sec{margin-top:26px}
+.empc-seclabel{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--text-muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.empc-seclabel:before{content:"";width:12px;height:2px;background:var(--accent);border-radius:2px}
+.empc-hint{color:var(--text-muted);font-size:12px;margin-left:6px}
+/* coverage in the narrow column: stack label over status */
+.empc-cov .empc-row{flex-direction:column;gap:3px}
+.empc-cov .empc-k{flex:none}
+.empc-cov .empc-hint{margin-left:0;display:block;margin-top:2px}
+/* sticky action footer (DS: .tm-actions pattern) */
+.empc-foot{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:16px 44px;background:var(--bg-card);border-top:1px solid var(--border)}
+@media(max-width:720px){.empc-body{padding:26px 22px 22px}.empc-foot{padding:14px 22px}}
+.empc-foot .tm-btn{margin:0}
+.empc-grid{display:grid;grid-template-columns:1fr 300px;gap:16px;margin-top:16px}
+@media(max-width:780px){.empc-grid{grid-template-columns:1fr}}
+.empc-card{padding:0;margin-top:26px}
+.empc-ttl{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted);
+  margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.empc-ttl:before{content:"";width:12px;height:2px;background:var(--accent);border-radius:2px}
+.empc-row{display:flex;flex-direction:column;gap:3px;padding:12px 0;border-top:1px solid var(--border)}
+.empc-row:first-child{border-top:0;padding-top:0}
+.empc-k{color:var(--text-muted);font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.empc-v{font-size:var(--fs-base)}
+.empc-v b{color:var(--text-primary)}
+.empc-code{color:var(--text-muted);font-size:12px;font-weight:400}
+.empc-do{color:var(--text-secondary);font-size:12.5px}
+.empc-arrow{color:var(--accent);font-weight:600}
+.empc-pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:var(--radius-badge);margin-left:6px;
+  border:1px solid var(--border);background:var(--bg-page);color:var(--text-secondary)}
+.empc-pill.ok{background:var(--green-bg);border-color:transparent;color:var(--accent-green)}
+.empc-pill.warn{background:var(--yellow-bg);border-color:transparent;color:var(--accent-yellow)}
+.empc-pill.risk{background:var(--red-bg);border-color:transparent;color:var(--accent-red)}
+.empc-pill.muted{background:var(--bg-subtle);border-color:transparent;color:var(--text-secondary)}
+.empc-pills{display:flex;flex-wrap:wrap;gap:8px}
+.empc-cv{display:flex;align-items:center;gap:7px;font-size:var(--fs-meta);padding:6px 11px;border-radius:var(--radius-btn);
+  border:1px solid var(--border);background:var(--bg-page)}
+.empc-dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.empc-dot.ok{background:var(--accent-green)}.empc-dot.warn{background:var(--accent-yellow)}.empc-dot.risk{background:var(--accent-red)}
+.empc-tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.empc-tbl th,.empc-tbl td{text-align:right;padding:8px 6px;font-size:var(--fs-meta);border-bottom:1px solid var(--border)}
+.empc-tbl th{color:var(--text-muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.empc-tbl th:first-child,.empc-tbl td:first-child{text-align:left}
+.empc-tbl tbody tr.empc-link{cursor:pointer;transition:background 120ms}
+.empc-tbl tbody tr.empc-link:hover{background:var(--bg-subtle)}
+.empc-tbl tbody tr.empc-link td:first-child{box-shadow:inset 2px 0 0 transparent;transition:box-shadow 120ms}
+.empc-tbl tbody tr.empc-link:hover td:first-child{box-shadow:inset 2px 0 0 var(--accent)}
+.empc-tbl tfoot td{font-weight:600;border-top:2px solid var(--border-strong);border-bottom:0;color:var(--text-primary)}
+.empc-tcell{display:inline-flex;align-items:center;gap:6px}
+.empc-tcell .empc-go{color:var(--text-muted);font-size:14px}
+.empc-chip{display:inline-block;font-size:11px;padding:1px 7px;border-radius:var(--radius-badge)}
+.empc-chip.ok{background:var(--green-bg);color:var(--accent-green)}.empc-chip.pend{background:var(--yellow-bg);color:var(--accent-yellow)}
+.empc-annual{margin-top:12px;padding:10px 12px;background:var(--accent-soft);border:1px solid var(--accent-soft-border);
+  border-radius:var(--radius-btn);font-size:var(--fs-meta);color:var(--accent-text)}
+.empc-note{font-size:11px;color:var(--text-muted);margin-top:8px;text-align:right}
+.empc-empty{color:var(--text-muted);font-size:var(--fs-meta)}
+.empc-link-row{display:flex;align-items:flex-start;gap:8px;padding:10px 8px;margin:0;border-radius:var(--radius-btn);
+  border-top:1px solid var(--border);cursor:pointer;transition:background 120ms;position:relative}
+.empc-link-row:first-of-type{border-top:0}
+.empc-link-row:hover{background:var(--bg-subtle)}
+.empc-link-row:before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:transparent;transition:background 120ms}
+.empc-link-row:hover:before{background:var(--accent)}
+.empc-lr-main{flex:1 1 auto;min-width:0}
+.empc-tt{font-size:var(--fs-meta);font-weight:550;color:var(--text-primary)}
+.empc-tm{color:var(--text-muted);font-size:12px;margin-top:2px}
+.empc-go{flex:0 0 auto;color:var(--text-muted);font-size:16px;align-self:center}
+.empc-rk{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--border)}
+.empc-rk:first-child{border-top:0;padding-top:0}.empc-rk .empc-ri{flex:0 0 8px;width:8px;height:8px;
+  border-radius:50%;margin-top:5px}
+.empc-ri.risk{background:var(--accent-red)}.empc-ri.warn{background:var(--accent-yellow)}.empc-ri.navy{background:var(--accent)}
+.empc-rk .empc-rt{font-size:var(--fs-meta)}.empc-rk b{display:block;color:var(--text-primary)}
+.ros-click{cursor:pointer}
+</style>
+<script>
+function empcOpen(el){var id=el&&el.getAttribute('data-empc');var m=id&&document.getElementById(id);
+  if(m){m.classList.add('open');document.body.style.overflow='hidden';}}
+function empcClose(id){var m=document.getElementById(id);if(m){m.classList.remove('open');}
+  document.body.style.overflow='';}
+function empcBack(ev){if(ev.target&&ev.target.classList.contains('empc-backdrop')){
+  ev.target.classList.remove('open');document.body.style.overflow='';}}
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){
+  var o=document.querySelector('.empc-backdrop.open');if(o){o.classList.remove('open');document.body.style.overflow='';}}});
+</script>
+"""
+
+
+def _re_sub_id(s):
+    """Slug an employee id/name into a DOM-safe modal id fragment."""
+    import re as _re
+    return _re.sub(r'[^a-z0-9]+', '-', str(s).lower()).strip('-') or 'x'
+
+
+# ── TK/K PTKP category → Indonesian TER monthly table (A/B/C). Drives the
+#    "PTKP → TER table" line on the employee card. Resident PPh 21 only.
+#    DISPLAY-ONLY mirror of `jurisdictions/id/ter.yaml → ptkp.ter_category` (the
+#    statutory source the runtime computes from; there is no Python PPh calculator —
+#    see the ter.yaml header). Keep this map in sync with that file if it changes.
+_PTKP_TER_TABLE = {
+    'TK/0': 'A', 'TK/1': 'A', 'K/0': 'A',
+    'TK/2': 'B', 'TK/3': 'B', 'K/1': 'B', 'K/2': 'B',
+    'K/3': 'C',
+}
+
+
+def _employee_card_modal(mid, e, runs, etasks, risks, fin, today, client_id='', client_name=''):
+    """Large employee card modal — a fully DERIVED entity-linking view (no new state):
+    roster record (e) + payroll run history (runs, by employee_id) + linked tasks
+    (etasks, by refs/lines) + risks. All operator-facing text routes through _t()
+    so this engine file stays Cyrillic-free (RU lives in _strings.py)."""
+    import json
+    name = str(e.get('name') or e.get('id') or '?')
+    words = [w for w in name.split() if w]
+    av = (''.join(w[0] for w in words[:2]) or '?').upper()
+    cur = (fin or {}).get('currency') or 'Rp'
+    fw = e.get('foreign_national') is True
+    res = e.get('tax_residency')
+    method = e.get('pph_method')
+    # fall back to the method recorded on the latest run line
+    if method is None and runs:
+        method = (runs[-1][1] or {}).get('method')
+    ptkp = e.get('ptkp_category')
+    bpjs = e.get('bpjs') or {}
+
+    def _days(d):
+        dd = _parse_iso_date(d)
+        return None if dd is None else (dd - today).days
+
+    # ── header tags
+    tags = []
+    if fw:
+        tags.append('<span class="empc-tag flag">' + _esc(_t('foreign worker')) + '</span>')
+    if res in ('id', 'resident'):
+        tags.append('<span class="empc-tag">' + _esc(_t('resident')) + ' · ID</span>')
+    elif res in ('non_id', 'non-resident'):
+        tags.append('<span class="empc-tag">' + _esc(_t('non-resident')) + '</span>')
+    if ptkp:
+        tags.append('<span class="empc-tag">PTKP ' + _esc(str(ptkp)) + '</span>')
+    if fw:
+        tags.append('<span class="empc-tag gold">' + _esc(_t('salary below expat floor')) + '</span>')
+
+    nid = str(e.get('id') or '')
+    # ── Action row: the unified «Разобрать» (prompt modal) + quick-action / decision
+    #    buttons. Decisions are surfaced from the linked tasks' assist.actions plus a
+    #    few derived from the employee's live state (BPJS gap, permit, parity).
+    _ctx = ((_t('Client') + ': ' + client_name + ' · ') if client_name else '') \
+        + _t('Employee') + ': ' + name + (' (' + nid + ')' if nid else '')
+    review_btn = render_action_buttons(
+        'employee', nid, name,
+        _t('Review this employee: compute PPh 21 and BPJS for the open period, '
+           'reconcile parity with the incumbent, and check BPJS coverage and the work permit.'),
+        _ctx)
+
+    def _qa(label, prompt, rec=False):
+        cls = 'tm-btn tm-btn-sm' + (' tm-btn-primary' if rec else ' tm-btn-outline')
+        return ('<button class="' + cls + '" type="button" data-prompt="' + _esca(prompt)
+                + '" data-prompt-ctx="' + _esca(_ctx) + '" '
+                "onclick=\"event.stopPropagation();if(window.openPromptModal)window.openPromptModal("
+                "this.dataset.prompt,{ctx:this.getAttribute('data-prompt-ctx')||''});\">"
+                + _esc(label) + '</button>')
+
+    quick = []
+    seen_labels = set()
+    # decisions the runtime already proposed on the linked tasks (assist.actions)
+    for tk in etasks:
+        for a in ((tk.get('assist') or {}).get('actions') or []):
+            lab = str(a.get('label') or '').strip()
+            pr = str(a.get('prompt') or '').strip()
+            if lab and pr and lab.lower() not in seen_labels:
+                seen_labels.add(lab.lower())
+                quick.append(_qa(lab, pr, rec=bool(a.get('recommended'))))
+    # derived decisions from live state (roster status OR a billing-line gap)
+    _kes = str((bpjs.get('kesehatan'))).lower()
+    _ket = str((bpjs.get('ketenagakerjaan'))).lower()
+    _last_bp = (runs[-1][1].get('bpjs') if runs else {}) or {}
+    _line_kes = _last_bp.get('kesehatan')
+    _line_ket = _last_bp.get('ketenagakerjaan')
+    _line_gap = (_line_ket is None
+                 or (isinstance(_line_kes, dict) and not (_line_kes.get('employee') or _line_kes.get('employer'))))
+    if _kes == 'missing' or _ket in ('missing', 'none', 'null') or _line_gap:
+        quick.append(_qa(_t('Close BPJS gap'),
+                         _t('Register this employee in the missing BPJS kasse(s) before the next billing, then reconcile coverage.')))
+    if fw:
+        quick.append(_qa(_t('Check work permit'),
+                         _t("Check this foreign worker's permit (KITAS/RPTKA): expiry, DPKK levy and the expat salary floor; plan the renewal.")))
+    if any(str((r[1].get('parity_status') or '')).lower() in ('pending', 'mismatch') for r in runs):
+        quick.append(_qa(_t('Resolve parity gap'),
+                         _t('Investigate the parity gap with the incumbent (likely THR) for this employee and close it.')))
+    action_html = review_btn + ''.join(quick[:5])
+
+    # ── "How we calculate" rows
+    rows = []
+
+    def _row(k, v, note=''):
+        g = (' <span class="empc-gloss">· ' + _esc(note) + '</span>') if note else ''
+        rows.append('<div class="empc-row"><div class="empc-k">' + k
+                    + '</div><div class="empc-v">' + v + g + '</div></div>')
+
+    if res in ('id', 'resident'):
+        _row(_t('Income tax'),
+             _esc(_t('resident')) + ' <b class="empc-arrow">→</b> <b>PPh 21</b>'
+             + '<span class="empc-pill ok">' + _esc(_t('not PPh 26')) + '</span>')
+    elif res in ('non_id', 'non-resident'):
+        _row(_t('Income tax'),
+             _esc(_t('non-resident')) + ' <b class="empc-arrow">→</b> <b>PPh 26</b> '
+             + '<span class="empc-code">' + _esc(_t('flat 20%, no PTKP')) + '</span>')
+    else:
+        _row(_t('Income tax'), '<span class="empc-pill warn">' + _esc(_t('residency: unknown')) + '</span>')
+
+    # PTKP — lead with the plain meaning; the code (TK/0 · group A) is a muted reference.
+    if ptkp:
+        cat = str(ptkp)
+        cu = cat.upper()
+        marital = _t('not married') if cu.startswith('TK') else (_t('married') if cu.startswith('K') else '')
+        try:
+            ndep = int(cat.split('/')[1])
+        except Exception:
+            ndep = None
+        deps = ('' if ndep is None else (_t('no dependents') if ndep == 0 else _t('dependents') + ': ' + str(ndep)))
+        human = ', '.join([x for x in (marital, deps) if x])
+        letter = _PTKP_TER_TABLE.get(cat)
+        code = cat + (' · ' + _t('group') + ' ' + letter if letter else '')
+        v = (('<b>' + _esc(human) + '</b> ') if human else '') + '<span class="empc-code">' + _esc(code) + '</span>'
+        _row(_t('Family status'), v)
+
+    # method — meaning first, code (TER / annualisasi) demoted
+    if method == 'annualisasi':
+        mv = '<b>' + _esc(_t('annual recalculation')) + '</b> <span class="empc-code">annualisasi · 1721-A1</span>'
+    elif method == 'ter':
+        mv = '<b>' + _esc(_t('flat monthly rate')) + '</b> <span class="empc-code">TER</span>'
+    elif method in ('pph26', 'PPh26'):
+        mv = '<b>PPh 26</b>'
+    elif method is None:
+        mv = '<span class="empc-pill warn">' + _esc(_t('method not set')) + '</span>'
+    else:
+        mv = '<b>' + _esc(str(method)) + '</b>'
+    if fw and method == 'ter':
+        mv += '<span class="empc-pill warn">' + _esc(_t('→ use annualisasi')) + '</span>'
+    _row(_t('Method'), mv)
+
+    # rate + monthly PPh range from runs
+    pphs = [r[1].get('pph') for r in runs if isinstance(r[1].get('pph'), (int, float)) and r[1].get('pph')]
+    last_rate = (runs[-1][1].get('ter_rate') if runs else None)
+    rate_bits = []
+    if isinstance(last_rate, (int, float)) and last_rate:
+        rate_bits.append('≈ <b>' + ('{:.2f}'.format(last_rate * 100).rstrip('0').rstrip('.')) + '%</b> ' + _esc(_t('of salary')))
+    if pphs:
+        lo, hi = min(pphs), max(pphs)
+        rng = _kpi_num(lo) if lo == hi else (_kpi_num(lo) + '–' + _kpi_num(hi))
+        rate_bits.append('<b class="empc-arrow">→</b> ' + rng + ' ' + _esc(cur) + '/' + _esc(_t('mo')))
+    if rate_bits:
+        _row(_t('PPh 21 rate'), ' '.join(rate_bits))
+
+    def _status_pill(level, text, do=''):
+        s = '<span class="empc-pill ' + level + '">' + _esc(text) + '</span>'
+        if do:
+            s += ' <span class="empc-do">→ ' + _esc(do) + '</span>'
+        return s
+
+    # BPJS Kesehatan — Russian label leads (Медстраховка), BPJS code demoted, amount + status.
+    kes = bpjs.get('kesehatan')
+    kes_line = runs[-1][1].get('bpjs', {}).get('kesehatan') if runs else None
+    kesv = '<span class="empc-code">BPJS Kesehatan</span> '
+    if isinstance(kes_line, dict):
+        kesv += (_esc(_t('employee')) + ' ' + _kpi_num(kes_line.get('employee') or 0)
+                 + ' / ' + _esc(_t('employer')) + ' ' + _kpi_num(kes_line.get('employer') or 0) + ' ')
+    _kes_gap = str(kes).lower() == 'missing' or (isinstance(kes_line, dict) and not (kes_line.get('employee') or kes_line.get('employer')))
+    if _kes_gap:
+        kesv += _status_pill('risk', _t('not in billing'), _t('register before next billing'))
+    elif str(kes).lower() in ('active', 'exempt'):
+        kesv += _status_pill('ok', _t('enrolled'))
+    else:
+        kesv += _status_pill('muted', _t('unconfirmed'), _t('verify enrolment'))
+    _row(_t('health insurance'), kesv)
+
+    # BPJS Ketenagakerjaan — Соцстрах
+    ket = bpjs.get('ketenagakerjaan')
+    ket_line = runs[-1][1].get('bpjs', {}).get('ketenagakerjaan') if runs else None
+    ketv = '<span class="empc-code">BPJS Ketenagakerjaan</span> '
+    if isinstance(ket_line, dict):
+        ketv += (_esc(_t('employee')) + ' ' + _kpi_num(ket_line.get('employee') or 0)
+                 + ' / ' + _esc(_t('employer')) + ' ' + _kpi_num(ket_line.get('employer') or 0) + ' ')
+    if ket_line is None or str(ket).lower() in ('missing', 'none', 'null'):
+        ketv += _status_pill('risk', _t('not in billing'), _t('register before next billing'))
+    elif str(ket).lower() in ('active', 'exempt'):
+        ketv += _status_pill('ok', _t('enrolled'))
+    else:
+        ketv += _status_pill('muted', _t('unconfirmed'), _t('verify enrolment'))
+    _row(_t('social security'), ketv)
+
+    # foreign-worker documents — Russian labels, codes demoted
+    if fw:
+        permit = e.get('permit') or {}
+        nd = None
+        for pk in ('kitas_expires', 'rptka_expires'):
+            dl = _days(permit.get(pk))
+            if dl is not None:
+                nd = dl if nd is None else min(nd, dl)
+        kdate = permit.get('kitas_expires') or permit.get('rptka_expires')
+        pv = '<span class="empc-code">KITAS / e-ITAS</span> '
+        if kdate:
+            pv += _esc(_t('permit to')) + ' <b>' + _esc(str(kdate)) + '</b>'
+            if nd is not None:
+                cls = 'risk' if nd < 0 else ('warn' if nd <= 90 else 'ok')
+                do = (_t('renew now') if nd < 0 else (_t('plan renewal') if nd <= 90 else ''))
+                pv += _status_pill(cls, str(nd) + ' ' + _t('days'), do)
+        else:
+            pv += _status_pill('muted', _t('permit unconfirmed'), _t('clarify expiry'))
+        _row(_t('Work permit'), pv)
+        _row(_t('levy for a foreign worker'),
+             '<span class="empc-code">DPKK · ~$100/' + _esc(_t('mo')) + '</span> '
+             + (_status_pill('ok', _t('paid')) if permit.get('dpkk_paid')
+                else _status_pill('muted', _t('unconfirmed'), _t('confirm payment'))))
+        _row(_t('Expat threshold'),
+             _esc(_t('salary below expat floor — verify at permit renewal')))
+
+    calc_html = '<div class="empc-calc">' + ''.join(rows) + '</div>'
+
+    # ── monthly runs table — each row opens its underlying payroll task (canonical
+    #    track modal) via the global .track-card-clickable[data-track-id] handler.
+    try:
+        from _track_attrs import build_track_data_attrs as _btda
+    except Exception:
+        _btda = None
+    mtable = ''
+    if runs:
+        trs = []
+        tg = tt = tp = tn = 0
+        for period, ln, tk in runs:
+            g = ln.get('gross') or 0
+            thr = ln.get('thr') or 0
+            pph = ln.get('pph') or 0
+            kl = ln.get('bpjs', {}).get('kesehatan') or {}
+            ke = (kl.get('employer') if isinstance(kl, dict) else 0) or 0
+            net = ln.get('net') or 0
+            tg += g; tt += thr; tp += pph; tn += net
+            par = str(ln.get('parity_status') or '').lower()
+            chip = ''
+            if par:
+                pc = 'ok' if par in ('pass', 'ok', 'reconciled') else 'pend'
+                lbl = _t('reconciled') if pc == 'ok' else _t('to review')
+                chip = '<span class="empc-chip ' + pc + '">' + _esc(lbl) + '</span>'
+            attrs = ''
+            cls = ''
+            if _btda and isinstance(tk, dict) and tk.get('id'):
+                try:
+                    attrs = _btda(dict(tk, client_id=(tk.get('client_id') or client_id)), _esca, today=today)
+                    cls = ' class="empc-link track-card-clickable"'
+                except Exception:
+                    attrs = ''
+            first = ('<span class="empc-tcell">' + _esc(str(period or ''))
+                     + ('<span class="empc-go">›</span>' if attrs else '') + '</span>')
+            trs.append('<tr' + cls + attrs + '><td>' + first + '</td><td>' + _kpi_num(g)
+                       + '</td><td>' + _kpi_num(thr) + '</td><td>' + _kpi_num(pph)
+                       + '</td><td>' + _kpi_num(ke) + '</td><td>' + _kpi_num(net)
+                       + '</td><td>' + chip + '</td></tr>')
+        foot = ('<tr><td>Σ ' + _esc(_t('lines')) + '</td><td>' + _kpi_num(tg) + '</td><td>'
+                + _kpi_num(tt) + '</td><td>' + _kpi_num(tp) + '</td><td></td><td>'
+                + _kpi_num(tn) + '</td><td></td></tr>')
+        mtable = (
+            '<table class="empc-tbl"><thead><tr><th>' + _esc(_t('Period')) + '</th><th>'
+            + _esc(_t('Gross')) + '</th><th>THR</th><th>PPh 21</th><th>BPJS Kes.</th><th>'
+            + _esc(_t('Net')) + '</th><th>' + _esc(_t('parity vs incumbent')) + '</th></tr></thead>'
+            + '<tbody>' + ''.join(trs) + '</tbody><tfoot>' + foot + '</tfoot></table>'
+            + '<div class="empc-annual">' + _esc(_t('annual 1721-A1 = sum of run lines for the year')) + '</div>')
+    else:
+        mtable = '<div class="empc-empty">' + _esc(_t('no payroll runs yet')) + '</div>'
+
+    # ── linked tasks — each row opens the canonical track modal (clickable).
+    tlist = []
+    for tk in etasks:
+        per = (tk.get('type_specific') or {}).get('period')
+        sub = []
+        if per:
+            sub.append(str(per))
+        st = tk.get('status')
+        if st:
+            sub.append(str(st))
+        due = tk.get('due_date')
+        if due:
+            sub.append(_t('due') + ' ' + str(due))
+        attrs = ''
+        cls = 'empc-link-row'
+        go = ''
+        if _btda and isinstance(tk, dict) and tk.get('id'):
+            try:
+                attrs = _btda(dict(tk, client_id=(tk.get('client_id') or client_id)), _esca, today=today)
+                cls += ' track-card-clickable'
+                go = '<span class="empc-go">›</span>'
+            except Exception:
+                attrs = ''
+        tlist.append('<div class="' + cls + '"' + attrs + '><div class="empc-lr-main">'
+                     + '<div class="empc-tt">' + _esc(str(tk.get('title') or tk.get('id') or ''))
+                     + '</div><div class="empc-tm">' + _esc(' · '.join(sub)) + '</div></div>'
+                     + go + '</div>')
+    tasks_html = ('<div class="empc-card"><p class="empc-ttl">' + _esc(_t('Tasks for employee'))
+                  + '</p>' + (''.join(tlist) or '<div class="empc-empty">—</div>') + '</div>')
+
+    # ── risk zones — rendered with the SAME DS component as the client card's
+    #    «⚠️ Client risks» (collapsible .risk-card with the severity edge), so the
+    #    employee risks read identically. Sources: real risk rows from risks.json
+    #    that mention this employee (entity-linked) + standing derived lenses.
+    _emp_risks = []
+    for r in (risks or []):
+        if not isinstance(r, dict):
+            continue
+        if str(r.get('severity') or '').lower() == 'green':
+            continue
+        blob = json.dumps(r, ensure_ascii=False).lower()
+        if (nid and nid in blob) or (name and name.lower() in blob):
+            # title fallback so summary/name variants still render a heading
+            r = dict(r, title=str(r.get('title') or r.get('summary') or r.get('name') or ''))
+            _emp_risks.append(r)
+    # standing derived lenses → synthetic risk dicts fed to the SAME card component
+    _bpjs_risk = (_line_gap or str(bpjs.get('ketenagakerjaan')).lower() in ('missing', 'none', 'null')
+                  or str(kes).lower() == 'missing')
+    if _bpjs_risk:
+        _emp_risks.append({'severity': 'red', 'title': _t('BPJS gap'),
+                           'next_action': _t('not in billing') + '. ' + _t('BPJS gap detail')})
+    if fw:
+        _emp_risks.append({'severity': 'yellow', 'title': _t('Expat threshold'),
+                           'next_action': _t('salary below expat floor') + '. ' + _t('expat threshold detail')})
+        _emp_risks.append({'severity': 'grey', 'title': _t('cross-border zone'),
+                           'next_action': _t("employee's personal zone — company does not file") + '. ' + _t('cross-border detail')})
+    risk_cards = [_render_risk_card(r, None, client_id, today, client_name) for r in _emp_risks]
+    risks_html = ('<div class="empc-sec"><div class="empc-seclabel">' + _esc(_t('Risk zones')) + '</div>'
+                  + ('<section class="risks-grid">' + ''.join(risk_cards) + '</section>'
+                     if risk_cards else '<div class="empc-empty">—</div>') + '</div>')
+
+    # ── assemble modal
+    return (
+        '<div class="empc-backdrop" id="' + _esc(mid) + '" onclick="empcBack(event)">'
+        + '<div class="empc-modal" role="dialog" aria-modal="true">'
+        + '<button class="empc-x" onclick="empcClose(\'' + _esc(mid) + '\')" aria-label="'
+        + _esc(_t('Close')) + '">×</button>'
+        + '<div class="empc-body">'
+        # breadcrumb + title scroll together (mirrors the track modal — only the
+        # footer is sticky); client now lives in the breadcrumb, not the subtitle
+        + (('<a class="tm-bc-link empc-bc" href="dashboard_' + _esc(client_id) + '.html">← '
+            + _esc(client_name) + '</a>') if (client_id and client_name) else '')
+        + '<h2 class="empc-name">' + _esc(name) + '</h2>'
+        + '<div class="empc-sub">'
+        + _esc(str(e.get('position') or ''))
+        + (' <span class="empc-id">' + _esc(nid) + '</span>' if nid else '')
+        + '</div>'
+        + '<div class="empc-tags">' + ''.join(tags) + '</div>'
+        + '<div class="empc-card">' + calc_html + '</div>'
+        + risks_html
+        + tasks_html
+        + '<div class="empc-card"><p class="empc-ttl">' + _esc(_t('Monthly — payroll runs')) + '</p>' + mtable
+        + '<div class="empc-note">' + _esc(_t('All amounts in')) + ' ' + _esc(cur)
+        + ' · ' + _esc(_t('derived view — no new state')) + '</div></div>'
+        + '</div>'  # /empc-body
+        + '<div class="empc-foot">' + action_html + '</div>'
+        + '</div></div>'
+    )
+
+
+def render_client_payroll_roster(payroll, fin=None, tasks=None, risks=None, client_id='', client_name=''):
+    """👥 Payroll roster — from state/payroll.json (employee slot, migration 0019).
+    One row per employee: BPJS coverage (two kasses), tax residency + PPh method, and
+    (foreign workers) the permit-expiry countdown. Renders only for a non-empty roster,
+    so a non-payroll client shows nothing (additive). Severities mirror state_lint H3.
+
+    Each row is clickable → opens the employee card modal: a fully DERIVED entity-linking
+    view (no new state) that joins the roster record + payroll run lines (by employee_id)
+    + linked tasks (by refs/lines) + risks. See _employee_card_modal.
+    """
+    if not payroll:
+        return ''
+    employees = payroll.get('employees') or []
+    if not employees:
+        return ''
+    # Entity-link: build per-employee run history (by employee_id) and linked tasks
+    # (by payroll_lines or type_specific.refs of type 'employee'). Derived, read-only.
+    _runs = {}   # emp_id -> [(period, line, task)]
+    _etasks = {} # emp_id -> [task]
+    for _tk in (tasks or []):
+        if not isinstance(_tk, dict):
+            continue
+        _sp = _tk.get('type_specific') or {}
+        _matched = set()
+        for _ln in (_sp.get('payroll_lines') or []):
+            _eid = _ln.get('employee_id')
+            if _eid:
+                _runs.setdefault(_eid, []).append((_sp.get('period'), _ln, _tk))
+                _matched.add(_eid)
+        for _rf in (_sp.get('refs') or []):
+            if isinstance(_rf, dict) and _rf.get('type') == 'employee' and _rf.get('id'):
+                _matched.add(_rf.get('id'))
+        for _eid in _matched:
+            _etasks.setdefault(_eid, []).append(_tk)
+    for _eid in _runs:
+        _runs[_eid].sort(key=lambda r: str(r[0] or ''))
+    try:
+        import generate as _gen
+        _today = _gen.TODAY
+    except Exception:
+        from datetime import date as _d
+        _today = _d.today()
+
+    def _pill(label, status):
+        st = (str(status).lower() if status is not None else 'null')
+        cls = {'active': 'ros-ok', 'exempt': 'ros-neutral',
+               'missing': 'ros-bad'}.get(st, 'ros-warn')  # null/unknown -> warn
+        txt = {'active': _t('ok'), 'exempt': _t('exempt'),
+               'missing': _t('missing')}.get(st, _t('unconfirmed'))
+        return ('<span class="ros-pill ' + cls + '">' + _esc(str(label)) + ': '
+                + _esc(txt) + '</span>')
+
+    def _days(d):
+        dd = _parse_iso_date(d)
+        if dd is None:
+            return None
+        return (dd - _today).days
+
+    def _sev(e):
+        """Worst severity for an employee row — 0 red (act now), 1 amber (verify),
+        2 green (covered). Mirrors state_lint H3 so the card and the lint agree."""
+        bpjs = e.get('bpjs') or {}
+        red = amber = False
+        for v in (str(bpjs.get('kesehatan')).lower(), str(bpjs.get('ketenagakerjaan')).lower()):
+            if v == 'missing':
+                red = True
+            elif v not in ('active', 'exempt'):
+                amber = True  # null / unknown -> unconfirmed
+        fw = e.get('foreign_national') is True
+        res, method = e.get('tax_residency'), e.get('pph_method')
+        if res == 'non_id' and method not in (None, 'pph26'):
+            red = True
+        if fw and method == 'ter':
+            amber = True
+        if fw:
+            permit = e.get('permit') or {}
+            nd = None
+            for pk in ('kitas_expires', 'rptka_expires'):
+                dl = _days(permit.get(pk))
+                if dl is not None:
+                    nd = dl if nd is None else min(nd, dl)
+            if nd is None:
+                amber = True       # foreign worker, no permit date -> unverified
+            elif nd < 0:
+                red = True
+            elif nd <= 90:
+                amber = True
+        return 0 if red else (1 if amber else 2)
+
+    def _chip(e):
+        """ONE chip per employee — the worst thing about them, else 'both contributions'.
+        Keeps each row to a single line (the mockup look) instead of two verbose pills."""
+        bpjs = e.get('bpjs') or {}
+        kk = [str(bpjs.get('kesehatan')).lower(), str(bpjs.get('ketenagakerjaan')).lower()]
+        fw = e.get('foreign_national') is True
+        res, method = e.get('tax_residency'), e.get('pph_method')
+        if 'missing' in kk:
+            return 'bad', _t('no BPJS — enrol')
+        if res == 'non_id' and method not in (None, 'pph26'):
+            return 'bad', _t('PPh: check method')
+        if fw:
+            permit = e.get('permit') or {}
+            nd = None
+            for pk in ('kitas_expires', 'rptka_expires'):
+                dl = _days(permit.get(pk))
+                if dl is not None:
+                    nd = dl if nd is None else min(nd, dl)
+            if nd is not None and nd < 0:
+                return 'bad', _t('permit expired')
+            if nd is not None and nd <= 90:
+                return 'warn', _t('permit') + ' · ' + str(nd) + ' ' + _t('days')
+            if nd is None:
+                return 'warn', _t('permit unconfirmed')
+        if any(v not in ('active', 'exempt') for v in kk):
+            return 'warn', _t('BPJS unconfirmed')
+        if fw and method == 'ter':
+            return 'warn', _t('→ use annualisasi')
+        return 'ok', _t('both contributions')
+
+    # Severity-sort worst-first, then render one tight row per employee.
+    n_red = n_amber = 0
+    enriched = []
+    for e in employees:
+        if not isinstance(e, dict):
+            continue
+        s = _sev(e)
+        n_red += (s == 0)
+        n_amber += (s == 1)
+        enriched.append((s, str(e.get('name') or e.get('id') or '?'), e))
+    enriched.sort(key=lambda t: (t[0], t[1].lower()))
+
+    def _av_tint(txt):
+        h = 0
+        for ch in str(txt):
+            h = (h * 31 + ord(ch)) & 0xffffffff
+        hue = h % 360
+        return 'background:hsl(%d 52%% 93%%);color:hsl(%d 42%% 34%%)' % (hue, hue)
+
+    _N_VIS = 6
+    def _val(v):
+        return ('<div class="ros-val">' + (_kpi_num(v) if isinstance(v, (int, float)) and v
+                else '<span class="ros-dash">—</span>') + '</div>')
+
+    tot_g = tot_p = tot_kes = tot_ket = 0
+    tperiod = ''
+
+    def _bsum(d):
+        return ((d.get('employee') or 0) + (d.get('employer') or 0)) if isinstance(d, dict) else None
+    rows = []
+    modals = []
+    hidden_count = 0
+    for idx, (s, name, e) in enumerate(enriched):
+        words = [w for w in str(name).split() if w]
+        av = (''.join(w[0] for w in words[:2]) or '?').upper()
+        tag = ((' <span class="ros-tag">' + _esc(_t('foreign worker')) + '</span>')
+               if e.get('foreign_national') is True else '')
+        ck, ctxt = _chip(e)
+        # Status pill only when there's something to act on; a fully covered employee
+        # stays quiet (no repetitive green chip) — Linear/Asana restraint.
+        chip_html = ('<span class="ros-pill ros-' + ck + ' ros-chip">' + _esc(ctxt) + '</span>') if ck != 'ok' else ''
+        rail = '' if s == 2 else (' ros-rail-bad' if s == 0 else ' ros-rail-warn')
+        # Collapse the long tail: keep the first N + every flagged row visible, hide the
+        # rest behind a «show all» toggle (a clean roster never needs a 14-row wall).
+        hide = idx >= _N_VIS and s == 2
+        if hide:
+            hidden_count += 1
+        eid = str(e.get('id') or '')
+        mid = 'empc-' + _re_sub_id(eid or name)
+
+        # Money (оклад/PPh/на руки) from the latest run line + tax profile (метод, PTKP).
+        # The column header carries the labels + per-column totals; rows are bare values.
+        _rr = _runs.get(eid, [])
+        ln = _rr[-1][1] if _rr else {}
+        if _rr and _rr[-1][0]:
+            tperiod = _rr[-1][0]
+
+        method = e.get('pph_method') or (ln.get('method') if isinstance(ln, dict) else None)
+        mlabel = {'ter': 'TER', 'annualisasi': 'annualisasi', 'pph26': 'PPh 26'}.get(str(method), '—' if method is None else str(method))
+        mcls = 'ros-mchip' + (' ros-mchip-flag' if (e.get('foreign_national') is True and method == 'ter') else '')
+        tax = '<span class="' + mcls + '">' + _esc(mlabel) + '</span>'
+        if e.get('ptkp_category'):
+            tax += '<span class="ros-pchip">' + _esc(str(e.get('ptkp_category'))) + '</span>'
+        if chip_html:
+            tax += chip_html
+        _bp = ln.get('bpjs') if isinstance(ln, dict) else None
+        _g = ln.get('gross') if isinstance(ln, dict) else None
+        _p = ln.get('pph') if isinstance(ln, dict) else None
+        _kes = _bsum((_bp or {}).get('kesehatan')) if isinstance(_bp, dict) else None
+        _ket = _bsum((_bp or {}).get('ketenagakerjaan')) if isinstance(_bp, dict) else None
+        if isinstance(_g, (int, float)): tot_g += _g
+        if isinstance(_p, (int, float)): tot_p += _p
+        if isinstance(_kes, (int, float)): tot_kes += _kes
+        if isinstance(_ket, (int, float)): tot_ket += _ket
+
+        rows.append(
+            '<div class="ros-row ros-click' + rail + (' ros-hidden' if hide else '') + '" role="button" tabindex="0"'
+            + ' data-empc="' + _esc(mid) + '" onclick="empcOpen(this)"'
+            + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();empcOpen(this);}">'
+            + '<span class="ros-av" style="' + _av_tint(name) + '">' + _esc(av) + '</span>'
+            + '<div class="ros-id"><div class="ros-name-row"><span class="ros-name">' + _esc(name) + '</span>' + tag + tax
+            + '</div><div class="ros-pos">' + _esc(str(e.get('position') or '')) + '</div></div>'
+            + _val(_g) + _val(_p) + _val(_kes) + _val(_ket)
+            + '<span class="ros-chev">›</span>'
+            + '</div>'
+        )
+        modals.append(_employee_card_modal(
+            mid, e, _runs.get(eid, []), _etasks.get(eid, []),
+            risks or [], fin, _today, client_id=client_id, client_name=client_name))
+
+    # Coverage roll-up (shown muted in the totals lead).
+    if n_red:
+        summ = '<span class="ros-sum-bad">' + str(n_red) + ' ' + _esc(_t('no coverage')) + '</span>'
+    elif n_amber:
+        summ = '<span class="ros-sum-warn">' + str(n_amber) + ' ' + _esc(_t('to verify')) + '</span>'
+    else:
+        summ = '<span class="ros-sum-ok">' + _esc(_t('all covered')) + '</span>'
+
+    cur = (fin or {}).get('currency') or 'Rp'
+
+    def _tot(label, v):
+        return ('<div class="ros-stat"><span class="ros-stat-l">' + _esc(label)
+                + '</span><span class="ros-stat-v">' + (_kpi_num(v) if v else '—') + '</span></div>')
+
+    # Borderless header row ABOVE the card: section title (left, flush, h2 size) + grey
+    # salary-period suffix + per-column Σ aligned to the money columns in the rows below.
+    header_row = (
+        '<div class="ros-totals">'
+        + '<div class="ros-id"><div class="ros-tot-lead">'
+        + '<h2 class="ros-tot-title">' + _esc(_t('Payroll roster')) + ' ' + str(len(employees)) + '</h2>'
+        + ((' <span class="ros-tot-per">' + _esc(_t('for period')) + ' ' + _esc(str(tperiod)) + '</span>') if tperiod else '')
+        + '</div></div>'
+        + _tot(_t('Gross'), tot_g) + _tot('PPh 21', tot_p)
+        + _tot('BPJS Kes.', tot_kes) + _tot('BPJS Ket.', tot_ket)
+        + '<span class="ros-chev"></span></div>')
+
+    section_html = '<section class="ros-section">' + ''.join(rows) + '</section>'
+    if hidden_count:
+        section_html = (
+            '<div class="ros-wrap">' + section_html
+            + '<button class="ros-more" type="button" onclick="rosToggle(this)"'
+            + ' data-more="' + _esca(_t('Show all') + ' (' + str(hidden_count) + ')')
+            + '" data-less="' + _esca(_t('Collapse')) + '">'
+            + _esc(_t('Show all')) + ' (' + str(hidden_count) + ')</button></div>'
+            + '<script>function rosToggle(b){var w=b.closest(".ros-wrap");var s=w&&w.querySelector(".ros-section");'
+              'if(!s)return;var on=s.classList.toggle("ros-expanded");'
+              'b.textContent=on?b.getAttribute("data-less"):b.getAttribute("data-more");}</script>')
+    return (
+        _EMPC_ASSETS
+        + header_row
+        + section_html
+        + ''.join(modals)
+    )
+
+
 def render_client_behavior(beh):
     """🗣 Client communication style — from state/behavior.json. UX-fix #6, 2026-05-25.
     Human-readable mapping of technical values: 2026-05-25.
@@ -1488,7 +2352,38 @@ def _kpi_card(label, value_html, cur, sub_html, spark_html, extra_cls=''):
             + val + sub + (spark_html or '') + '</div>')
 
 
-def render_kpi_row(fin, identity, jurisdiction='ru'):
+def _kpi_permit_chip(employees):
+    """Nearest foreign-worker permit expiry across the roster -> a small chip for the
+    headcount KPI. Red-ish if expired, amber within the 90-day window, else hidden.
+    Reuses the existing .kpi-chip / .kpi-chip.soon style."""
+    try:
+        import generate as _gen
+        today = _gen.TODAY
+    except Exception:
+        from datetime import date as _d
+        today = _d.today()
+    nearest = None
+    for e in employees or []:
+        if not isinstance(e, dict) or e.get('foreign_national') is not True:
+            continue
+        permit = e.get('permit') or {}
+        for pk in ('kitas_expires', 'rptka_expires'):
+            d = _parse_iso_date(permit.get(pk))
+            if d is None:
+                continue
+            dl = (d - today).days
+            nearest = dl if nearest is None else min(nearest, dl)
+    if nearest is None:
+        return ''
+    if nearest < 0:
+        return '<span class="kpi-chip soon">' + _esc(_t('permit expired')) + '</span>'
+    if nearest <= 90:
+        return ('<span class="kpi-chip soon">' + _esc(_t('renewal in')) + ' '
+                + str(nearest) + ' ' + _esc(_t('days')) + '</span>')
+    return ''
+
+
+def render_kpi_row(fin, identity, jurisdiction='ru', payroll=None):
     """A compact 3-up KPI row: turnover / taxes / headcount. Cards appear only
     when their data exists, so it degrades gracefully across jurisdictions."""
     if not fin:
@@ -1549,13 +2444,18 @@ def render_kpi_row(fin, identity, jurisdiction='ru'):
         cards.append(_kpi_card(_t('Taxes') + ' · ' + label,
                                _kpi_num(tax), cur, '', ''))
 
-    # 3) Headcount / net payroll
-    hc = (identity or {}).get('headcount_payroll')
+    # 3) Headcount / net payroll. Headcount derives from the roster when present
+    #    (single source: payroll.json), else falls back to identity.headcount_payroll.
+    _emps = (payroll or {}).get('employees') or []
+    hc = len(_emps) if _emps else (identity or {}).get('headcount_payroll')
     if hc:
         sub = ''
         pn = (last.get('taxes') or {}).get('payroll_net')
         if pn:
             sub = _esc(_t('net payroll')) + ' ' + _kpi_num(pn) + ' ' + _esc(cur)
+        _chip = _kpi_permit_chip(_emps)
+        if _chip:
+            sub = (sub + ' · ' if sub else '') + _chip
         cards.append(_kpi_card(_t('Headcount'),
                                _esc(str(hc)) + ' <small>' + _esc(_t('pers.')) + '</small>',
                                '', sub, ''))
@@ -1808,13 +2708,16 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
         from _loaders import load_client_state_risks
         _r = load_client_state_risks(c['id'])
         if _r:
-            risks_html = render_client_risks(_r, tasks_lookup=_tasks_lookup)
+            risks_html = render_client_risks(_r, tasks_lookup=_tasks_lookup,
+                                             client_id=c['id'], today=TODAY,
+                                             client_name=c.get('name_short') or '')
     except Exception:
         pass
     financials_html = ''
     counterparties_html = ''
     accounts_html = ''
     quick_access_html = ''
+    payroll_html = ''
     real_estate_html = ''
     behavior_html = ''
     cheatsheet_html = ''
@@ -1827,16 +2730,24 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
     try:
         from _loaders import (load_client_state_financials, load_client_state_counterparties,
                               load_client_state_accounts, load_client_state_behavior)
+        # Payroll roster preload (shared by the headcount KPI and the roster panel).
+        _pay = None
+        try:
+            from state_ops import state_read as _sr_pay, state_exists as _se_pay
+            if _se_pay(c['id'], 'payroll.json'):
+                _pay = _sr_pay(c['id'], 'payroll.json')
+        except Exception:
+            _pay = None
         _f = load_client_state_financials(c['id'])
         if _f:
-            financials_html = render_client_financials(_f, tasks_lookup=_tasks_lookup, jurisdiction=c.get('jurisdiction') or 'ru')
+            financials_html = render_client_financials(_f, tasks_lookup=_tasks_lookup, jurisdiction=c.get('jurisdiction') or 'ru', client_id=c['id'], today_d=TODAY, client_name=c.get('name_short') or '')
             try:
                 from _loaders import load_client_state_identity as _lci_kpi
                 _id_kpi = _lci_kpi(c['id'])
             except Exception:
                 _id_kpi = None
             try:
-                kpi_html = render_kpi_row(_f, _id_kpi, c.get('jurisdiction') or 'ru')
+                kpi_html = render_kpi_row(_f, _id_kpi, c.get('jurisdiction') or 'ru', payroll=_pay)
             except Exception:
                 kpi_html = ''
             try:
@@ -1845,7 +2756,9 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
                 fwd_html = ''
         _cp = load_client_state_counterparties(c['id'])
         if _cp:
-            counterparties_html = render_client_counterparties(_cp)
+            counterparties_html = render_client_counterparties(_cp, tasks_lookup=_tasks_lookup,
+                                                               client_id=c['id'], today=TODAY,
+                                                               client_name=c.get('name_short') or '')
         _acc = load_client_state_accounts(c['id'])
         if _acc:
             accounts_html = render_client_accounts(_acc)
@@ -1860,6 +2773,28 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
                     real_estate_html = render_client_real_estate(_re_data)
         except Exception:
             real_estate_html = ''
+
+        # Payroll roster panel (reuses the preloaded _pay; slot from migration 0019).
+        # Pass full tasks + risks so each row can open the entity-linked employee card.
+        try:
+            if _pay:
+                _pay_tasks = []
+                _pay_risks = []
+                try:
+                    from _loaders import load_client_state_tasks as _lct_pay
+                    _pay_tasks = (_lct_pay(c['id']) or {}).get('tasks') or []
+                except Exception:
+                    _pay_tasks = []
+                try:
+                    from _loaders import load_client_state_risks as _lcr_pay
+                    _pay_risks = (_lcr_pay(c['id']) or {}).get('risks') or []
+                except Exception:
+                    _pay_risks = []
+                payroll_html = render_client_payroll_roster(
+                    _pay, _f, tasks=_pay_tasks, risks=_pay_risks, client_id=c['id'],
+                    client_name=(c.get('name_short') or c.get('name_full') or ''))
+        except Exception:
+            payroll_html = ''
 
         _beh = load_client_state_behavior(c['id'])
         if _beh:
@@ -1902,13 +2837,13 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + REQ_CARD_CSS \
-        + CLIENT_V2_EXTRA_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + V2_SECTIONS_CSS + TRACK_MODAL_CSS + _AN_CSS + QUICK_ACCESS_CSS + CHEATSHEET_CSS + KPI_ROW_CSS + '</style>'
+        + CLIENT_V2_EXTRA_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + V2_SECTIONS_CSS + TRACK_MODAL_CSS + _AN_CSS + QUICK_ACCESS_CSS + CHEATSHEET_CSS + KPI_ROW_CSS + ROSTER_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active=sidebar_active)
         + '<main class="main-content">'
         + head + kpi_html + _an_zone + _an_questions
-        + cheatsheet_html + quick_access_html + risks_html + tracks + req_card + accounts_html + real_estate_html + financials_html + counterparties_html + behavior_html + hist
+        + cheatsheet_html + quick_access_html + risks_html + tracks + financials_html + payroll_html + req_card + accounts_html + real_estate_html + counterparties_html + behavior_html + hist
         + '</main></div>'
         + PROMPT_MODAL_HTML + PROMPT_MODAL_JS
           + TRACK_MODAL_HTML + TRACK_MODAL_JS + QUICK_ACCESS_JS +
@@ -1920,6 +2855,60 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
 # 🔗 Quick access (quick_access[] from state/accounts.json)
 # Added by request 2026-06-14.
 # ============================================================
+ROSTER_CSS = """
+.ros-totals { display:flex; align-items:flex-end; gap:14px; margin:36px 0 14px; padding:0 17px 0 0; }
+.ros-tot-lead { flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:10px; }
+.ros-tot-title { font-size:var(--fs-h2); font-weight:600; margin:0; color:var(--text-primary,#15171C); }
+.ros-tot-per { font-size:var(--fs-meta); color:var(--text-muted,#8A909C); font-variant-numeric:tabular-nums; }
+.ros-totals .ros-stat-v { font-weight:600; }
+.ros-val { flex:0 0 auto; min-width:82px; text-align:right; font-variant-numeric:tabular-nums;
+           font-size:13.5px; color:var(--text-primary,#15171C); white-space:nowrap; }
+.ros-wrap { display:flex; flex-direction:column; }
+.ros-section { background:var(--bg-card,#fff);
+               border:1px solid var(--border,#E8EAEE); border-radius:var(--radius-card,12px); overflow:hidden; }
+.ros-row { display:flex; align-items:center; gap:14px; min-height:56px; padding:10px 16px;
+           border-top:1px solid var(--border,#E8EAEE); border-left:2px solid transparent;
+           transition:background 120ms; }
+.ros-row:first-child { border-top:none; }
+.ros-row:hover { background:var(--bg-subtle,#EEF1F4); }
+.ros-rail-warn { border-left-color:var(--accent-yellow,#A8782B); }
+.ros-rail-bad  { border-left-color:var(--accent-red,#C24A3D); }
+.ros-hidden { display:none; }
+.ros-section.ros-expanded .ros-hidden { display:flex; }
+.ros-av { flex:0 0 32px; width:32px; height:32px; border-radius:50%; background:var(--bg-subtle,#EEF1F4);
+          color:var(--text-secondary,#565B66); font-size:12px; font-weight:600; letter-spacing:.2px;
+          display:inline-flex; align-items:center; justify-content:center; }
+.ros-id { flex:1 1 auto; min-width:0; }
+.ros-name-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0; }
+.ros-name { font-weight:550; color:var(--text-primary,#15171C); font-size:14px; }
+.ros-pos { color:var(--text-muted,#8A909C); font-weight:400; font-size:12.5px; margin-top:2px;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ros-stat { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:2px; min-width:82px; }
+.ros-stat-l { font-size:10px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--text-muted,#8A909C); }
+.ros-stat-v { font-size:13.5px; font-variant-numeric:tabular-nums; color:var(--text-primary,#15171C); white-space:nowrap; }
+.ros-dash { color:var(--border-strong,#D8DCE2); }
+.ros-mchip, .ros-pchip { font-size:11px; padding:1px 8px; border-radius:20px; white-space:nowrap;
+           background:var(--bg-subtle,#EEF1F4); color:var(--text-secondary,#565B66); }
+.ros-mchip-flag { background:var(--yellow-bg,#F7F0E1); color:var(--accent-yellow,#A8782B); }
+.ros-tag { font-size:11px; padding:1px 8px; border-radius:20px; white-space:nowrap;
+           background:var(--accent-soft,#EAF1F7); color:var(--accent,#1F4E79); }
+.ros-chip { }
+.ros-pill { font-size:11.5px; font-weight:500; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+.ros-ok      { background:#E8F1EC; color:#2A6444; }
+.ros-bad     { background:#F7ECEA; color:#97362B; }
+.ros-warn    { background:#F6EEDD; color:#7A5A1F; }
+.ros-neutral { background:var(--bg-subtle,#EEF1F4); color:var(--text-muted,#8A909C); }
+.ros-chev { flex:0 0 16px; text-align:right; color:var(--border-strong,#D8DCE2); font-size:18px; font-weight:500; }
+.ros-row:hover .ros-chev { color:var(--text-muted,#8A909C); }
+.ros-more { align-self:flex-start; margin-top:10px; background:none; border:0; cursor:pointer;
+            color:var(--accent,#1F4E79); font-size:13px; font-weight:500; padding:4px 2px; font-family:inherit; }
+.ros-more:hover { text-decoration:underline; }
+.ros-sum-ok   { color:var(--accent-green,#3E8E5E); }
+.ros-sum-warn { color:var(--accent-yellow,#A8782B); }
+.ros-sum-bad  { color:var(--accent-red,#C24A3D); }
+"""
+
+
 CHEATSHEET_CSS = """
 .cs-card{border:1px solid #e6ebf0;border-radius:12px;background:#fff;margin-bottom:var(--space-lg,20px);}
 .cs-summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:13px 16px;font-size:14px;font-weight:600;color:#1F4E79;}
@@ -2009,12 +2998,8 @@ def render_jurisdiction_cheatsheet(jurisdiction):
 
 QUICK_ACCESS_CSS = """
 .qa-section{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:var(--space-lg,20px);align-items:start;}
-.qa-tile{background:#fff;border:1px solid #e6e8ec;border-left:3px solid #d7dbe0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;transition:box-shadow .15s ease;}
+.qa-tile{background:#fff;border:1px solid #e6e8ec;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:9px;transition:box-shadow .15s ease;}
 .qa-tile:hover{box-shadow:0 3px 12px rgba(31,78,121,.08);}
-.qa-tile.qa-st-ok{border-left-color:#2e7d52;}
-.qa-tile.qa-st-need{border-left-color:#c2630f;}
-.qa-tile.qa-st-wait{border-left-color:#B79257;}
-.qa-tile.qa-st-unknown{border-left-color:#b6bcc4;}
 .qa-tile.qa-off{opacity:.5;}
 .qa-head{display:flex;align-items:flex-start;gap:10px;}
 .qa-ic{width:34px;height:34px;border-radius:8px;background:#eef3fb;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#1F4E79;}
@@ -2032,6 +3017,9 @@ QUICK_ACCESS_CSS = """
 .qa-cp{margin-left:auto;}
 .qa-rev + .qa-cp{margin-left:6px;}
 .qa-note{font-size:12.5px;color:#566070;line-height:1.5;overflow-wrap:anywhere;word-break:break-word;}
+.qa-note.qa-clamp{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+.qa-note.qa-expandable{cursor:pointer;}
+.qa-note.qa-expandable:hover{color:#1F4E79;}
 .qa-need{display:inline-block;font-size:11px;color:#9a6708;background:#faeeda;border-radius:6px;padding:1px 7px;margin-right:6px;}
 .qa-status{display:inline-block;font-size:11px;font-weight:600;border-radius:20px;padding:2px 9px;margin-top:4px;align-self:flex-start;}
 .qa-status.ok{color:#136c3a;background:#e6f4ec;}
@@ -2059,17 +3047,49 @@ QUICK_ACCESS_JS = """
       var old=b.textContent;b.textContent='\\u2713';setTimeout(function(){b.textContent=old;},900);
     });
   });
+  document.querySelectorAll('.qa-note').forEach(function(n){
+    if(n.scrollHeight-n.clientHeight<=1)return;
+    n.classList.add('qa-expandable');
+    n.addEventListener('click',function(){n.classList.toggle('qa-clamp');});
+  });
 })();
 </script>
 """
 
 # Service → semantic icon name (rendered as a line SVG; emoji would be stripped
-# by the global sanitizer, leaving empty boxes).
+# by the global sanitizer, leaving empty boxes). Keyed on the service slug — but a
+# slug map is RU-centric and needs a code edit per new service. The structured way
+# is `category` (assigned by the runtime per migrations/TASK_CLASSIFIER.md / 0006);
+# the picker below prefers `category`, so a new service only needs a category, not
+# a code change. The slug map stays as the fallback for entries without a category.
 _QA_ICONS = {'prodamus':'acquiring','cloudpayments':'acquiring','ukassa':'acquiring',
              'bank':'bank_check','fns':'building','ofd':'kkt_check',
              'finkoper':'primary_collection','onec':'posting_1c','1c':'posting_1c',
              'acquiring':'acquiring','rosstat':'building',
-             'assistant':'chat','mail':'email_action_required','tg':'chat'}
+             'assistant':'chat','mail':'email_action_required','email':'email_action_required',
+             'tg':'chat','whatsapp':'chat','max':'chat',
+             # Indonesian / newer services
+             'gdrive':'brief','coretax':'building','edabu':'users','bpjs_tk':'users',
+             'moka':'kkt_check','oss':'building'}
+
+# Structured category → icon. The jurisdiction-neutral key the runtime sets; the
+# picker prefers it over the slug, so a service in any jurisdiction renders a
+# type-matched icon without a slug entry.
+_QA_CAT_ICONS = {'bank':'bank_check','acquiring':'acquiring','pos':'kkt_check',
+                 'ofd':'kkt_check','tax_authority':'building','social_insurance':'users',
+                 'portal':'building','storage':'brief','mail':'email_action_required',
+                 'messenger':'chat','accounting':'posting_1c','collection':'primary_collection',
+                 'assistant':'chat'}
+
+
+def _qa_icon_name(it):
+    """Pick a type-matched icon: structured `category` first (jurisdiction-neutral,
+    set by the runtime), then the service slug, then a neutral arrow. An invalid
+    icon would fall back to 'dot' in icon(), so we resolve to a known name here."""
+    cat = (it.get('category') or '').strip()
+    if cat in _QA_CAT_ICONS:
+        return _QA_CAT_ICONS[cat]
+    return _QA_ICONS.get(it.get('service'), 'arrow')
 
 def render_client_quick_access(acc):
     """Quick access — links/logins/passwords to client services from accounts.quick_access[]."""
@@ -2083,7 +3103,7 @@ def render_client_quick_access(acc):
     for it in items:
         label = it.get('label') or it.get('service') or _t('Service')
         disabled = it.get('status') == 'disabled'
-        ic = icon(_QA_ICONS.get(it.get('service'), 'arrow'))
+        ic = icon(_qa_icon_name(it))
         url = it.get('url')
         go = ''
         if url and not disabled:
@@ -2124,7 +3144,7 @@ def render_client_quick_access(acc):
                       '<button class="qa-btn qa-rev">' + _t('show') + '</button>'
                       '<button class="qa-btn qa-cp" data-v="' + _esca(str(pw)) + '">' + _t('copy') + '</button></div>')
         note = it.get('note') or ''
-        note_html = ('<div class="qa-note">' + _esc(str(note)) + '</div>') if note else ''
+        note_html = ('<div class="qa-note qa-clamp">' + _esc(str(note)) + '</div>') if note else ''
         cls = ('qa-tile qa-off' if disabled else 'qa-tile') + ((' qa-st-' + _st[1]) if _st else '')
         tiles.append('<div class="' + cls + '">' + head + creds + note_html + '</div>')
     return (

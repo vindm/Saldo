@@ -200,21 +200,41 @@ def _esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def render_kpi_band(tiles):
+    """THE one page-header metric component (canonical .aw-stats / .kpi-band).
+
+    Every page header renders its count-summary through this — overview, Plan,
+    the clients groups and the client cockpit — so there is ONE metric look across
+    the product (DESIGN-SYSTEM.md «One metric band in every page header»). CSS
+    lives once in KPI_BAND_CSS.
+
+    `tiles`: list of dicts {num, label, tone('' | 'red' | 'amber' | 'green'),
+    href(optional)}. `num` may be int or str; tone colours the value as signal.
+    """
+    cells = []
+    for tl in tiles:
+        tone = tl.get('tone') or ''
+        cls = 'stat' + ((' stat-' + tone) if tone else '')
+        body = ('<span class="stat-num">' + str(tl.get('num', '')) + '</span>'
+                '<span class="stat-lbl">' + str(tl.get('label', '')) + '</span>')
+        href = tl.get('href')
+        if href:
+            cells.append('<a class="' + cls + ' stat-link" href="' + href + '">' + body + '</a>')
+        else:
+            cells.append('<div class="' + cls + '">' + body + '</div>')
+    return '<section class="aw-stats">' + ''.join(cells) + '</section>'
+
+
 def render_stats_strip(metrics, n_overdue, n_today):
-    """Light stats in a single line."""
+    """Overview header KPI band — built through the shared render_kpi_band."""
     streak_emoji = "🔥" if metrics["streak"] >= 3 else "⚡" if metrics["streak"] >= 1 else "·"
-    return (
-        '<section class="aw-stats">'
-        '<a class="stat stat-link" href="plan_today.html"><span class="stat-num">{open_n}</span><span class="stat-lbl">' + t('Open items') + '</span></a>'
-        '<div class="stat stat-red"><span class="stat-num">{ov}</span><span class="stat-lbl">' + t('Overdue') + '</span></div>'
-        '<div class="stat stat-amber"><span class="stat-num">{td}</span><span class="stat-lbl">' + t('Due today') + '</span></div>'
-        '<div class="stat stat-green"><span class="stat-num">{ct}</span><span class="stat-lbl">' + t('Closed today') + '</span></div>'
-        '<div class="stat"><span class="stat-num">{streak_e} {streak}</span><span class="stat-lbl">' + t('Day streak') + '</span></div>'
-        '</section>'
-    ).format(
-        open_n=metrics["open"], ov=n_overdue, td=n_today, ct=metrics["closed_today"],
-        streak_e=streak_emoji, streak=metrics["streak"],
-    )
+    return render_kpi_band([
+        {'num': metrics["open"], 'label': t('Open items'), 'href': 'plan_today.html'},
+        {'num': n_overdue, 'label': t('Overdue'), 'tone': 'red'},
+        {'num': n_today, 'label': t('Due today'), 'tone': 'amber'},
+        {'num': metrics["closed_today"], 'label': t('Closed today'), 'tone': 'green'},
+        {'num': str(streak_emoji) + ' ' + str(metrics["streak"]), 'label': t('Day streak')},
+    ])
 
 
 def _tg_for_client_cached(client_id):
@@ -349,7 +369,23 @@ def render_stale_widget(*a, **kw): return ""
 def compute_focus_tracks(*a, **kw): return []
 
 
-ANALYTICS_CSS = """
+KPI_BAND_CSS = (
+    ".aw-stats{display:flex;gap:0;padding:0;background:transparent;border:none;border-radius:0;"
+    "margin:0 0 var(--space-lg);flex-wrap:wrap;align-items:flex-start}"
+    ".aw-stats .stat{display:flex;flex-direction:column-reverse;justify-content:flex-end;"
+    "gap:8px;padding:2px 26px;min-width:0}"
+    ".aw-stats .stat:first-child{padding-left:0}"
+    ".aw-stats .stat + .stat{border-left:1px solid var(--border)}"
+    ".aw-stats .stat-num{font-size:22px;font-weight:600;color:var(--accent);line-height:1.15;font-variant-numeric:tabular-nums}"
+    ".aw-stats a.stat-link{text-decoration:none;color:inherit;cursor:pointer}"
+    ".aw-stats a.stat-link:hover .stat-num{color:var(--accent-blue)}"
+    ".aw-stats .stat-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;font-weight:500}"
+    ".aw-stats .stat-red .stat-num{color:var(--accent-red)}"
+    ".aw-stats .stat-amber .stat-num{color:var(--accent-yellow)}"
+    ".aw-stats .stat-green .stat-num{color:var(--accent-green)}"
+)
+
+ANALYTICS_CSS = KPI_BAND_CSS + """
 .mode-switch{display:inline-flex;gap:2px;padding:3px;background:var(--bg-page);
   border:1px solid var(--border);border-radius:8px;margin:0 0 var(--space-md);
   font-size:0}
@@ -366,24 +402,8 @@ ANALYTICS_CSS = """
 body.mode-team [data-track-type="direct"]{display:none !important}
 body.mode-direct [data-track-type="team"]{display:none !important}
 
-/* === Light stats in a single line === */
-.aw-stats{display:flex;gap:0;padding:0;background:transparent;
-  border:none;border-radius:0;
-  margin:0 0 var(--space-lg);flex-wrap:wrap;align-items:flex-start}
-.aw-stats .stat{display:flex;flex-direction:column-reverse;justify-content:flex-end;
-  gap:8px;padding:2px 26px;min-width:0}
-.aw-stats .stat:first-child{padding-left:0}
-.aw-stats .stat + .stat{border-left:1px solid var(--border)}
-.aw-stats .stat-num{font-size:22px;font-weight:600;color:var(--accent);line-height:1.15;font-variant-numeric:tabular-nums}
-.aw-stats a.stat-link{text-decoration:none;color:inherit;cursor:pointer}
 .brief-top5{margin-top:14px}
 .brief-top5-head{font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline}
-.aw-stats a.stat-link:hover .stat-num{color:var(--accent-blue)}
-.aw-stats .stat-lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;
-  letter-spacing:0.12em;font-weight:500}
-.aw-stats .stat-red .stat-num{color:var(--accent-red)}
-.aw-stats .stat-amber .stat-num{color:var(--accent-yellow)}
-.aw-stats .stat-green .stat-num{color:var(--accent-green)}
 
 /* === Top-5 and Deadlines widgets === */
 .aw-widget{background:var(--bg-card);border:1px solid var(--border);

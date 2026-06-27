@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.1",
+  "client_id": "kirana",
+  "last_updated": "2026-06-20T01:00:00+00:00",
+  "periods": [
+    {
+      "period": "2025",
+      "period_type": "year",
+      "turnover_idr": 1840000000,
+      "income_usn": null,
+      "expenses": null,
+      "patent_income": null,
+      "taxes": {
+        "final_pph": 9200000
+      },
+      "declaration_status": "submitted_accepted",
+      "status": "archive",
+      "notes": "Synthetic year close (0.5% of 1.84B IDR)."
+    },
+    {
+      "period": "2026-05",
+      "period_type": "month",
+      "turnover_idr": null,
+      "taxes": {
+        "pph21": 2236000,
+        "bpjs_tk": 5297000,
+        "payroll_net": 45188000
+      },
+      "status": "open",
+      "notes": "Synthetic May payroll period (demo)."
+    }
+  ],
+  "yearly_pace_2026": {
+    "estimated_annual_turnover_idr": 2160000000,
+    "growth_vs_prev_year_x": 1.17,
+    "pkp_threshold_idr": 4800000000,
+    "pkp_warning": false,
+    "pkp_warning_reason": "Synthetic — under the 4.8B PKP threshold, but pacing up; watch toward 2027.",
+    "notes": "Synthetic pace; ~180M IDR/month."
+  },
+  "tax_calendar_2026": [
+    {
+      "date": "2026-05-15",
+      "what": "Final PPh 0.5% — April (Coretax)",
+      "amount": 900000,
+      "amount_estimated": null,
+      "kbk": "pph_final_umkm",
+      "status": "paid",
+      "paid_at": "2026-05-14",
+      "linked_task": null
+    },
+    {
+      "date": "2026-06-10",
+      "what": "PPh 21 + BPJS — May payroll",
+      "amount": null,
+      "amount_estimated": 4200000,
+      "kbk": "pph_21",
+      "status": "scheduled_calc_by_fact",
+      "linked_task": "kirana_payroll05"
+    },
+    {
+      "date": "2026-06-15",
+      "what": "Final PPh 0.5% — May (Coretax)",
+      "amount": null,
+      "amount_estimated": 900000,
+      "kbk": "pph_final_umkm",
+      "status": "scheduled_calc_by_fact",
+      "linked_task": "kirana_final05"
+    },
+    {
+      "date": "2026-06-15",
+      "what": "Unifikasi — PPh 4(2) rent + PPh 23 May",
+      "amount": null,
+      "amount_estimated": 1500000,
+      "kbk": "pph_unifikasi",
+      "status": "scheduled_calc_by_fact",
+      "linked_task": "kirana_unifikasi05"
+    },
+    {
+      "date": "2026-04-30",
+      "what": "SPT Tahunan Badan 2025 + LKPM",
+      "amount": null,
+      "amount_estimated": null,
+      "kbk": "spt_badan",
+      "status": "submitted",
+      "paid_at": "2026-04-22",
+      "linked_task": null
+    }
+  ],
+  "monthly_close": {
+    "month": "May 2026",
+    "deadline": "2026-06-15",
+    "today": "2026-06-26",
+    "blocker": "May payroll figures + rent invoice pending"
+  }
+}

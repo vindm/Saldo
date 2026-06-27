@@ -23,11 +23,13 @@ from _overview_shared import render_header
 from _sidebar import render_sidebar, SIDEBAR_CSS
 from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS, render_mode_switch
+from _analytics_widgets import render_kpi_band, KPI_BAND_CSS
 from _aggregator import aggregate_tasks
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _assistant_brief import render_assistant_rec_card, ASSISTANT_BRIEF_CSS
 from _brief import ANALYSIS_CSS as _AN_CSS
-from _plan_waves import render_waves_page, render_waves_flat, horizon_counts, WAVES_CSS, WAVES_JS
+from _plan_waves import (render_waves_page, render_waves_flat, horizon_counts,
+                         _fmt_period, WAVES_CSS, WAVES_JS)
 
 
 SCENARIO_RU = {
@@ -207,6 +209,14 @@ def _render_task_row(t, mm_index=None, show_client_meta=True):
     # «разблокирует N» — reverse-dependency count keyed by this task's real id.
     unblocks = _BLOCK_COUNTS.get(t.get('source_ref')) or _BLOCK_COUNTS.get(t.get('id')) or 0
 
+    # Reporting period of the row — EXPLICIT only (not the due-date fallback), so a
+    # row never shows a misleading period. Plan/Calendar group purely by operation
+    # (waves are period-less), so each row carries its own period chip.
+    _ts = t.get('type_specific') or {}
+    _per_raw = (t.get('period') or _ts.get('period') or _ts.get('quarter')
+                or _ts.get('service_quarter') or '')
+    period_label = _fmt_period(str(_per_raw)) if _per_raw else ''
+
     item = {
         'title': _translate_tech_terms(t.get('what', '')),
         'attrs': data_attrs,
@@ -217,6 +227,7 @@ def _render_task_row(t, mm_index=None, show_client_meta=True):
         'unblocks': unblocks,
         'due_days': t.get('days_left'),
         'status_html': status_html,
+        'period': period_label,
     }
     if show_client_meta:
         item['client'] = client_name
@@ -281,7 +292,8 @@ def render_plan_today():
     # Group blocks — the "work waves" view by horizon (a VIEW, no writes to state)
     assistant_card = render_assistant_rec_card(groups)
     blocks_html = render_waves_flat(
-        groups['all'], lambda t: _render_task_row(t, mm_index), _esc
+        groups['all'], lambda t: _render_task_row(t, mm_index), _esc,
+        period_aware=False,
     )
 
     # Live counts for the All/Team/Direct switcher (was hardcoded 15/6/9).
@@ -298,16 +310,18 @@ def render_plan_today():
     # rest" (everything dated later + the Waiting lane).
     _near = horizon_counts(groups['all'])['near']
     _rest = n_total - _near
-    summary = (
-        t('{} tasks').format(n_total)
-        + ((' · <span class="sm sm-red">' + t('{} in the next 7 days').format(_near) + '</span>') if _near else '')
-        + ((' · <span class="sm">' + t('{} later').format(_rest) + '</span>') if _rest else '')
-    )
+    # Page-header KPI band — the SAME component as overview / clients / client
+    # cockpit. The leading «В работе» tile shares its label AND its number with
+    # the overview band (both = aggregate_tasks(TODAY)['all']) — one definition,
+    # one look. Horizon split (next-7 / later) stays as Plan-specific tiles.
+    summary = render_kpi_band([
+        {'num': n_total, 'label': t('Open items')},
+        {'num': _near,   'label': t('Next 7 days'), 'tone': 'amber'},
+        {'num': _rest,   'label': t('Later')},
+    ])
 
     extra_css = (
         '.page-title{font-size:19px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px}'
-        '.plan-summary{font-size:16px;color:var(--text-secondary);margin:0 0 var(--space-md)}'
-        '.sm{font-weight:500}.sm-red{color:var(--accent-red)}'
         '.group{background:var(--bg-card);border:1px solid var(--border);'
         'border-radius:var(--radius-card);padding:0;margin-bottom:var(--space-md);'
         'border-left-width:3px}'
@@ -386,7 +400,7 @@ def render_plan_today():
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS
-        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + TRACK_MODAL_CSS + MODE_SWITCH_CSS + ASSISTANT_BRIEF_CSS + _AN_CSS + extra_css + WAVES_CSS + '</style>'
+        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + TRACK_MODAL_CSS + MODE_SWITCH_CSS + ASSISTANT_BRIEF_CSS + _AN_CSS + KPI_BAND_CSS + extra_css + WAVES_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(
@@ -395,7 +409,7 @@ def render_plan_today():
         )
         + '<main class="main-content">'
         + head
-        + '<div class="plan-summary">' + summary + '</div>'
+        + summary
         + mode_switch_html
         + blocks_html
         + '</main></div>'
@@ -478,7 +492,8 @@ def render_client_plan(client_id, today=None):
     except Exception:
         mm_index = {}
     html = render_waves_flat(
-        ctasks, lambda x: _render_task_row(x, mm_index, show_client_meta=False), _esc)
+        ctasks, lambda x: _render_task_row(x, mm_index, show_client_meta=False), _esc,
+        period_aware=False)
     if not html:
         return ''
     # WAVES_JS already carries its own <script>…</script> tags — don't double-wrap

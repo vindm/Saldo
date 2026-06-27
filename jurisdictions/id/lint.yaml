@@ -3,3 +3,21 @@ regime_rules:
   UMKM_FINAL:
     # UMKM final PPh is 0.5% of gross turnover; warn on any other rate.
     turnover_rate_expected: [0.5]
+    # Turnover-based tax: the 0.5% base is the WHOLE turnover, incl. cash takings
+    # (Moka POS + наличные). The cash must be reconciled before the period is
+    # settled — the generic `cash_unreconciled` gate (state_lint H2).
+    require_cash_reconciliation: true
+
+# Payroll / BPJS coverage — applies to ANY ID client that runs payroll
+# (regime.json → has_employees == true), independent of tax regime. The engine check
+# (state_lint section H3) is pack-declared + jurisdiction-agnostic: it runs only where the
+# pack opts in here, and reads the per-employee roster (state/payroll.json, slot from
+# migration 0019). It makes first-class the failure mode an aggregate payroll cannot see —
+# a worker missing from a BPJS billing (a UU 24/2011 violation), and a foreign worker whose
+# residency / PPh method / permit are unverified.
+payroll:
+  require_employee_roster: true                 # has_employees → expect a populated roster
+  bpjs_kasses: [kesehatan, ketenagakerjaan]     # both are mandatory for a covered employee
+  foreign_worker:
+    require_both_kasses: true                    # a KITAS-holder must be in BOTH kasses
+    permit_expiry_warn_days: 90                  # warn when KITAS/RPTKA expiry is within N days

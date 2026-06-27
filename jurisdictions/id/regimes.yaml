@@ -5,6 +5,22 @@ regimes:
     show_rate: true
     objects:
       turnover: "UMKM final (turnover)"
+    # Time-boxed 0.5% PP55 facility. threshold_monitor derives the expiry =
+    # regime.since + facility.duration_years[<legal form>] and counts down (90/60/30d).
+    # Generic shape (`facility`) — any jurisdiction with a time-boxed reduced-rate
+    # regime declares the same block; the engine logic is jurisdiction-agnostic.
+    facility:
+      duration_years:          # years the 0.5% lasts from regime.since, BY LEGAL FORM
+        orang_pribadi: 7       # OP / individual
+        badan: 3               # PT / company  (e.g. kirana = badan -> 3y)
+        cv: 4
+        pt_perorangan: 4
+      after: PPh_BADAN         # what the client moves to when it lapses (PPh Badan 22%)
+      # 2026 PP55 revision may END the facility EARLIER for an ordinary badan/PT —
+      # so the nominal duration is an UPPER bound; watch the revision too.
+      revision_2026_ends_for_ordinary_pt: true
+    thresholds:
+      pkp_idr: 4800000000      # peredaran bruto >= this -> must register PKP and charge PPN
   PPh21:
     label: "PPh 21 (payroll)"
     show_rate: false

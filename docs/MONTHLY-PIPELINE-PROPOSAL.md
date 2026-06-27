@@ -1,4 +1,12 @@
-# Proposal: deterministic monthly-close pipeline (for review — not built yet)
+# Deterministic monthly-close pipeline — BUILT
+
+> Status: **implemented** and since generalized into multiple cycles — see
+> `docs/MULTI-CYCLE-PROPOSAL.md`, `docs/ARCHITECTURE.md`, and
+> `jurisdictions/README.md`. The monthly close is now the *primary* cycle. This
+> file is kept as the original design record.
+
+---
+
 
 ## Idea
 The monthly accounting cycle per client is deterministic and ordered. Today the

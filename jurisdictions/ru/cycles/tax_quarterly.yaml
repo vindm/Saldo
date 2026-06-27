@@ -1,0 +1,23 @@
+# Cycle: taxes (quarterly / annual). USN advances, single-tax-account reconciliation,
+# declarations. Cadence is quarterly+annual — the period string (YYYY-Qn / YYYY-H1 /
+# YYYY) drives bucketing, kept as the task records it.
+code: tax_quarterly
+cadence: quarterly
+order: 2
+title: { ru: "Налоги", en: "Taxes" }
+stages:
+  - code: tax_calc
+    title: { ru: "Расчёт налога / аванса",     en: "Tax / advance calculation" }
+    task_types: [tax_calc]
+    icon: wallet
+    glyph: "🧮"
+  - code: ens_sverka
+    title: { ru: "Сверка с ЕНС",               en: "Single tax account reconciliation" }
+    task_types: [ens_reconciliation, tax_reconciliation]
+    icon: scale
+    glyph: "⚖️"
+  - code: declaration
+    title: { ru: "Декларация",                 en: "Declaration" }
+    task_types: [declaration]
+    icon: file-text
+    glyph: "📄"

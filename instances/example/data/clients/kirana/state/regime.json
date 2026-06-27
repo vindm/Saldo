@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.1",
+  "client_id": "kirana",
+  "last_updated": "2026-06-20T00:00:00+08:00",
+  "jurisdiction": "id",
+  "primary": {
+    "type": "UMKM_FINAL",
+    "object": "turnover",
+    "rate": 0.5,
+    "since": "2024-03-04"
+  },
+  "scenario": null,
+  "scenario_name": "UMKM final 0.5%",
+  "patents": [],
+  "auto_simplified": null,
+  "signature": {
+    "holder": "client",
+    "type": null
+  },
+  "filing": {
+    "submission_method": "coretax",
+    "declarations": "SPT Masa monthly + SPT Tahunan annual",
+    "declarations_note": "Synthetic.",
+    "contracts_edo": null
+  },
+  "accounting_system": "client-kept books",
+  "business_description": "PT on UMKM final PPh 0.5%. Spa & wellness salon in Seminyak; 6 employees on payroll (PPh 21 + BPJS Kesehatan & Ketenagakerjaan); premises rented (monthly PPh 4(2) on rent). Full PT monthly cycle + annual SPT Tahunan Badan & LKPM.",
+  "client_facing": {
+    "summary": "Indonesian PT on the UMKM final-tax regime (PPh 0.5% of turnover), a spa & wellness salon in Bali, operating since 2024.",
+    "turnover_scope": "by the company bank account"
+  },
+  "has_employees": true
+}

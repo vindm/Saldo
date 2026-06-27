@@ -34,9 +34,15 @@ loss of USN, the end of a reduced-rate facility), not after.
   else `YTD × 12 / months_elapsed`). Tiers: **≥80%** info · **≥90%** medium · **≥100% /
   projected to cross** high → «оборот N% от порога <PKP/УСН-НДС>; при пересечении — <последствие:
   регистрация PKP+PPN / переход на ОСНО>».
-- **Facility expiry.** From the facility grant date + the pack's duration → expiry date; within
-  the lead window (90 / 60 / 30 days) → «льгота 0,5% истекает <дата>; затем PPh Badan 22% —
-  подготовить переход».
+- **Facility expiry.** `expiry = regime.since + facility.duration_years[<legal form>]`, where the
+  durations are the pack's `regimes.yaml → <regime>.facility.duration_years` (ID UMKM_FINAL: OP 7 /
+  badan 3 / CV·PT-Perorangan 4), resolved by the client's legal form (`regime.entity_type` /
+  identity legal form). Within the lead window (90 / 60 / 30 days) → «льгота 0,5% истекает <дата>;
+  затем <facility.after, e.g. PPh Badan 22%> — подготовить переход». The nominal duration is an
+  **upper bound**: when `facility.revision_2026_ends_for_ordinary_pt` is true and the client is an
+  ordinary badan/PT, the 2026 PP55 revision may end it **earlier** — surface both (the dated 3-year
+  mark AND the revision watch), never only the later one. Jurisdiction-agnostic: any pack that
+  declares a `facility` block gets the same countdown.
 - **Reconcile `yearly_pace`.** Where it already carries `*_threshold`/`*_warning` (e.g.
   melati's `pkp_warning`), refresh it to stay honest rather than recomputing blindly.
 - Idempotent stable id `limit-<client>-<threshold>`; refresh not duplicate; honour

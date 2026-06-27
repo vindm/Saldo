@@ -5,6 +5,9 @@ threshold IDR 4.8B/year). Browser-driven on Coretax under the client's own NPWP.
 
 ## Stage 1. Amount
 - [ ] Get the month's gross turnover (peredaran bruto) from the client's records / bank.
+      It is read from `financials.json → periods[<masa>].turnover_idr`, which must carry
+      `cash_reconciled = true` (Moka POS vs cash report tied). If `cash_reconciled` is
+      `false`/`null`, **stop and reconcile first** — the 0.5% base must be complete.
 - [ ] Final PPh = 0.5% x gross turnover. If turnover = 0, no payment this month — note it, stop.
 
 ## Stage 2. Billing code (Coretax)
@@ -14,7 +17,9 @@ threshold IDR 4.8B/year). Browser-driven on Coretax under the client's own NPWP.
 
 ## Stage 3. Pay + record
 - [ ] Pay the billing code (bank / Coretax). Capture the NTPN receipt number.
-- [ ] Record the NTPN against the period.
+- [ ] Record the NTPN against the period — on the matching `financials.json →
+      tax_calendar_<year>[]` entry: `status: paid`, `paid_at`, `payment_ref` = the NTPN (the documents collector
+      captures it automatically when the receipt lands in Drive).
 
 ## Stage 4. SPT
 - [ ] Monthly turnover feeds the annual **SPT Tahunan** — UMKM-final files **no SPT Masa**,

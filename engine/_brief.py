@@ -426,6 +426,10 @@ def build_client_analysis_from_state(client_id, client_name, state_read, today):
             'title': tr.get('title') or '',
             'due': dd.strftime('%d.%m') if dd else '',
             'due_days': ((dd - today).days if dd else None),
+            'amount': (tr.get('amount')
+                       if tr.get('amount') is not None
+                       else (tr.get('type_specific') or {}).get('amount')),
+            'task_type': tr.get('task_type'),
             'next_action': na,
             'unblocks': _dep_count.get(tr.get('id'), 0),
             'blocker_title': (_blk.get('title') or '') if _blk else '',
@@ -454,6 +458,22 @@ def build_client_analysis_from_state(client_id, client_name, state_read, today):
 _PR_CLS = {"high": "an-pr-high", "normal": "an-pr-normal", "low": "an-pr-low"}
 
 
+def ref_chip(title, attrs, esc, glyph='&#128274;'):
+    """THE clickable track-reference chip — the Plan's «🔒 → blocker» pattern,
+    extracted so every track reference reuses ONE markup: blockers on the Plan, and
+    risk-linked tasks / tax-calendar tasks / counterparty tasks on the client
+    dashboard. `attrs` is the data-track-* string from build_track_data_attrs — when
+    present the chip is a `track-card-clickable` that opens the canonical modal; when
+    absent (a stale / unresolved ref) it degrades to a non-clickable `.an-dep-static`
+    label. `glyph` is the optional leading icon (the lock 🔒 for a blocker); pass ''
+    for none — the trailing → already signals the chip navigates."""
+    lead = ('<span class="an-dep-arrow">' + glyph + '</span> ') if glyph else ''
+    if attrs:
+        return ('<div class="an-dep track-card-clickable"' + attrs + '>' + lead
+                + esc(title) + '<span class="an-dep-go">&rarr;</span></div>')
+    return '<div class="an-dep an-dep-static">' + lead + esc(title) + '</div>'
+
+
 def render_task_snippet(r, esc, kind='task'):
     """THE one task-row snippet, used everywhere — overview «Сводка», client
     «Сводка», the Plan and the per-client plan ("Активные треки"). A
@@ -477,15 +497,17 @@ def render_task_snippet(r, esc, kind='task'):
     due_chip = due_badge(r.get('due_days'))
     unb = r.get('unblocks') or 0
     unb_chip = ('<span class="an-unblocks">' + esc(t('unblocks {}').format(unb)) + '</span>') if unb else ""
+    # Reporting period of THIS row — rendered INLINE, muted, right after the title
+    # (not a badge: the chip row is already busy). On the Plan/Calendar waves are
+    # grouped purely by operation (periods collapsed), so the row carries its own
+    # period; the caller sets `period` only there, so other surfaces are unaffected.
+    per_inline = ('<span class="an-period-inline">· ' + esc(r.get('period')) + '</span>') if r.get('period') else ""
     # Dependency: rendered like the track-modal's «Зависит от» — «🔒 → <blocker>»,
     # clickable (its own track-card-clickable) so the operator jumps straight to the
     # blocker. Replaces the hypothesis line when blocked.
     blk_html = ""
     if r.get("blocker_title"):
-        blk_html = ('<div class="an-dep track-card-clickable"' + (r.get("blocker_attrs") or "")
-                    + '><span class="an-dep-arrow">&#128274;</span> '
-                    + esc(r["blocker_title"])
-                    + '<span class="an-dep-go">&rarr;</span></div>')
+        blk_html = ref_chip(r["blocker_title"], r.get("blocker_attrs") or "", esc)
     # Status chip: an explicit pre-rendered chip (the Plan passes its «ждём» /
     # «заблокирован» pill) wins; otherwise derive «заблокировано» from an open
     # blocker so the Сводка rows still read as blocked.
@@ -506,7 +528,8 @@ def render_task_snippet(r, esc, kind='task'):
         '<div class="an-rec track-card-clickable" role="button" tabindex="0"' + (r.get('attrs') or '')
         + " onkeydown=\"if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}\">"
         + marker
-        + '<div class="an-rec-body"><div class="an-rec-title">' + esc(r.get("title", "")) + '</div>'
+        + '<div class="an-rec-body"><div class="an-rec-title">'
+        + '<span class="an-rec-title-text">' + esc(r.get("title", "")) + '</span>' + per_inline + '</div>'
         + (('<div class="an-client">' + esc(r.get("client")) + '</div>') if r.get("client") else "")
         + (blk_html if r.get("blocker_title") else sub) + '</div>'
         + status_chip + unb_chip + due_chip
@@ -576,11 +599,13 @@ ANALYSIS_CSS = (
     ".an-meta{font-size:14px;color:var(--text-muted)}"
     ".an-stale{color:var(--accent-red);font-weight:600}"
     ".an-summary{font-size:15px;line-height:1.6;color:var(--text-primary);margin:0 0 var(--space-md)}"
-    ".an-recs-label{font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 2px}"
+    ".an-recs-label{font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 2px}"
     ".an-count{font-size:13px;color:var(--text-muted);font-weight:500}"
     # AI brief is the main summary; the counts sit under it as a quiet line
-    ".an-summary{font-size:15px;line-height:1.6;color:var(--text-primary);margin:0 0 6px}"
-    ".an-counts{font-size:13px;color:var(--text-muted);margin:0 0 var(--space-md)}"
+    # cap the measure (~72ch) so the brief prose doesn't run edge-to-edge across
+    # the card — long lines hurt readability; this keeps a comfortable line length.
+    ".an-summary{font-size:15px;line-height:1.6;color:var(--text-primary);margin:0 0 6px;max-width:880px}"
+    ".an-counts{font-size:13px;color:var(--text-muted);margin:0 0 var(--space-md);max-width:880px}"
     # 'show all tasks' → scrolls to the operations list
     ".an-more{display:inline-block;margin-top:12px;font-size:13.5px;font-weight:500;color:var(--accent);cursor:pointer}"
     ".an-more:hover{color:var(--accent-text)}"
@@ -602,7 +627,11 @@ ANALYSIS_CSS = (
     "align-items:center;justify-content:center;font-size:12px;font-weight:600;border:1px solid var(--border)}"
     ".an-rec-body{flex:1;min-width:0}"
     ".an-rec-title{font-size:15px;font-weight:600;color:var(--text-primary);"
-    "overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+    "display:flex;align-items:baseline;gap:6px;min-width:0}"
+    ".an-rec-title-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}"
+    # period inline next to the title (Plan/Calendar period-less waves) — muted, light
+    # weight, never clipped (the title text ellipsizes, the period stays).
+    ".an-period-inline{flex:none;font-size:13px;font-weight:400;color:var(--text-muted);white-space:nowrap}"
     ".an-client{font-size:12.5px;color:var(--text-muted);margin-top:2px}"
     ".an-why{font-size:13px;color:var(--text-secondary);margin-top:3px;line-height:1.45;"
     "overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
@@ -622,6 +651,10 @@ ANALYSIS_CSS = (
     # clickable (jumps to the blocker), distinct from clicking the whole row.
     ".an-dep:hover{background:var(--yellow-bg)}"
     ".an-dep:hover .an-dep-go{color:var(--accent)}"
+    # a reference whose target task could not be resolved (stale id): same look,
+    # but not clickable and no hover affordance.
+    ".an-dep-static{cursor:default}"
+    ".an-dep-static:hover{background:transparent}"
     # 'заблокировано' — status chip for a row whose blocker is still open
     ".an-blocked{flex-shrink:0;font-size:12px;font-weight:600;color:#854F0B;"
     "background:#FAEEDA;border-radius:6px;padding:3px 9px;white-space:nowrap}"

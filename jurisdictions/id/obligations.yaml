@@ -1,0 +1,27 @@
+# Pack-declared recurring obligations that are NOT part of the monthly close pipeline —
+# single periodic filings whose cadence/deadlines are jurisdiction- (and sometimes scale-)
+# driven. The engine DERIVES each client's occurrences from these declarations
+# (deadline_monitor materializes them into tax_calendar_<year>; the cadence lint checks
+# them) instead of hand-keying them — so a wrong cadence (e.g. a quarterly LKPM for an
+# Usaha Kecil) can't silently drift in. Generic shape: any jurisdiction declares the same.
+obligations:
+  lkpm:
+    label: { ru: "LKPM (отчёт об инвест-деятельности)", en: "LKPM (investment activity report)" }
+    authority: oss
+    applies_when: penanaman_modal_registered   # PMDN or PMA (identity.penanaman_modal set)
+    even_if_no_new_investment: true            # UMKM tetap wajib lapor — file even with zero new investment
+    checklist: lkpm
+    # Cadence + the MONTHS a deadline falls in depend on business scale (BKPM 5/2025 §285).
+    # Resolved from the client's skala_usaha. day = statutory latest day of that month
+    # (BKPM circulars may move it earlier).
+    cadence_by_scale:
+      kecil:    { every: semester, deadline_months: [7, 1], day: 15 }      # Sem I (Jan–Jun)->15 Jul; Sem II (Jul–Dec)->15 Jan next yr
+      menengah: { every: quarter,  deadline_months: [4, 7, 10, 1], day: 10 }
+      besar:    { every: quarter,  deadline_months: [4, 7, 10, 1], day: 10 }
+  spt_tahunan_badan:
+    label: { ru: "Годовая декларация (SPT Tahunan Badan)", en: "Annual return (SPT Tahunan Badan)" }
+    authority: coretax
+    applies_when: badan          # legal form = badan / PT (OP would file 31 Mar instead)
+    checklist: annual_spt_badan
+    cadence: annual
+    deadline: "04-30"            # 30 April

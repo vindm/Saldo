@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "client_id": "kirana",
+  "last_updated": "2026-06-20T00:00:00+08:00",
+  "name": {
+    "short": "PT Kirana Wellness",
+    "full": "PT Kirana Bali Wellness (synthetic)",
+    "in_1c": "Kirana Wellness",
+    "uncertainty": null
+  },
+  "inn": null,
+  "ogrnip": null,
+  "npwp": "09.876.543.2-901.000 (synthetic 16-digit)",
+  "reg_date": "2024-03-04",
+  "reg_started_year": 2024,
+  "addr": {
+    "city": "Seminyak, Bali",
+    "full": "Seminyak, Badung, Bali (synthetic)",
+    "region_pill": "Bali"
+  },
+  "ifns": null,
+  "tax_office": {
+    "authority": "DJP",
+    "kpp_office": "KPP Pratama Badung Selatan (synthetic)"
+  },
+  "okved": {
+    "main": {
+      "code": "96122",
+      "name": "Spa & wellness salon (KBLI, synthetic)",
+      "confirmed_at": "2024-03-04",
+      "confirmed_by": "sample_data",
+      "history": []
+    },
+    "additional": []
+  },
+  "contacts": {
+    "phone": "+62000000777",
+    "email": "hello@kirana.example",
+    "telegram": null,
+    "whatsapp": "+62000000777"
+  }
+}

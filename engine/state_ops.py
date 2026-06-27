@@ -6,9 +6,10 @@ Architecture (Karpathy-style memory hierarchy):
 - state/*.json — structured facts, machine-readable
 - history.jsonl — append-only log of signals
 
-This module provides 5 low-level primitives. The logic of "what exactly to
-update on which signal" lives in the AI agent (Claude), not in code. Here we
-only do atomic writes with backup and validation.
+This module provides the low-level state primitives (read/write/history/mental
+model, plus register_client for onboarding a new client). The logic of "what
+exactly to update on which signal" lives in the AI agent (Claude), not in code.
+Here we only do atomic writes with backup and validation.
 
 Usage pattern:
     from state_ops import state_read, state_write, history_append
@@ -362,3 +363,85 @@ def list_state_files(client_id):
     if not d.exists():
         return []
     return sorted([p.name for p in d.glob('*.json')])
+
+
+# ---------- client registration (onboarding) ----------
+
+def register_client(client_id, name_short, name_full='', group='direct',
+                    folder=None, extra=None, ctx='onboard'):
+    """Register a NEW client in clients_index.json and create its folder tree.
+
+    This is the one safe path to ADD a client; the per-client state/*.json are
+    then written by the caller via state_write (identity.json, regime.json, …).
+    It mirrors state_write's guarantees on the registry file:
+
+      - atomic     — written via .tmp + os.replace
+      - backed up  — the prior clients_index.json is copied to .bak first
+      - UTF-8 safe — a Cyrillic name round-trips through json.dumps(
+                     ensure_ascii=False) + an explicit utf-8 encode, so the
+                     Edit/Write-truncates-Cyrillic hazard never applies here
+      - idempotent — re-registering an existing id is a no-op (returns False)
+      - cache-safe — the module-level id->folder cache is invalidated, so a
+                     state_write to the new client works in the SAME process
+
+    Purely additive: it never reshapes an existing entry, so it needs no
+    migration. It writes no state/*.json itself.
+
+    Returns True if a new entry was created, False if the id already existed.
+    Raises ValueError on a missing id or a JSON/UTF-8 problem.
+    """
+    cid = (client_id or '').strip()
+    if not cid:
+        raise ValueError('register_client: client_id is required')
+
+    index_path = _PLAN_DIR / 'clients_index.json'
+    index = []
+    if index_path.exists():
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                index = json.load(f)
+        except (ValueError, OSError):
+            raise ValueError('register_client: clients_index.json is unreadable')
+    if not isinstance(index, list):
+        raise ValueError('register_client: clients_index.json is not a JSON list')
+
+    if any(isinstance(e, dict) and e.get('id') == cid for e in index):
+        return False  # already registered — idempotent no-op
+
+    rel_folder = folder or ('clients/' + cid)
+    entry = {
+        'id': cid,
+        'name_short': name_short or cid,
+        'name_full': name_full or '',
+        'folder': rel_folder,
+        'group': group or 'direct',
+    }
+    if isinstance(extra, dict):
+        entry.update(extra)
+
+    new_index = index + [entry]
+
+    # Backup the prior index, then atomic + UTF-8-validated write.
+    bak = _backup(index_path, ctx)
+    text = json.dumps(new_index, ensure_ascii=False, indent=2, sort_keys=False)
+    json.loads(text)                # JSON round-trip validation
+    payload = text.encode('utf-8')  # raises on any UTF-8 problem
+    tmp = index_path.with_name(index_path.name + '.tmp')
+    with open(tmp, 'wb') as f:
+        f.write(payload)
+    os.replace(str(tmp), str(index_path))
+
+    # Create the folder tree so the first state_write has a home.
+    (_PLAN_DIR / rel_folder / 'state').mkdir(parents=True, exist_ok=True)
+
+    # Invalidate the id->folder cache so state_write(cid, …) resolves now.
+    global _CLIENT_FOLDERS
+    _CLIENT_FOLDERS = None
+
+    # Best-effort audit line (never fatal).
+    try:
+        _audit_append(cid, 'clients_index.json', ctx, ['id', 'folder'], [], [], bak)
+    except Exception:
+        pass
+
+    return True

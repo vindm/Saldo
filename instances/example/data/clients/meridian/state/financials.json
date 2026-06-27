@@ -21,13 +21,13 @@
     }
   ],
   "yearly_pace_2026": {
-    "estimated_annual_income_usn": 3800000,
-    "growth_vs_prev_year_x": 0.95,
+    "growth_vs_prev_year_x": 1.1,
     "nds_threshold_2026": 20000000,
     "ausn_threshold_2026": 60000000,
     "nds_warning": false,
     "nds_warning_reason": "Synthetic — safe.",
-    "notes": "Synthetic pace."
+    "notes": "Synthetic pace.",
+    "estimated_annual_income": 3800000
   },
   "tax_calendar_2026": [],
   "monthly_close": {

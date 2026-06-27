@@ -111,6 +111,14 @@ _OP_ALIAS = {
     # which bank's portal — merge the bank-marking variant into the markup review
     # so the two clients batch into a single "AUSN markup" wave (not two).
     'ausn_bank_marking': 'ausn_markup_review',
+    # Getting access/credentials from the client (often routed via the client's
+    # manager, e.g. «получить от Анастасии доступы…») IS a client request — group it
+    # into the «Запрос у клиента» wave, not as a stray standalone task (and never let
+    # an incidental «ЛК АУСН» in the title pull it into the AUSN-reconciliation wave).
+    'access_request': 'client_followup',
+    # «получить доступы/данные у клиента» (data_request) is likewise a request TO
+    # the client — same «Запрос у клиента» wave, not a separate one-off.
+    'data_request': 'client_followup',
 }
 
 # Generic types are statuses/processes, NOT operations: you can't merge a wave on
@@ -125,7 +133,6 @@ _GENERIC_TYPES = {
     # source-based (where the task came from, not what it IS) -> re-infer by topic
     'finkoper_recurring',
 }
-
 
 # Operation inference from the task title — used ONLY when task_type is missing or
 # generic. Merges title variants (e.g. "Аванс УСН 1кв" / "Аванс УСН 1 кв") into one
@@ -179,8 +186,8 @@ def _stage_of_token(tok, jurisdiction="ru"):
     return 'stage:<code>', else None."""
     try:
         import _pipeline as _P
-        si = _P.stage_index_of((tok or '').strip(), jurisdiction)
-        return ('stage:' + _P.stages(jurisdiction)[si]['code']) if si is not None else None
+        loc = _P.locate_stage((tok or '').strip(), jurisdiction)
+        return ('stage:' + loc[1]) if loc else None
     except Exception:
         return None
 
@@ -208,13 +215,22 @@ def _period_of(t):
 
 
 def _fmt_period(p, loc='ru'):
-    m = re.match(r'^(\d{4})-(\d{2})$', p or '')
+    p = p or ''
+    m = re.match(r'^(\d{4})-(\d{2})$', p)
     if m:
         mo = int(m.group(2))
         if 1 <= mo <= 12:
             months = _RU_MONTHS_NOM if loc == 'ru' else _EN_MONTHS
             return months[mo - 1] + ' ' + m.group(1)
-    return p or ''
+    q = re.match(r'^(\d{4})-Q([1-4])$', p, re.I)
+    if q:
+        return (q.group(2) + ' кв ' + q.group(1)) if loc == 'ru' else ('Q' + q.group(2) + ' ' + q.group(1))
+    h = re.match(r'^(\d{4})-H([12])$', p, re.I)
+    if h:
+        return (h.group(2) + ' п/г ' + h.group(1)) if loc == 'ru' else ('H' + h.group(2) + ' ' + h.group(1))
+    if re.match(r'^\d{4}$', p):
+        return (p + ' год') if loc == 'ru' else p
+    return p
 
 
 def _op_canonical(t):
@@ -230,6 +246,13 @@ def _op_canonical(t):
         per = _period_of(t)
         return s + ('|' + per if per else '')
     tt = _OP_ALIAS.get(raw, raw)
+    # task_type is taken as authoritative here — it names the operation. We do NOT
+    # re-infer the operation from title keywords for a non-generic type: an
+    # incidental token in the title (e.g. «ЛК АУСН» inside an access request, which
+    # aliases access_request -> client_followup) must not pull the task into the
+    # AUSN wave. The right type is carried in STATE (migration 0014 normalizes
+    # service-fee rows to service_payment; INSTRUCTIONS §0.4 keeps new writes
+    # honest), so the view can trust it.
     if tt and tt not in _GENERIC_TYPES:
         return tt
     txt = _clean_op_text(t.get('what') or '')
@@ -238,7 +261,15 @@ def _op_canonical(t):
             st = _stage_of_token(token, juris)
             if st:
                 per = _period_of(t)
-                return st + ('|' + per if per else '')
+                if per:
+                    return st + '|' + per
+                # A keyword-only stage hit with NO resolvable period is too weak a
+                # signal to be monthly-cycle work: real pipeline stages are always
+                # period-anchored. This is how an off-pipeline notice (e.g. an OKVED
+                # «уведомление передано, ждём согласования» awaiting_external task)
+                # would otherwise be force-mapped into tax_pp and surface as a phantom
+                # "—" period. Fall through to off-pipeline so it stays where it belongs.
+                return 'x:' + _wave_key(t)
             return token
     return 'x:' + _wave_key(t)
 
@@ -247,12 +278,21 @@ def _wave_op_token(members):
     return _op_canonical(members[0]) if members else ''
 
 
-def _op_key(t):
+def _op_key(t, period_aware=True):
     # Group by OPERATION only — a wave spans ALL clients sharing an operation+period,
     # regardless of client group. Group (Team/Direct) is a filter, not a batching
     # axis: splitting one batch of identical work by group just fragments it. The
     # Team/Direct toggle filters the member rows inside a wave instead.
-    return _op_canonical(t)
+    #
+    # period_aware=False collapses periods of the SAME operation into one wave —
+    # the Plan and Calendar group purely by operation type (period breakdown lives
+    # only on the Periods page). Period-explicit stage tokens ('stage:code|YYYY-MM')
+    # drop their period component; off-pipeline tokens are already period-less. The
+    # period is then carried on each ROW instead (see _period_chip / row renderers).
+    op = _op_canonical(t)
+    if not period_aware and isinstance(op, str) and op.startswith('stage:') and '|' in op:
+        op = op.split('|', 1)[0]
+    return op
 
 
 def _capf(s):
@@ -305,12 +345,34 @@ def _op_label(members):
         code, _, per = tok[len('stage:'):].partition('|')
         juris = _client_jurisdiction(members[0].get('client_id')) if members else 'ru'
         title = _P.stage_title(code, loc, juris)
-        if per:
+        # In period-less grouping (Plan/Calendar) a wave can span several periods —
+        # then the header carries NO period (it would be misleading) and each row
+        # shows its own. Keep the period in the header only when the whole wave is
+        # one period (e.g. the period-aware Periods page).
+        if per and len({_period_of(m) for m in members}) == 1:
             title += ' · ' + _fmt_period(per, loc)
         return _capf(title)
     if tok in _OP_RU:
         return _capf(_OP_RU[tok][1])
     return _op_title(members)
+
+
+def _op_label_parts(members):
+    """(title, period_label) for a wave header — the period suffix is split out so
+    it can be rendered as its OWN element (and hidden where it would just repeat the
+    context, e.g. the Periods page which already groups BY period)."""
+    tok = _wave_op_token(members)
+    if isinstance(tok, str) and tok.startswith('stage:'):
+        try:
+            import _pipeline as _P
+            from _config import LOCALE
+            loc = LOCALE if LOCALE in ('ru', 'en') else 'ru'
+        except Exception:
+            loc = 'ru'
+        code, _, per = tok[len('stage:'):].partition('|')
+        juris = _client_jurisdiction(members[0].get('client_id')) if members else 'ru'
+        return (_capf(_P.stage_title(code, loc, juris)), _fmt_period(per, loc) if per else '')
+    return (_op_label(members), '')
 
 
 def _op_icon(members):
@@ -406,16 +468,15 @@ def horizon_counts(all_tasks):
     return hc
 
 
-# Standard, reusable accounting operations — these read as the same operation on
-# every client, so they form a wave even with a single member. Ad-hoc per-client
-# task types (review_checkpoint, access_request, client_followup, monitoring,
-# awaiting_external, …) are deliberately absent: they only batch when >=2 clients
-# share the exact operation, otherwise they render as individual tasks.
-# Reusable operation tokens (matched against _op_canonical / op_key). These read
-# as the same operation on every client, so they form a wave even with a single
-# member. Ad-hoc op tokens (review_checkpoint, regulatory_watch, monitoring,
-# access_request, client_followup, awaiting_external, patent-from-keyword, …) are
-# deliberately absent — they only batch when >=2 clients share the exact op.
+# Reusable operation tokens (matched against _op_canonical / op_key). These read as
+# the same operation on every client, so they form a wave even with a SINGLE member
+# and read identically on the all-clients Plan, on a calendar day, and on a client
+# card. `client_followup` is included: «Запрос у клиента» is a standing operation
+# bucket (asking the client / chasing access — access_request + data_request alias
+# into it), so a lone client request still lands in that bucket instead of floating
+# as a stray row. Other ad-hoc tokens (review_checkpoint, regulatory_watch,
+# monitoring, awaiting_external, patent-from-keyword, …) stay absent — they only
+# batch when >=2 clients share the exact op, otherwise they render as singles.
 _REUSABLE_OP_TYPES = frozenset({
     'primary_collection', 'kudir_posting', 'posting_1c', 'technical_1c',
     'ndfl_register', 'balance_reconciliation', 'ens_reconciliation',
@@ -424,7 +485,7 @@ _REUSABLE_OP_TYPES = frozenset({
     'acquiring_reconciliation', 'bank_check', 'kkt_check', 'declaration',
     'statreport', 'regular_check', 'finkoper_recurring', 'tax_pp', 'pp_to_form',
     'notification', 'sign_pay', 'pp_sign', 'month_close', 'period_close',
-    'month_audit', 'patent',
+    'month_audit', 'patent', 'client_followup',
 })
 
 
@@ -439,12 +500,14 @@ def _is_wave_group(op_key, members):
     return op in _REUSABLE_OP_TYPES
 
 
-def cluster_tasks(tasks):
+def cluster_tasks(tasks, period_aware=True):
     """Flat list → (waves, singles). A wave = >=2 DIFFERENT clients sharing one
-    operation+track. Reused by the Week/Month pages."""
+    operation+track. Reused by the Week/Month pages. period_aware=False groups
+    purely by operation (periods of one op collapse into a single wave) — used by
+    the Plan and Calendar, where the period is shown per-row instead."""
     groups = {}
     for t in tasks:
-        groups.setdefault(_op_key(t), []).append(t)
+        groups.setdefault(_op_key(t, period_aware), []).append(t)
     waves, singles = [], []
     for op_key, members in groups.items():
         # A wave is a RECURRING bookkeeping operation — so a standard, reusable
@@ -495,6 +558,14 @@ def _render_wave(members, esc, htitle):
     _grps.discard('')
     track = next(iter(_grps)) if len(_grps) == 1 else 'mixed'
     op = _op_label(members)
+    _op_t, _op_per = _op_label_parts(members)
+    # Plan ('plan') and Calendar ('cal') group purely by operation \u2014 periods are
+    # collapsed into one wave, so the header carries NO period (it would name only
+    # member[0]'s and mislead); each ROW shows its own period chip instead. The
+    # Periods page ('per') groups BY period, so it keeps the period in the header.
+    if htitle in ('plan', 'cal'):
+        _op_per = ''
+    op_html = esc(_op_t) + (('<span class="wave-period">\u00b7 ' + esc(_op_per) + '</span>') if _op_per else '')
     op_ic = _op_icon(members)
     n = len({m.get('client_id') for m in members})
     nt = len(members)
@@ -538,7 +609,7 @@ def _render_wave(members, esc, htitle):
         '<div class="wave collapsed" data-track-type="{tt}" data-wave-id="{wid}" data-stage="{stg}">'
         '<div class="wave-head wave-toggle">'
         '<span class="wave-chevron">{chev}</span>'
-        '<span class="wave-op">{ic}{op}</span>'
+        '<span class="wave-op">{ic}{op_html}</span>'
         '<span class="wave-count">{nt}</span>'
         '<span class="wave-meta"><span class="wave-bar-slot">{bar}</span>{badge}</span>'
         '{anom}'
@@ -549,7 +620,7 @@ def _render_wave(members, esc, htitle):
         '</div></div>'
         '</div>'.format(
             chev=icon('chevron'),
-            tt=esc(track), wid=wid, stg=stg, ic=head_icon, op=esc(op), bar=bar, n=n, nt=nt,
+            tt=esc(track), wid=wid, stg=stg, ic=head_icon, op=esc(op), op_html=op_html, bar=bar, n=n, nt=nt,
             badge=_wave_due_badge(_min_dl(members)), anom=anomaly_html,
             acts=actions, assist=assist_html, rows=rows))
 
@@ -621,6 +692,7 @@ WAVES_CSS = (
     '.wave-chevron .ic{width:15px;height:15px;stroke-width:2.25}'
     '.wave:not(.collapsed) .wave-chevron{transform:rotate(90deg)}'
     '.wave-head:hover .wave-chevron{color:var(--text-secondary)}'
+    '.wave-period{color:var(--text-muted);font-weight:400;margin-left:6px}'
     '.wave-op{font-weight:500;font-size:15px;flex:0 1 auto;min-width:0;color:var(--text-primary);'
     'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center}'
     '.wave-ic{margin-right:8px;color:var(--text-muted);display:inline-flex;flex-shrink:0}'
@@ -764,6 +836,25 @@ _WAVE_JUMP_JS = (
 WAVES_JS = WAVES_JS + _WAVE_JUMP_JS
 
 
+# Group-filter (All/Team/Direct) consistency: when the mode switch hides member
+# rows, a wave's count badge must reflect what's VISIBLE, not its full membership,
+# and a wave whose every member is filtered out hides itself. Re-runs after each
+# mode change. (display:none from the filter is distinguishable from the collapse,
+# which only zeroes the reveal's height — the rows keep display:flex.)
+_WAVE_FILTER_JS = (
+    '<script>(function(){'
+    'function upd(){[].forEach.call(document.querySelectorAll(".wave"),function(w){'
+    'var rows=w.querySelectorAll(".wave-body .an-rec");if(!rows.length)return;'
+    'var vis=0;[].forEach.call(rows,function(r){if(getComputedStyle(r).display!=="none")vis++;});'
+    'var c=w.querySelector(".wave-count");if(c)c.textContent=vis;'
+    'w.style.display=(vis===0)?"none":"";});}'
+    'document.addEventListener("click",function(e){'
+    'if(e.target.closest(".mode-btn,.mode-banner-clear"))setTimeout(upd,0);});'
+    'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){setTimeout(upd,0);});'
+    'else setTimeout(upd,0);})();</script>')
+WAVES_JS = WAVES_JS + _WAVE_FILTER_JS
+
+
 # ── Flat plan: stage+period waves + singles in ONE urgency-sorted, colour-coded
 # stream (no Горит/Неделя/Бэклог horizon buckets — the per-wave day badge already
 # shows urgency, and bucketing split one stage across horizons). Dateless backlog
@@ -842,15 +933,16 @@ def _urg_cls(dl):
     return 'g-grey'
 
 
-def render_waves_flat(all_tasks, render_row, esc):
+def render_waves_flat(all_tasks, render_row, esc, period_aware=True):
     """Plan list with waves and individual tasks kept in SEPARATE blocks (no
     interleaving) so collapsible operation-bars never mix with single-task rows.
     Each block is urgency-sorted and colour-coded; dateless items collapse into a
     backlog block at the end. "Expand all" lives on the Operations section header
-    (the only block with collapsible groups)."""
+    (the only block with collapsible groups). period_aware=False groups purely by
+    operation (the Plan) — period shown per-row, not in the wave header."""
     global _RENDER_ROW
     _RENDER_ROW = render_row
-    waves, singles = cluster_tasks(all_tasks)
+    waves, singles = cluster_tasks(all_tasks, period_aware)
 
     # Passive "we just wait / watch" items are NOT actions: monitoring (a risk-watch)
     # and awaiting_external with no due date ("ждём, наша часть дождаться"). They go to

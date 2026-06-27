@@ -1,0 +1,38 @@
+# Cycle: monthly close (primary). The deterministic monthly accounting cycle.
+# One file per cycle (jurisdictions/ru/cycles/*.yaml); the engine reads them via
+# _pipeline.cycles(). Stages are ORDERED; a client's position for a period = the
+# earliest stage with open tasks. Membership is by task_type (source of truth = state).
+code: monthly_close
+cadence: monthly
+primary: true
+order: 0
+title: { ru: "Учётный цикл", en: "Bookkeeping cycle" }
+stages:
+  - code: primary_collection
+    title: { ru: "Сбор первички",                en: "Collect source docs" }
+    # bank_check = obtaining/monitoring bank statements — a collection INPUT, so it
+    # belongs here, not in month_audit.
+    task_types: [primary_collection, bank_check]
+    checklist: первичка_месяца
+  - code: posting_1c
+    title: { ru: "Разноска в 1С",                en: "Post to 1C" }
+    task_types: [kudir_posting, technical_1c]
+    checklist: разноска_первички_в_1С
+  - code: month_close
+    title: { ru: "Закрытие периода",             en: "Period close" }
+    task_types: [month_close, period_close]
+  - code: month_audit
+    title: { ru: "Аудит периода",                en: "Period audit" }
+    # Promoted feeders: cash-register and 1C balance reconciliation are month-end
+    # verification and now render here instead of being invisible feeders.
+    task_types: [month_audit, kkt_check, balance_reconciliation]
+  - code: tax_pp
+    title: { ru: "Расчёт + уведомление + ПП",    en: "Calc + notice + payment order" }
+    # ausn_monthly moved to the dedicated AUSN cycle (ausn_monthly.yaml).
+    task_types: [pp_to_form, notification]
+    checklist: ПП_на_ЕНП
+  - code: sign_pay
+    title: { ru: "Подпись / оплата",             en: "Sign / pay" }
+    task_types: [pp_sign]
+# Remaining parallel inputs that unblock stages but are not stages themselves.
+feeders: [acquiring_reconciliation, ausn_reconciliation, sz_checks_reconciliation, reconciliation]

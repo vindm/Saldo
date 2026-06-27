@@ -38,7 +38,7 @@ from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 import state_ops  # source of truth for state/*.json (migration 2026-05-25)
 from _brief import (render_brief_zone, brief_lead_html, BRIEF_CSS,
                     latest_history_change, ANALYSIS_CSS)
-from _components import event_row, render_event_section, EVENT_CSS
+from _components import event_row, render_event_section, render_empty_section, EVENT_CSS
 OVERVIEW_V2_CSS = (
     ".focus-line{background:var(--blue-bg);color:var(--accent-blue);"
     "padding:var(--space-sm) var(--space-md);border-left:3px solid var(--accent-blue);"
@@ -786,12 +786,23 @@ def _build_modal_attrs(tr):
     return _re.sub(r'\s*data-track-type="[^"]*"', '', attrs)
 
 
+def _confidence_chip(tr):
+    """Muted assist.confidence chip (высокая/средняя/низкая) for a track row."""
+    a = tr.get('assist') or (tr.get('_full_track') or {}).get('assist') or {}
+    c = (a.get('confidence') or '').lower()
+    if c not in ('high', 'medium', 'low'):
+        return ''
+    lab = {'high': tp('high', 'высокая'), 'medium': tp('medium', 'средняя'),
+           'low': tp('low', 'низкая')}[c]
+    return ' <span class="conf-chip conf-' + c + '">' + _esc(lab) + '</span>'
+
+
 def _track_event_row(tr):
     """A track rendered as the shared event row (clickable -> track modal)."""
     cn = tr.get('client_name') or ''
     cn_short = cn.replace('SP ', '') if cn else ''
     title = _esc(_translate_tech_terms(tr.get('title', '') or tr.get('track_id', '')))
-    head = ('<span class="ev-cl">' + _esc(cn_short) + ' · </span>' if cn_short else '') + title
+    head = (('<span class="ev-cl">' + _esc(cn_short) + ' · </span>' if cn_short else '') + title + _confidence_chip(tr))
     last = _track_last_event(tr)
     detail = _esc(_translate_tech_terms((last.get('event') or '').strip())) if last else ''
     when = ''
@@ -801,13 +812,15 @@ def _track_event_row(tr):
     return event_row(cn, head, detail, when, _status_spec(tr), _build_modal_attrs(tr))
 
 
-def collect_recent_track_zones(mm, days=3, closed_days=2):
+def collect_recent_track_zones(mm, days=3, closed_days=2, max_show=12):
     """Two morning event sections: (updated_html, closed_html) — same component as
-    the decisions block. updated = open tracks touched within `days` (daemon-touched
-    first, then newest); closed = tracks closed within `days`. 5 shown + show more."""
+    the decisions block. updated = open tracks by most-recent event; closed = closed
+    tracks by close date. The latest items are ALWAYS shown (no freshness cutoff) so
+    the operator always sees the most recent updates even when nothing changed today;
+    `days` only floats daemon-touched tracks to the top. 5 visible + show more.
+    When a zone is genuinely empty, a muted empty-state line keeps it visible."""
     from datetime import timedelta
     cut = (TODAY - timedelta(days=days - 1)) if TODAY else None
-    cut_closed = (TODAY - timedelta(days=closed_days - 1)) if TODAY else None
     updated, closed = [], []
     for tr in (mm.get('tracks') or []):
         if (tr.get('zone', 'client_work') or 'client_work') == 'system_internal':
@@ -815,26 +828,56 @@ def collect_recent_track_zones(mm, days=3, closed_days=2):
         ft = tr.get('_full_track') or {}
         raw_status = (ft.get('status') or tr.get('status') or '')
         if raw_status in _CLOSED_FOR_ZONE:
-            ev = _track_last_event(tr)
-            d = _event_day(ev) if ev else _track_close_day(tr)
-            if d and cut_closed and d >= cut_closed:
-                closed.append((_track_close_sortkey(tr), tr))
+            # always include closed tracks; latest by close date, undated sink down
+            closed.append((_track_close_sortkey(tr), tr))
         elif raw_status == 'deferred':
             continue
         else:
             d = _track_latest_event_day(tr)
-            if d and cut and d >= cut:
-                daemon = _track_has_daemon_event_since(tr, cut)
-                updated.append(((1 if daemon else 0, d.isoformat()), tr))
+            if not d:
+                continue
+            daemon = _track_has_daemon_event_since(tr, cut) if cut else False
+            updated.append(((1 if daemon else 0, d.isoformat()), tr))
     updated.sort(key=lambda x: x[0], reverse=True)
     closed.sort(key=lambda x: x[0], reverse=True)
-    upd_rows = [_track_event_row(tr) for _, tr in updated]
-    cls_rows = [_track_event_row(tr) for _, tr in closed]
-    updated_html = render_event_section(tp('🔄 Recently updated', '🔄 Недавно обновили'),
-                                        upd_rows[:10], count=len(upd_rows))
-    closed_html = render_event_section(tp('✅ Recently closed', '✅ Недавно закрыли'),
-                                       cls_rows, count=len(cls_rows))
+    upd_rows = [_track_event_row(tr) for _, tr in updated][:max_show]
+    cls_rows = [_track_event_row(tr) for _, tr in closed][:max_show]
+    title_upd = tp('🔄 Recently updated', '🔄 Недавно обновили')
+    title_cls = tp('✅ Recently closed', '✅ Недавно закрыли')
+    updated_html = (render_event_section(title_upd, upd_rows, count=len(upd_rows))
+                    or render_empty_section(title_upd, tp('No recent updates', 'Обновлений пока нет')))
+    closed_html = (render_event_section(title_cls, cls_rows, count=len(cls_rows))
+                   or render_empty_section(title_cls, tp('No closed tasks yet', 'Закрытых задач пока нет')))
     return updated_html, closed_html
+
+
+def collect_needs_operator_zone(mm, max_show=20):
+    """The unblock queue: active tracks whose edge is `needs_operator`
+    (policies/resolution-model.md, render approximation in _track_attrs._resolution_render).
+    A filtered VIEW of existing tasks — no new entity. Sorted by due then priority."""
+    from _status import normalize_status
+    from _track_attrs import _resolution_render
+    rows = []
+    for tr in (mm.get('tracks') or []):
+        if (tr.get('zone', 'client_work') or 'client_work') == 'system_internal':
+            continue
+        ft = tr.get('_full_track') or {}
+        canon = normalize_status(ft.get('status') or tr.get('status') or '')
+        bb = ft.get('blocked_by') or tr.get('blocked_by') or []
+        if _resolution_render(canon, bb) != 'needs_operator':
+            continue
+        rows.append(tr)
+    def _key(tr):
+        ft = tr.get('_full_track') or {}
+        due = ft.get('due_date') or tr.get('due_date') or ''
+        prio = 0 if (ft.get('priority') or tr.get('priority')) == 'high' else 1
+        return (due == '', due, prio)
+    rows.sort(key=_key)
+    body = [_track_event_row(tr) for tr in rows[:max_show]]
+    title = tp('🔔 Needs you', '🔔 Требуют вас')
+    return (render_event_section(title, body, count=len(rows))
+            or render_empty_section(title, tp('Nothing needs you right now',
+                                              'Сейчас ничего не требует вас')))
 
 
 def render_clients_grid_compact(mm, deadlines, awaiting,
@@ -1015,6 +1058,7 @@ def render_overview_v2():
     # recently CLOSED tracks, grouped by day. Includes changes from daemons AND the
     # operator (daemon-touched tracks float to the top in the morning).
     updated_zone, closed_zone = collect_recent_track_zones(mm)
+    needs_zone = collect_needs_operator_zone(mm)
     recent_link = ''
     if updated_zone or closed_zone:
         recent_link = (
@@ -1098,13 +1142,14 @@ def render_overview_v2():
         '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUuNSIgZmlsbD0iIzFGNEU3OSIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjEyLjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0I3OTI1NyIgc3Ryb2tlLXdpZHRoPSIxLjMiLz48dGV4dCB4PSIxNiIgeT0iMTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJjZW50cmFsIiBmb250LWZhbWlseT0iQXJpYWwsSGVsdmV0aWNhLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNmZmZmZmYiPtCY0JI8L3RleHQ+PC9zdmc+">'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
-        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '</style>'
+        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '.conf-chip{display:inline-block;font-size:10px;line-height:1.5;padding:0 6px;border-radius:8px;margin-left:6px;vertical-align:middle;font-weight:600;border:1px solid transparent}.conf-high{background:#e6f4ea;color:#1e7e34;border-color:#bfe3cb}.conf-medium{background:#fdf3e0;color:#946700;border-color:#f0d9a8}.conf-low{background:#f1eff3;color:#6b6470;border-color:#ddd6e0}' + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active='dashboard')
         + '<main class="main-content">'
         + head + _w['stats']
         + summary_block
+        + needs_zone
         + questions_zone
         + updated_zone + closed_zone + recent_link
         + _w['activity']

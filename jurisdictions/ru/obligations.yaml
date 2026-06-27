@@ -1,0 +1,87 @@
+# RU jurisdiction — pack-declared recurring obligations and the cadence they impose.
+#
+# Same contract as jurisdictions/id/obligations.yaml: the engine DERIVES each client's
+# occurrences from these declarations (it invents nothing). A client binds to a regime via
+# state/regime.json -> primary.type + jurisdiction; the active obligation streams follow from
+# that regime plus client facts (has_employees, vat_liable, active patents). Each stream
+# carries a legally-fixed cadence.
+#
+# STATUS (2026-06-26): this DECLARATION layer is live, but its two consumers are not built yet
+# and are tracked in docs/CADENCE.md:
+#   (1) the DERIVED bookkeeping cadence — bookkeeping_cadence = min_period(active_streams) — so
+#       the monthly_close conveyor stops being assumed monthly for quarterly clients;
+#   (2) the `delivery_looser_than_cadence` lint that makes behavior.json delivery answerable to
+#       the regime-derived cadence (retiring bank_statement_frequency as a source of truth).
+# Until (1)/(2) land this file is inert: the render path never reads obligations, and state_lint
+# only scale-checks obligations carrying `cadence_by_scale` (these are fixed-cadence -> skipped).
+# Promotion verified behaviour-preserving on saldo-migrated_data (render byte-identical, lint
+# unchanged).
+#
+# The BOOKKEEPING cadence is NOT declared here — it is DERIVED as the tightest (shortest-period)
+# cadence among a client's active streams (books must be ready for the soonest filing):
+#   active_streams      = obligations whose `applies_when` holds for the client in the period
+#   bookkeeping_cadence = min_period(active_streams)
+# cadence ordering: monthly < quarterly < semester < annual < per_term
+#
+# `applies_when` tokens are predicates the engine resolves from client state (regime.json,
+# payroll roster, threshold_monitor, patents).
+
+obligations:
+
+  usn_income_tax:
+    label: { ru: "УСН — авансы и декларация", en: "USN — advances and annual return" }
+    authority: fts
+    applies_when: regime_usn
+    # USN advances are CUMULATIVE (Q1 -> H1 -> 9M), paid by the 28th of the month after each
+    # period; the return is annual. The advance PERIOD is cumulative, while bookkeeping for it
+    # is incremental (post each quarter's docs) — distinct objects, see docs/CADENCE.md.
+    cadence: quarterly
+    advance_periods: [Q1, H1, 9M]
+    advance_deadline_day: 28
+    annual_return: true
+    annual_deadline: "03-28"          # organisation; sole proprietor (ИП) files 04-28 — resolve by legal form
+    checklist: quarterly-reporting
+
+  ausn_income_tax:
+    label: { ru: "АУСН — ежемесячный налог", en: "AUSN — monthly tax" }
+    authority: fts
+    applies_when: regime_ausn
+    # Bank partner computes the tax; the operator marks operations and pays monthly. No annual return.
+    cadence: monthly
+    deadline_day: 25                  # pay by the 25th of the next month
+    annual_return: false
+
+  vat:
+    label: { ru: "НДС", en: "VAT" }
+    authority: fts
+    applies_when: vat_liable          # OSNO, or USN above the VAT threshold (2025+). Path not yet built.
+    cadence: quarterly
+    deadline_day: 28                  # one third each month after the quarter
+    annual_return: false
+
+  payroll:
+    label: { ru: "Зарплатные налоги и отчётность", en: "Payroll taxes and reporting" }
+    authority: fts
+    applies_when: has_employees
+    # Several sub-streams; the tightest is monthly, so payroll sets a MONTHLY bookkeeping floor.
+    cadence: monthly
+    sub_streams:
+      - { code: ndfl,           cadence: monthly,   label: { ru: "НДФЛ (уплата)" } }
+      - { code: insurance,      cadence: monthly,   label: { ru: "Страховые взносы (уплата)" } }
+      - { code: pers_svedeniya, cadence: monthly,   label: { ru: "Персонифицированные сведения (СФР)" } }
+      - { code: rsv,            cadence: quarterly, label: { ru: "РСВ" } }
+      - { code: form_6ndfl,     cadence: quarterly, label: { ru: "6-НДФЛ" } }
+      - { code: efs1,           cadence: event,     label: { ru: "ЕФС-1 (по кадровым событиям)" } }
+
+  psn:
+    label: { ru: "ПСН — оплата патента", en: "PSN — patent payment" }
+    authority: fts
+    applies_when: has_active_patent
+    # Cadence follows each patent's term (1-12 months) — not a fixed monthly/quarterly slot.
+    cadence: per_term
+
+# Derived bookkeeping cadence — reference examples (SYNTHETIC clients, no real data):
+#   Aurora  (USN income, no staff)         -> quarterly   (only stream is the quarterly advance)
+#   Cobalt  (USN income + employees)       -> monthly     (payroll floor wins over USN quarterly)
+#   Harbor  (AUSN)                         -> monthly
+#   Patmos  (USN income + one 6-mo patent) -> quarterly   (USN) ; the patent is paid on its own term

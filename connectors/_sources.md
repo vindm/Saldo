@@ -17,7 +17,7 @@ and a collector's working set is their **union**:
    personal Gmail, the operator's WhatsApp.
 2. **Client-owned** (an account a client owns, the operator has access to) → that client's
    `state/accounts.json → quick_access[]` (already the per-client registry the `documents`
-   collector uses). E.g. `melati`'s `melatispa@gmail.com`, a client's Drive.
+   collector uses). E.g. `melati`'s `melatispa@example.com`, a client's Drive.
 
 `enumerate_sources(service)` = operator sources of that service **∪** every client's
 `quick_access` of that service, **deduped by (provider, handle)**. One list, both levels.

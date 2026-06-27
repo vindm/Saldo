@@ -38,6 +38,20 @@ exists in `tax_calendar_<year>` (`status: scheduled`) when absent — so the cal
 its own. Only clearly-derived recurring items (the dated filing/payment); **never invent an
 `amount`** (leave `null` until a collector or the operator fills it).
 
+**Non-monthly pack-declared obligations** (`jurisdictions/<code>/obligations.yaml`) materialize
+the same way, but the cadence is **declared, not monthly** — single periodic filings (LKPM, the
+annual return) whose cadence/deadlines are jurisdiction- and sometimes **scale**-driven. For each
+obligation whose `applies_when` matches the client (e.g. `penanaman_modal_registered` → an OSS
+LKPM for a PMDN/PMA client):
+- Resolve the cadence: a flat `cadence`/`deadline`, or `cadence_by_scale[<skala_usaha>]` — e.g.
+  LKPM is **semester** for an Usaha Kecil (deadline months 7 & 1, day 15 — Sem I→15 Jul, Sem II→15
+  Jan next year) and **quarterly** for medium/large. **Resolve the scale first; never assume.**
+- Ensure the next occurrence(s) exist in the correct `tax_calendar_<year>` key (next year for a
+  January deadline), `status: scheduled`, `amount: null`. Walk **all** year-suffixed calendars
+  (`tax_calendar_\d{4}`), not just the current one, so a January (next-year) filing is seen.
+- Materializing from the pack — not hand-keying — is what stops a wrong cadence drifting in (an
+  Usaha Kecil must not get a quarterly LKPM); the `obligation_cadence_mismatch` lint backstops it.
+
 ## Never closes, never pays
 
 A deadline flips to `paid`/`done` only when a **collector** detects the proof (the `documents`
@@ -60,4 +74,5 @@ it automatically.
 - `docs/COVERAGE-MAP.md` — C1 (this) + C8 `staleness_monitor` (the sibling monitor).
 - `connectors/mm_update/SKILL.md` — write path + §D close model.
 - `policies/INSTRUCTIONS.md §0` + `jurisdictions/<code>/pipeline.yaml` — jurisdiction-correct due-days.
+- `policies/INSTRUCTIONS.md §0.5` + `engine/_cadence.py` — the **bookkeeping** cadence rule (this monitor materializes the **tax** side of the same `obligations.yaml`).
 - `tests/runtime_scenarios/` — S11 is the gate.

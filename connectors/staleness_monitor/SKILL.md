@@ -22,6 +22,15 @@ someone looks); this brings the *push* back as a scheduled derive.
    OFD/kassa vs declared), or `financials.json → balance_anomalies[]` is non-empty/unresolved
    (e.g. cirrus's Сбер …0000 negative-balance artifact), and they diverge beyond tolerance →
    flag an R-style anomaly with the two numbers and their sources.
+   - **Cash-takings gate** (`periods[].cash_reconciled` / `turnover_source`, migration 0017) —
+     jurisdiction-agnostic, for any turnover-based regime whose pack declares
+     `require_cash_reconciliation` (RU USN-income / AUSN, ID UMKM-final). An **open** month
+     with recorded turnover where cash is in play (turnover_source names it, or the client has
+     a kassa/OFD/acquiring channel) but `cash_reconciled` is not true → flag «касса/выручка не
+     сверена за <месяц>: база налога с оборота может быть занижена» (ID: Moka POS vs the cash
+     report; RU: OFD/kassa vs declared). This is the push twin of the `cash_unreconciled`
+     publish gate in `state_lint.py` — the base must be complete before the turnover tax is
+     settled. Severity escalates by age toward the payment deadline.
 4. **Channel silence.** The client's last inbound signal (max of message/email/doc timestamps
    across `behavior.channels` + collector heartbeats) is older than a threshold **while open
    work exists** → flag «тишина по клиенту N дней».

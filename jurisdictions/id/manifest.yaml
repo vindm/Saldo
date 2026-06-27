@@ -6,6 +6,7 @@ authorities: authorities.yaml
 regimes: regimes.yaml
 pipeline: pipeline.yaml
 glossary: glossary.md
+ter: ter.yaml          # PPh 21 computation data (TER tables + PTKP + annual scale)
 workflow_domains: [coretax, email, bank, payroll, bpjs]
 checklists:
   # intake / inputs + master monthly close (PT with employees)
@@ -21,6 +22,12 @@ checklists:
   # payroll: PPh 21 + BPJS
   payroll:                    checklists/payroll-pph21-bpjs.md
   payroll_pph21_bpjs:         checklists/payroll-pph21-bpjs.md
+  # foreign worker (TKA): permits, DPKK levy, salary floor, mandatory BPJS, residency→method
+  foreign_worker:             checklists/foreign-worker-tka.md
+  tka_compliance:             checklists/foreign-worker-tka.md
+  # foreign-worker risk review (cross-border: ID host + worker's home country)
+  foreign_worker_risk_review: checklists/foreign-worker-risk-review.md
+  risk_review:                checklists/foreign-worker-risk-review.md
   # withholding: unifikasi (PPh 4(2) rent + PPh 23)
   withholding_unifikasi:      checklists/unifikasi-withholding.md
   unifikasi_withholding:      checklists/unifikasi-withholding.md

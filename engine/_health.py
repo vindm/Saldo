@@ -67,16 +67,49 @@ def calculate_health(client, calendar_rows=None, ukep_rows=None, requests_rows=N
         awaiting = [r for r in awaiting if r['client_id'] == cid]
     red, yellow = [], []
 
+    # Foreign-worker roster compliance (payroll.json, migration 0019). Mirrors
+    # state_lint H3 so the avatar ring agrees with the lint: a BPJS `missing` or an
+    # expired permit is RED; a permit within the pack's warn window is YELLOW.
+    try:
+        _roster = (state_ops.state_read(cid, 'payroll.json') or {}).get('employees') or []
+    except Exception:
+        _roster = []
+    _permit_warn_days = None
+    if _roster:
+        try:
+            import _jurisdiction as _J
+            _jur = (state_ops.state_read(cid, 'regime.json') or {}).get('jurisdiction')
+            _permit_warn_days = (((_J.load_jurisdiction(_jur).lint or {}).get('payroll')
+                                  or {}).get('foreign_worker') or {}).get('permit_expiry_warn_days')
+        except Exception:
+            _permit_warn_days = None
+
     # RED
     if mc.get('blocker'):
         red.append(f"Monthly-close blocker: {_short(mc['blocker'], 50)}")
-    # NOTE: a track with a past due_date is NOT, by itself, "overdue → red" (the
-    # original engine never did that). Red comes from explicit signals (blocker,
-    # long-overdue awaiting, daemon overdue/anomaly), matching original behavior.
-    # NOTE: awaiting tasks do NOT drive health here. The original engine's
-    # "request overdue >14d → red" was fed by the request-journal registry (a small,
-    # curated set), NOT by every state task in an awaiting status. Firing on all
-    # awaiting tasks over-reports red, so it is excluded to preserve behavior.
+    # An OVERDUE active task makes the client red (operator decision 2026-06-26).
+    # This keeps the colour honest against the card's «просрочено» badge, which is
+    # derived from the very same task due-dates: a client can no longer read «в
+    # норме» while carrying a past-due task. Mirrors the recommendations predicate
+    # in _brief.build_client_analysis_from_state (same active statuses, questions
+    # excluded), so the rail colour and the badge never disagree.
+    from _deadlines import _parse_date as _pd
+    _ACTIVE_TASK = ('active', 'open', 'in_progress', 'awaiting', 'awaiting_external')
+    try:
+        _client_tasks = (state_ops.state_read(cid, 'tasks.json') or {}).get('tasks') or []
+    except Exception:
+        _client_tasks = []
+    for _tk in _client_tasks:
+        if not isinstance(_tk, dict):
+            continue
+        if (_tk.get('status') or '') not in _ACTIVE_TASK:
+            continue
+        if _tk.get('task_type') == 'open_question':
+            continue
+        _dd = _pd(_tk.get('due_date'))
+        if _dd is not None and _dd < today:
+            red.append(f"Overdue task: {_short(_tk.get('title', ''), 50)}")
+            break
     # Daemons: Finkoper overdues and high anomalies for today
     for it in daemon_finkoper.get('overdue', []):
         if it.get('client') == name_short:
@@ -84,6 +117,22 @@ def calculate_health(client, calendar_rows=None, ukep_rows=None, requests_rows=N
     for it in daemon_anomalies.get('high', []):
         if it.get('client') == name_short:
             red.append(f"Anomaly (high): {_short(it.get('text',''), 60)}")
+    # Roster RED: a worker missing from a BPJS kas, or a permit already expired.
+    for _emp in _roster:
+        if not isinstance(_emp, dict):
+            continue
+        _who = _short(_emp.get('name') or _emp.get('id') or '?', 40)
+        _bpjs = _emp.get('bpjs') or {}
+        if (str(_bpjs.get('kesehatan')).lower() == 'missing'
+                or str(_bpjs.get('ketenagakerjaan')).lower() == 'missing'):
+            red.append(f"BPJS not registered: {_who}")
+        _permit = _emp.get('permit') or {}
+        for _pk in ('kitas_expires', 'rptka_expires'):
+            _pdate = _pd(_permit.get(_pk))
+            if _pdate is not None and _pdate < today:
+                red.append(f"Work permit expired: {_who}")
+                break
+
     if red:
         return {'color': 'red', 'reasons': red, 'score': min(100, 80 + 5*len(red))}
 
@@ -102,6 +151,19 @@ def calculate_health(client, calendar_rows=None, ukep_rows=None, requests_rows=N
     for it in daemon_anomalies.get('medium', []):
         if it.get('client') == name_short:
             yellow.append(f"Anomaly (medium): {_short(it.get('text',''), 55)}")
+    # Roster YELLOW: a foreign worker's permit expiring within the pack's warn window.
+    if _permit_warn_days:
+        for _emp in _roster:
+            if not isinstance(_emp, dict) or _emp.get('foreign_national') is not True:
+                continue
+            _who = _short(_emp.get('name') or _emp.get('id') or '?', 40)
+            _permit = _emp.get('permit') or {}
+            for _pk in ('kitas_expires', 'rptka_expires'):
+                _pdate = _pd(_permit.get(_pk))
+                if _pdate is not None and today <= _pdate <= today + timedelta(days=_permit_warn_days):
+                    yellow.append(f"Work permit renewal soon: {_who}")
+                    break
+
     if yellow:
         return {'color': 'yellow', 'reasons': yellow, 'score': min(79, 40 + 5*len(yellow))}
 

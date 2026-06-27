@@ -28,6 +28,50 @@ from _config import LOCALE
 UI = {
     'en': {},  # en is identity: the key IS the English string (see t()).
     'ru': {
+        # ── payroll roster panel + roster health (migration 0019 surfacing) ─
+        'Payroll roster': 'Сотрудники (зарплата)',
+        '👥 Payroll run': '👥 Зарплатный прогон',
+        'Employee': 'Сотрудник',
+        'Gross': 'Оклад',
+        'Net': 'На руки',
+        'Check': 'Сверка',
+        'Total': 'Итого',
+        'reconciled': 'сверено',
+        'to review': 'на проверке',
+        'mismatch': 'не сошлось',
+        'all reconciled': 'все строки сверены',
+        'new': 'новый',
+        'incl. THR': 'в т.ч. THR',
+        'lines': 'строк',
+        'changes': 'изменения',
+        'parity-ok': 'ок',
+        'social-gap': 'соцстрах не оформлен',
+        'foreign worker': 'иностранец',
+        'ok': 'оформлен',
+        'exempt': 'не требуется',
+        'missing': 'не оформлен',
+        'unconfirmed': 'не подтверждено',
+        'resident': 'резидент',
+        'non-resident': 'нерезидент',
+        'residency: unknown': 'резидентство не определено',
+        '→ should be PPh 26': '→ должен быть PPh 26',
+        '→ use annualisasi': '→ нужен annualisasi',
+        'permit expired': 'разрешение истекло',
+        'renewal in': 'продление через',
+        'days': 'дн.',
+        'permit to': 'разрешение до',
+        'permit unconfirmed': 'разрешение не подтверждено',
+        'covered': 'покрыт',
+        'all covered': 'все покрыты',
+        'no coverage': 'без покрытия',
+        'to verify': 'не подтверждено',
+        'both contributions': 'оба взноса',
+        'no BPJS — enrol': 'нет BPJS — оформить',
+        'BPJS unconfirmed': 'BPJS не подтв.',
+        'PPh: check method': 'PPh: проверить метод',
+        'permit': 'разрешение',
+        'paid out': 'выплачено',
+        'for period': 'за',
         # ── _updater.py — "Update Saldo" affordance ─────────────────
         'Update available': 'Доступно обновление',
         'Update Saldo': 'Обновить Saldo',
@@ -47,6 +91,8 @@ UI = {
         'Switch to the chat with the assistant, paste, and send.': 'Перейдите в чат с помощником, вставьте текст и отправьте.',
         'If the button does not work, just write to the assistant: «обнови систему Saldo» — it knows what to do.': 'Если кнопка не сработала, просто напишите помощнику: «обнови систему Saldo» — он знает, что делать.',
         'You are on the latest version. There is nothing to update right now. When a new version appears, an «Update available» item will show up in the menu on the left.': 'У вас самая свежая версия. Обновлять сейчас нечего. Когда появится новая версия, в меню слева появится пункт «Доступно обновление».',
+        # ── _onboarding.py — "Add client" call-to-action ──────────────────
+        'Add client': 'Добавить клиента',
         # ── _sidebar.py — left menu ───────────────────────────────────────
         'Dashboard': 'Дашборд',
         'Plan': 'План',
@@ -54,10 +100,21 @@ UI = {
         'This Week': 'Неделя',
         'Month': 'Месяц',
         'Calendar': 'Календарь',
+        'of': 'из',
+        'Other': 'Прочее',
+        'Work grouped by cycle, with its waves and tasks.': 'Работа по циклам, со своими волнами и задачами.',
+        'All deadlines and tasks, day by day.': 'Все сроки и задачи, день за днём.',
+        'No period': 'Без периода',
+        'Every reporting period, with its waves and tasks.': 'Каждый отчётный период со своими волнами и задачами.',
+        'List': 'Список',
+        'No upcoming tasks': 'Нет предстоящих задач',
         'Periods': 'Периоды',
         'done': 'готово',
         'in progress': 'в работе',
         'clients': 'клиентов',
+        'Now': 'Сейчас',
+        'All done': 'Завершено',
+        'No tasks': 'Нет задач',
         'No monthly-cycle tasks.': 'Нет задач месячного цикла.',
         'Each open reporting period and how far each stage has progressed across clients.':
             'Каждый открытый отчётный период и насколько продвинулась каждая стадия по клиентам.',
@@ -324,6 +381,9 @@ UI = {
         'Taxes': 'Налоги',
         # KPI row labels (client dashboard top metrics)
         'Turnover': 'Оборот',
+        'Readiness': 'Готовность',
+        'collecting…': 'собирается…',
+        'readiness note': 'Готовность = касса сверена + паритет с эталоном + налог посчитан. Пока не «зелено» — период не закрыть.',
         'Headcount': 'Сотрудники',
         'pers.': 'чел',
         'net payroll': 'ФОТ нетто',
@@ -469,6 +529,12 @@ UI = {
         'Due today': 'Сегодня',
         'Closed today': 'Закрыто сегодня',
         'Day streak': 'Дней подряд',
+        # ── KPI-band tile labels (Plan / clients headers) ──
+        'Next 7 days': 'Ближайшие 7 дней',
+        'Later': 'Дальше',
+        'Urgent': 'Срочные',
+        'Soon': 'Скоро',
+        'OK': 'В норме',
         # Top-5 / deadlines / activity widgets
         'Nothing urgent for today': 'На сегодня срочного нет',
         '🎯 Top-5 for today': '🎯 Топ-5 на сегодня',
@@ -656,11 +722,15 @@ UI = {
         'tenant (medical equipment)': 'арендатор (медоборудование)',
         'open questions:': 'открытые вопросы:',
         'tasks:': 'задачи:',
+        'task already created': 'задача уже заведена',
+        'tasks already created': 'задачи уже заведены',
         'INN:': 'ИНН:',
         'likes:': 'нравится:',
         'dislikes:': 'не нравится:',
         'USN advance': 'аванс УСН',
         'Past in': 'Прошло в',
+        'Further ahead': 'Дальше по графику',
+        'nothing due soon': 'ближайших сроков нет',
         'open question': 'открытый вопрос',
         'open questions': 'открытых вопросов',
         'Bank accounts': 'Счета в банках',
@@ -729,6 +799,8 @@ UI = {
         # owner report (one-pager)
         'Client report': 'Отчёт клиенту',
         'Turnover this month': 'Оборот за месяц',
+        'No turnover recorded yet': 'Оборот ещё не отражён',
+        'Turnover trend': 'Динамика оборота',
         'Taxes & contributions — paid': 'Налоги и взносы — уплачены',
         'Taxes & contributions': 'Налоги и взносы',
         'No tax payments were due this month.': 'В этом месяце налоговых платежей не было.',
@@ -803,6 +875,11 @@ UI = {
         'scheduled (finalization)': 'запланировано (финализация)',
         'unknown': 'неизвестно',
         'calculated, checking payment': 'рассчитано, проверяем оплату',
+        # period parity + turnover provenance chips (migration 0017)
+        'reconciled to source': 'сверено с эталоном',
+        'parity mismatch': 'расхождение с эталоном',
+        'awaiting parity': 'ждёт сверки',
+        'cash not reconciled': 'касса не сверена',
 
         # ── dictation (folded into the prompt modal) ──────────────────────
         'Dictate': 'Надиктовать',
@@ -921,3 +998,137 @@ _MONTHS_GEN = {
 WEEKDAYS = _WEEKDAYS.get(LOCALE, _WEEKDAYS['en'])
 WEEKDAYS_FULL = _WEEKDAYS_FULL.get(LOCALE, _WEEKDAYS_FULL['en'])
 MONTHS_GEN = _MONTHS_GEN.get(LOCALE, _MONTHS_GEN['en'])
+
+
+# ── Employee card modal (entity-linking derived view) — RU operator labels.
+#    Appended via state-discipline (bash+python) to keep Cyrillic intact.
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'Employee card': 'Карточка работника',
+    'How we calculate \u2014 basis': 'Как считаем \u2014 основание расчёта',
+    'Coverage and documents': 'Покрытие и документы',
+    'Tasks for employee': 'Задачи по сотруднику',
+    'Risk zones': 'Зоны риска',
+    'Monthly \u2014 payroll runs': 'Помесячно \u2014 прогоны зарплаты',
+    'Income tax': 'Налог с зарплаты',
+    'Family status': 'Семейный статус',
+    'Method': 'Метод',
+    'PPh 21 rate': 'Ставка PPh 21',
+    'Work permit': 'Разрешение на работу',
+    'Expat threshold': 'Порог экспата',
+    'progressive, PTKP': 'прогрессия, PTKP',
+    'not PPh 26': 'не PPh 26',
+    'flat 20%, no PTKP': '20% flat, без PTKP',
+    'table': 'таблица',
+    'annual progression (1721-A1)': 'годовая прогрессия (1721-A1)',
+    'method not set': 'метод не задан',
+    'employee': 'работник',
+    'employer': 'работодатель',
+    'not in billing': 'нет в биллинге',
+    'cap base 12M': 'потолок базы 12 млн',
+    'salary below expat floor': 'оклад ниже порога экспата',
+    'salary below expat floor \u2014 verify at permit renewal':
+        'оклад ниже порога экспата \u2014 проверить при продлении',
+    'parity vs incumbent': 'сверка с текущим бухгалтером',
+    'annual 1721-A1 = sum of run lines for the year':
+        'годовой 1721-A1 = сумма строк прогонов за год',
+    'no payroll runs yet': 'прогонов пока нет',
+    'due': 'срок',
+    'mo': 'мес',
+    'BPJS gap': 'BPJS-дыра',
+    'not in billing \u2014 KITAS holder must be in both kasses':
+        'нет в биллинге \u2014 держатель KITAS обязан быть в обеих кассах',
+    'cross-border zone': 'трансграничная зона',
+    "employee's personal zone \u2014 company does not file":
+        'личная зона сотрудника \u2014 компания не подаёт',
+    'All amounts in': 'Все суммы в',
+    'derived view \u2014 no new state': 'деривированный вид \u2014 нового state нет',
+    'Close': 'Закрыть',
+})
+
+# ── Employee card modal — actions / decisions / prompts (RU). Appended via
+#    state-discipline (bash+python) to keep Cyrillic intact.
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'Close BPJS gap': 'Закрыть BPJS-дыру',
+    'Check work permit': 'Проверить разрешение',
+    'Resolve parity gap': 'Разобрать расхождение',
+    'Review this employee: compute PPh 21 and BPJS for the open period, '
+    'reconcile parity with the incumbent, and check BPJS coverage and the work permit.':
+        'Разбери сотрудника: посчитай PPh 21 и BPJS за открытый период, '
+        'сверь parity с текущим бухгалтером, проверь покрытие BPJS и разрешение на работу.',
+    'Register this employee in the missing BPJS kasse(s) before the next billing, then reconcile coverage.':
+        'Оформи сотрудника в недостающие кассы BPJS до следующего биллинга, затем сверь покрытие.',
+    "Check this foreign worker's permit (KITAS/RPTKA): expiry, DPKK levy and the expat salary floor; plan the renewal.":
+        'Проверь разрешение иностранца (KITAS/RPTKA): срок, сбор DPKK и порог оклада для экспата; запланируй продление.',
+    'Investigate the parity gap with the incumbent (likely THR) for this employee and close it.':
+        'Разбери расхождение parity с текущим бухгалтером (вероятно THR) по этому сотруднику и закрой его.',
+})
+
+# ── Employee card — coverage status labels (RU).
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'enrolled': 'оформлен',
+    'register before billing': 'оформить до биллинга',
+    'clarify expiry': 'уточнить срок',
+    'paid': 'оплачен',
+})
+
+# ── Employee card — risk-lens detail bodies (RU), shown on expand.
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'BPJS gap detail': 'Держатель KITAS обязан состоять в обеих кассах BPJS (UU 24/2011). Оформить до следующего биллинга, иначе взносы занижены, а покрытие неполное.',
+    'expat threshold detail': 'Минимум оклада для иностранного работника ≈ 25–30 млн/мес. Проверить при продлении KITAS — иначе риск отказа в разрешении.',
+    'cross-border detail': 'Личные обязательства сотрудника в стране резидентства (СИДН, валютный контроль, личная декларация). Saldo это не ведёт и не подаёт — держим в поле зрения.',
+})
+
+# ── Employee card — plain-language glosses for the calc codes (RU). What each
+#    code means and what to do, so TK/0, TER, PPh 21 aren't bare symbols.
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'gloss pph21': 'PPh 21 — подоходный налог с зарплаты, местный аналог НДФЛ. У налогового резидента считается по прогрессивной шкале с годовым вычетом PTKP.',
+    'gloss pph26': 'PPh 26 — налог для нерезидента: 20% с зарплаты без вычетов и без PTKP.',
+    'gloss ptkp': 'PTKP — годовой необлагаемый минимум по семейному положению; он задаёт таблицу месячных ставок TER. «TK» — не в браке, «K» — в браке; цифра — число иждивенцев. Так TK/0 — не женат/не замужем, без иждивенцев → группа A.',
+    'gloss ter': 'TER — готовая месячная ставка из таблицы: берём процент по группе PTKP и не пересчитываем прогрессию каждый месяц.',
+    'gloss annualisasi': 'Для такого оклада корректнее годовой пересчёт (annualisasi, форма 1721-A1) — плоский TER за месяц занижает налог, разница всплывает в годовой сверке.',
+    'gloss kesehatan': 'Медстраховка сотрудника: 1% удерживаем с работника + 4% платит работодатель; база — оклад, но не выше потолка 12 млн ₨ (отсюда 120k/480k).',
+    'gloss ketenagakerjaan': 'Соцстрах: пенсия, страхование от травм на работе, на случай смерти и накопительная часть. В выгрузке взносов сотрудника нет — нужно оформить до биллинга.',
+})
+
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'gloss kitas': 'KITAS / e-ITAS — разрешение иностранцу на пребывание и работу. Главное — не пропустить срок: продление (RPTKA/IMTA) подаём заранее, иначе штраф и риск отказа.',
+    'gloss dpkk': 'DPKK — обязательный сбор за иностранного работника (~$100/мес) в фонд развития навыков; платится при действующем разрешении.',
+})
+
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'Show all': 'Показать всех',
+    'Collapse': 'Свернуть',
+})
+
+# ── Employee card — human-first values (meaning leads, code demoted).
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'not married': 'не в браке',
+    'married': 'в браке',
+    'no dependents': 'без иждивенцев',
+    'dependents': 'иждивенцев',
+    'group': 'группа',
+    'flat monthly rate': 'готовая месячная ставка',
+    'annual recalculation': 'годовой пересчёт',
+    'of salary': 'от оклада',
+    'health insurance': 'Медстраховка',
+    'social security': 'Соцстрах',
+    'levy for a foreign worker': 'Сбор за иностранца',
+})
+
+# ── Employee card — inline next-step hints (what to DO about a problem status).
+UI.setdefault('ru', {})
+UI['ru'].update({
+    'register before next billing': 'оформить до следующего биллинга',
+    'verify enrolment': 'проверить оформление',
+    'renew now': 'продлить срочно',
+    'plan renewal': 'запланировать продление',
+    'confirm payment': 'подтвердить оплату',
+})

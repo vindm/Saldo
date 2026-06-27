@@ -30,7 +30,7 @@ term_map:
 # in their locale (RU), but tax terms stay native (PP55, PPN, UMKM, BPJS).
 news:
   language: id
-  primary_sources: ["pajak.go.id", "jdih.kemenkeu.go.id", "peraturan.go.id", "bpjs-kesehatan.go.id", "bpjsketenagakerjaan.go.id"]
+  primary_sources: ["pajak.go.id", "jdih.kemenkeu.go.id", "peraturan.go.id", "bpjs-kesehatan.go.id", "bpjsketenagakerjaan.go.id", "imigrasi.go.id", "kemnaker.go.id"]
   commentary_sources: ["ortax.org", "ddtc.co.id", "pajakku.com"]
   topics:
     - { id: pp55_final_pph,   label: "PP55 / PPh final 0.5% UMKM (rate, time limit, revisions)", relevance: "regime=UMKM_FINAL" }
@@ -38,6 +38,7 @@ news:
     - { id: pph_badan,        label: "PPh Badan (corporate 22%) — for when the facility lapses", relevance: all }
     - { id: pph21_withhold,   label: "PPh 21 / 23 / 4(2) withholding (unifikasi) rates & forms", relevance: "has_payroll_or_withholding" }
     - { id: bpjs,             label: "BPJS Kesehatan / Ketenagakerjaan contribution rates", relevance: "has_payroll" }
+    - { id: tka_immigration,  label: "Foreign worker (TKA): RPTKA/IMTA, KITAS/e-ITAS, expat salary floor, DPKK levy, foreign-worker BPJS rules", relevance: "has_foreign_worker" }
     - { id: coretax_spt,      label: "Coretax / SPT Masa & Tahunan form/deadline changes", relevance: all }
     - { id: lkpm_oss,         label: "LKPM / OSS reporting changes", relevance: all }
   exclude: ["RU-specific items", "non-Indonesian-source items"]

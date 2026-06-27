@@ -89,6 +89,8 @@ _TASK_TYPE_LABEL = {
     'record_ntpn': 'record payment receipt',
     'spt_masa': 'monthly tax return',
     'monthly_close_pt': 'month close',
+    'monthly_close': 'month close',
+    'withholding': 'withholding',
     'annual_spt_badan': 'annual tax return',
     'note': 'note',
     'data_request': 'data request',
@@ -128,6 +130,18 @@ def build_mm_tracks_index(mm):
 
 
 from _helpers import track_stale_days  # R8
+
+
+def _resolution_render(status_canon, blocked_by):
+    """Render-time approximation of resolution_mode (policies/resolution-model.md).
+    The precise auto/needs split is the SWEEP's job; the render shows the operator
+    axis only: is this task WAITING (blocked/awaiting external) or does it NEED YOU.
+    Terminal -> 'done'. Cheap: status + blocked_by, no lint/theta at render."""
+    if status_canon in ('done', 'archived', 'cancelled'):
+        return 'done'
+    if status_canon in ('blocked', 'deferred') or str(status_canon).startswith('await') or blocked_by:
+        return 'wait_external'
+    return 'needs_operator'
 
 
 def build_track_data_attrs(
@@ -373,6 +387,71 @@ def build_track_data_attrs(
         except Exception:
             track_type_v = ''
 
+    # Resolve payroll-line employee names from the client's roster AT RENDER TIME
+    # (entity-linking: the stored line keeps only employee_id; name/position is derived).
+    # Review cockpit: derive per-line + run-level review signals AT RENDER TIME from the
+    # client's roster (names), the PRIOR month's run (Δ), and the period aggregate (parity
+    # localization). All in the rendered copy — the stored line keeps only its calc fields.
+    _ts_render = type_specific
+    try:
+        if isinstance(type_specific, dict) and type_specific.get('payroll_lines') and client_id:
+            import state_ops as _so, copy as _cp
+            _ts_render = _cp.deepcopy(type_specific)
+            _lines = _ts_render.get('payroll_lines') or []
+            # roster: id -> {name, position}
+            _einfo = {e.get('id'): e for e in
+                      ((_so.state_read(client_id, 'payroll.json') or {}).get('employees') or [])
+                      if isinstance(e, dict) and e.get('id')}
+            # prior masa run: id -> gross
+            def _prev_masa(m):
+                try:
+                    y, mm = str(m).split('-'); mm = int(mm) - 1
+                    return ("%d-12" % (int(y) - 1)) if mm == 0 else ("%s-%02d" % (y, mm))
+                except Exception:
+                    return None
+            _pm = _prev_masa(type_specific.get('period'))
+            _prior = {}
+            if _pm:
+                for _tk in ((_so.state_read(client_id, 'tasks.json') or {}).get('tasks') or []):
+                    _ts2 = _tk.get('type_specific') or {}
+                    if str(_tk.get('task_type', '')).startswith('payroll') and _ts2.get('period') == _pm:
+                        for _l2 in (_ts2.get('payroll_lines') or []):
+                            if isinstance(_l2, dict) and _l2.get('employee_id'):
+                                _prior[_l2['employee_id']] = _l2.get('gross')
+            # period aggregate (incumbent benchmark)
+            _per_pph = None
+            for _p in ((_so.state_read(client_id, 'financials.json') or {}).get('periods') or []):
+                if isinstance(_p, dict) and _p.get('period') == type_specific.get('period'):
+                    _per_pph = (_p.get('taxes') or {}).get('pph21')
+            _TH = 1000000
+            _sum = 0; _nflag = _nchg = 0; _has_thr = False; _bpjs_gap = False
+            for _ln in _lines:
+                if not isinstance(_ln, dict):
+                    continue
+                _e = _einfo.get(_ln.get('employee_id'))
+                if _e:
+                    _ln['name'] = _e.get('name'); _ln['position'] = _e.get('position')
+                _g = _ln.get('gross') or 0; _sum += (_ln.get('pph') or 0)
+                _pv = _prior.get(_ln.get('employee_id'))
+                _delta = None if _pv is None else (_g - (_pv or 0))
+                _isnew = bool(_prior) and (_ln.get('employee_id') not in _prior)
+                if _ln.get('thr'):
+                    _has_thr = True
+                _kk = (_ln.get('bpjs') or {}).get('ketenagakerjaan')
+                if _kk in (None, '') or str(_kk).lower() == 'missing':
+                    _bpjs_gap = True
+                _flag = _isnew or (_delta is not None and abs(_delta) >= _TH)
+                if _flag:
+                    _nflag += 1
+                if _isnew or (_delta not in (None, 0)):
+                    _nchg += 1
+                _ln['_review'] = {'delta': _delta, 'is_new': _isnew, 'flag': _flag}
+            _gap = (_sum - _per_pph) if _per_pph is not None else None
+            _ts_render['_summary'] = {'n': len(_lines), 'sum_pph': _sum, 'period_pph': _per_pph,
+                'gap': _gap, 'n_flag': _nflag, 'n_change': _nchg, 'thr': _has_thr, 'bpjs_gap': _bpjs_gap}
+    except Exception:
+        _ts_render = type_specific
+
     parts = [
         ' data-track-id="' + esca(track_id) + '"',
         ' data-track-client-id="' + esca(client_id) + '"',
@@ -382,6 +461,8 @@ def build_track_data_attrs(
         ' data-track-status-raw="' + esca(status_raw) + '"',
         ' data-track-status-disp="' + esca(status_disp) + '"',
         ' data-track-status-canon="' + esca(status_canon) + '"',
+        ' data-track-resolution="' + esca(_resolution_render(status_canon, blocked_by)) + '"',
+        ' data-track-confidence="' + esca(((assist or {}).get('confidence') or '')) + '"',
         ' data-track-badge="' + esca(badge_text) + '"',
         ' data-track-context="' + esca(context) + '"',
         ' data-track-next="' + esca(next_action) + '"',
@@ -397,7 +478,7 @@ def build_track_data_attrs(
         ' data-track-blocked-by-json="' + esca(json.dumps(bb_titles, ensure_ascii=False)) + '"',
         ' data-track-blocks-json="' + esca(json.dumps(blocks_titles, ensure_ascii=False)) + '"',
         ' data-track-labels-json="' + esca(json.dumps(list(labels), ensure_ascii=False)) + '"',
-        ' data-track-type-specific-json="' + esca(json.dumps(type_specific, ensure_ascii=False)) + '"',
+        ' data-track-type-specific-json="' + esca(json.dumps(_ts_render, ensure_ascii=False)) + '"',
         ' data-track-comments-json="' + esca(json.dumps(comments, ensure_ascii=False)) + '"',
         ' data-track-details-json="' + esca(details_json_s) + '"',
         ' data-track-history-json="' + esca(json.dumps(history_list, ensure_ascii=False) if history_list else '') + '"',

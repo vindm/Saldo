@@ -14,17 +14,37 @@ Composites write their results into the instance's data directory in a defined f
 
 ## Bundled connectors
 
+### External-system collectors
+
 | Connector | System | Purpose |
 |---|---|---|
 | `practice_management` | Finkoper | Tasks and client chats: notifications, task/chat reads, status changes |
 | `email` | Mail (Yandex) | Inbox triage, thread/message reads, morning digest |
-| `telegram` | Telegram | Direct-client chats sync |
+| `messengers` | Telegram, WhatsApp, Max | Direct-client chats sync (session-level access: one operator account reaches every chat by search) |
 | `bank` | T-Bank, Alfa | Statements & operations for the direct book |
 | `ofd` | Fiscal Data Operator | Cash / Z-report reconciliation |
-| `stats_portal` | Statistics portal | Annual statistical reporting checks |
-| `registry` | Company registry | Requisite verification against the official registry |
+| `stats_portal` | Statistics portal (websbor) | Annual statistical reporting checks |
+| `registry` | Company registry (egrul) | Requisite verification against the official registry |
+| `documents` | Local docs folders | Ingest client documents (receipts, statements, payment proofs); matches a payment receipt to its `tax_calendar` entry and records `payment_ref` |
 | `news` | News sources | Domain news by configured topics |
-| `mm_update` | (internal) | Single contract for applying any signal to client state |
+
+### Internal / runtime connectors
+
+These have no external API; they read and write client state, drive the upgrade cycle, or reconcile the operator's environment. The monitors/resolvers are the daemon half of the hybrid model (daemons write state, the operator closes from the card).
+
+| Connector | Role | Purpose |
+|---|---|---|
+| `mm_update` | state contract | Single contract for applying any signal to client state |
+| `onboarding` | state | Add a new client: gather identity/regime, resolve jurisdiction, register via `state_ops`, regenerate — operator-gated, additive (no migration) |
+| `deadline_monitor` | monitor | Writes upcoming tax-calendar deadlines into state; drops entries once terminal (`status:paid` + `payment_ref`) |
+| `staleness_monitor` | monitor | Flags tracks with no movement (stale) for nudge or postpone |
+| `threshold_monitor` | monitor | Watches regime thresholds (e.g. turnover approaching a regime/PKP limit) |
+| `counterparty_status` | monitor | Counterparty (contractor) status / reliability signals |
+| `question_resolver` | resolver | Nightly auto-resolution of acquisition / open questions per the `mm_update` rung logic |
+| `resolution_sweep` | resolver | Nightly sweep that performs only the reversible half of a resolution and surfaces the rest (`policies/resolution-model.md`) |
+| `scheduler` | environment | Reconciles the operator's scheduled tasks to `config/instance.yaml → schedule` (Saldo-owned `saldo-<name>` jobs only) |
+| `migration_runtime` | upgrade | Drives the runtime half of migrations during an upgrade (`migrate.py next → apply → record`) |
+| `update` | upgrade | Operator self-update: checks GitHub, runs the guarded pull → migrate → rebuild via `tools/update.py` |
 
 ## Adding a connector
 

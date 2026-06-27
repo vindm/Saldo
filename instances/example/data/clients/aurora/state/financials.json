@@ -21,15 +21,25 @@
     }
   ],
   "yearly_pace_2026": {
-    "estimated_annual_income_usn": 3800000,
     "growth_vs_prev_year_x": 0.95,
     "nds_threshold_2026": 20000000,
     "ausn_threshold_2026": 60000000,
     "nds_warning": false,
     "nds_warning_reason": "Synthetic — safe.",
-    "notes": "Synthetic pace."
+    "notes": "Synthetic pace.",
+    "estimated_annual_income": 3800000
   },
-  "tax_calendar_2026": [],
+  "tax_calendar_2026": [
+    {
+      "date": "2026-07-25",
+      "what": "USN advance Q2",
+      "amount": null,
+      "amount_estimated": 58000,
+      "kbk": "usn_income",
+      "status": "scheduled_calc_by_fact",
+      "linked_task": null
+    }
+  ],
   "monthly_close": {
     "month": "April 2026",
     "deadline": "2026-06-16",

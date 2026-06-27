@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "client_id": "kirana",
+  "last_updated": "2026-06-20T00:00:00",
+  "communication": {
+    "response_speed": {
+      "level": "normal",
+      "description": "Synthetic.",
+      "active_examples": [],
+      "silence_examples": []
+    },
+    "style": {
+      "tone": "friendly",
+      "emoji_usage": "rare",
+      "formality": "neutral",
+      "notes": "Synthetic."
+    },
+    "preferences": {
+      "likes": [],
+      "dislikes": [],
+      "asks_for_pattern": null
+    }
+  },
+  "channels": {
+    "primary": {
+      "type": "whatsapp",
+      "id": "+62000000001"
+    },
+    "secondary": [],
+    "best_time": null,
+    "timezone": "UTC+8"
+  },
+  "notes": "Synthetic behavior profile.",
+  "special_notes": [
+    "Indonesia client (PT). UMKM final 0.5% + full PT cycle (payroll, unifikasi, annual SPT Badan). Operator + client communicate in Russian; jurisdiction is Indonesian.",
+    "Synthetic."
+  ]
+}

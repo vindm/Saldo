@@ -38,3 +38,12 @@ below are written for a **Russian-jurisdiction** operator (the practice's locale
 | **NIK** | the employee's national ID number (links to NPWP) | как СНИЛС/паспортные данные сотрудника |
 | **EDABU** | the BPJS Kesehatan employer portal (member roster) | портал медстраховки (реестр сотрудников) |
 | **EPS / SIPP** | the BPJS Ketenagakerjaan employer portal/payment | портал соцстраха (реестр и оплата) |
+| **TKA** | tenaga kerja asing — a foreign worker | иностранный сотрудник |
+| **RPTKA** | the approved plan/permit to employ a foreign worker (Kemnaker) | разрешение на привлечение иностранца |
+| **IMTA / notifikasi** | the work permit issued under an RPTKA | разрешение на работу иностранца |
+| **KITAS / e-ITAS** | the foreign worker's limited-stay (residence) permit | ВНЖ иностранца (временный) |
+| **DPKK / DKPTKA** | the foreign-worker compensation levy (~USD 100/employee/mo) | сбор за иностранного работника |
+| **PPh 26** | 20% flat withholding on a NON-resident's Indonesian income (no PTKP) | подоходный с нерезидента, плоские 20% |
+| **pegawai tetap** | a permanent (salaried) employee | штатный сотрудник |
+| **annualisasi** | computing PPh 21 on the annual progressive scale (true-up), not flat TER | расчёт подоходного по годовой прогрессии |
+| **1721-A1** | the annual PPh 21 withholding certificate for an employee | годовая справка об удержанном подоходном, как 2-НДФЛ |

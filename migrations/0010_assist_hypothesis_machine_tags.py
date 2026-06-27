@@ -100,3 +100,96 @@ def up(api):
         return True, "cleaned machine tags in %d assist.hypothesis field(s)" % changed
 
     api.for_each_client("tasks.json", fix)
+
+
+# ---------------------------------------------------------------------------
+# AI-side surface (RUNTIME_PASS spec, added 2026-06-26). Optional; up() above is
+# unchanged. The deterministic strip above PROTECTS parentheticals that carry
+# operator meaning (mental_model / state and other source labels) and leaves them
+# "for a runtime prose rewrite". preflight surfaces exactly those; RUNTIME_PASS
+# rewrites them into clean operator Russian. See migrations/RUNTIME_PASS_SPEC.md.
+# ---------------------------------------------------------------------------
+
+def _residual_machine_label(text):
+    """Parentheticals that SURVIVED the deterministic strip but still read as a
+    machine token to the operator (a source label like (mental_model)/(state), or
+    any latin-bearing aside). ADVISORY: the runtime rewrites the sentence; this
+    just surfaces candidates. Pure-Cyrillic asides ((см. договор)) are not flagged."""
+    base = _clean(text) or text
+    if not isinstance(base, str) or not base:
+        return []
+    out = []
+    for m in _PAREN.finditer(base):
+        inner = m.group(1)
+        if re.search(r"[A-Za-z][A-Za-z_]{2,}", inner):
+            out.append(inner.strip())
+    seen, ded = set(), []
+    for x in out:
+        if x not in seen:
+            seen.add(x); ded.append(x)
+    return ded
+
+
+def preflight(api):
+    """READ step for `migrate.py next`. Read-only scan of assist.hypothesis for the
+    meaningful machine-labelled parentheticals the deterministic strip left behind."""
+    flags = []
+    for cid in api.clients():
+        data = api.read(cid, "tasks.json")
+        if not isinstance(data, dict):
+            continue
+        tasks = data.get("tasks")
+        if not isinstance(tasks, list):
+            continue
+        for tk in tasks:
+            if not isinstance(tk, dict):
+                continue
+            assist = tk.get("assist")
+            if not isinstance(assist, dict):
+                continue
+            left = _residual_machine_label(assist.get("hypothesis"))
+            if left:
+                flags.append({
+                    "client": cid,
+                    "task": tk.get("id"),
+                    "field": "assist.hypothesis",
+                    "leftover": left,
+                    "text": (_clean(assist.get("hypothesis")) or assist.get("hypothesis"))[:160],
+                    "kind": "needs_prose_rewrite",
+                })
+                if len(flags) >= 50:
+                    return flags
+    return flags
+
+
+RUNTIME_PASS = {
+    "intent": (
+        "Rewrite the assist.hypothesis lines preflight flagged so the meaning the "
+        "machine label carried is expressed in clean operator Russian, with no "
+        "(mental_model)/(state)/source-token parenthetical left. E.g. "
+        "'Расхождение 8 (mental_model) vs 7 (state)' -> "
+        "'Расхождение: по модели 8, в состоянии 7'. CONSERVATIVE: keep the numbers/"
+        "facts, leave genuine non-machine asides, never touch identifiers or risk "
+        "ids. Preserve the original in assist.hypothesis_legacy (mirroring up())."
+    ),
+    "scope": "tasks[].assist.hypothesis",
+    "escalate": "on_anomaly",
+    "guardrails": [
+        "only modify a hypothesis preflight flagged",
+        "preserve the original in assist.hypothesis_legacy",
+        "keep every number / fact / id; rewrite only the machine-label phrasing",
+        "leave genuine Cyrillic asides untouched",
+    ],
+}
+
+EXPECT = {
+    "preflight_max": 30,
+    "change_kinds": ["needs_prose_rewrite"],
+}
+
+SCENARIO = [
+    "Open the Plan / a track modal for a flagged client. Confirm the hypothesis "
+    "lens reads as clean operator Russian, that no (mental_model)/(state)/machine "
+    "parenthetical remains, that the distinction it carried is preserved in prose, "
+    "and that assist.hypothesis_legacy kept the original.",
+]

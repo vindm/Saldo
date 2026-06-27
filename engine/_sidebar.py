@@ -21,50 +21,63 @@ from _strings import t
 from _icons import icon, ICON_SPRITE, ICON_CSS
 
 SIDEBAR_CSS = (
-    ".layout-shell{display:grid;grid-template-columns:240px 1fr;gap:0;"
+    ".layout-shell{display:grid;grid-template-columns:248px 1fr;gap:0;"
     "max-width:none;margin:0;padding:0;align-items:start}"
     "@media(max-width:900px){.layout-shell{grid-template-columns:1fr}}"
     # Full-bleed sidebar: edge-to-edge, full height, hairline right border —
     # no floating 'island' card (border/radius/inset removed).
     ".sb{background:var(--bg-card);border:none;border-right:1px solid var(--border);"
-    "border-radius:0;padding:var(--space-lg) var(--space-md);"
+    "border-radius:0;padding:28px 20px;"
     "font-size:15px;position:sticky;top:0;height:100vh;"
     "max-height:100vh;overflow-y:auto;display:flex;flex-direction:column}"
     # Bottom block (guide + update + footer) pinned to the foot of the sidebar.
     ".sb-bottom{margin-top:auto}"
     ".main-content{padding:32px 48px}"
     "@media(max-width:900px){.main-content{padding:var(--space-lg)}}"
-    ".sb-logo{display:flex;flex-direction:column;align-items:center;text-align:center;"
-    "gap:7px;padding:2px var(--space-sm) var(--space-lg);"
-    "border-bottom:1px solid var(--border);margin-bottom:var(--space-sm)}"
-    ".sb-logo-img{width:64px;height:64px;border-radius:50%;display:block;"
+    # Generous left-aligned brand block: logo stacked above the name + tagline,
+    # an editorial header rather than a cramped row. Text wraps freely, so a long
+    # brand name (e.g. the RU practice "Ирина Винокурова") flows to 2 lines.
+    ".sb-logo{display:flex;flex-direction:column;align-items:flex-start;text-align:left;"
+    "gap:14px;padding:2px 2px 24px;"
+    "border-bottom:1px solid var(--border);margin-bottom:18px}"
+    ".sb-logo-img{width:54px;height:54px;border-radius:50%;display:block;flex-shrink:0;"
     "box-shadow:0 1px 4px rgba(31,78,121,0.25)}"
-    ".sb-logo-txt{display:flex;flex-direction:column;line-height:1.18;gap:5px}"
-    ".sb-logo-txt b{font-size:14px;font-weight:700;color:#1F4E79;letter-spacing:.01em}"
-    ".sb-logo-txt span{font-size:11px;color:var(--text-secondary);"
-    "text-transform:uppercase;letter-spacing:.05em}"
-    ".sb-group{font-size:15px;text-transform:uppercase;letter-spacing:0.04em;"
-    "color:var(--text-secondary);padding:var(--space-sm) var(--space-sm) 4px;font-weight:600}"
-    ".sb-item{display:flex;align-items:center;gap:8px;padding:8px var(--space-sm);"
-    "border-radius:var(--radius-btn);color:var(--text-primary);"
-    "text-decoration:none;font-size:15px;cursor:pointer;"
+    ".sb-logo-txt{display:flex;flex-direction:column;line-height:1.2;gap:4px;min-width:0}"
+    ".sb-logo-txt b{font-size:17px;font-weight:600;color:#1F4E79;letter-spacing:.005em}"
+    ".sb-logo-txt span{font-size:10.5px;color:var(--text-muted);"
+    "text-transform:uppercase;letter-spacing:.13em}"
+    # Quiet section header: a small muted micro-label with wide tracking and room
+    # above it — reads as a divider caption, not a clickable peer of the nav items.
+    ".sb-group{font-size:10.5px;text-transform:uppercase;letter-spacing:0.14em;"
+    "color:var(--text-muted);padding:18px 10px 8px;font-weight:400}"
+    # Nav rows: airy 14.5px on a roomy 8px rhythm — inactive rows are the calmer
+    # --text-secondary, going full --accent (navy) when selected.
+    ".sb-item{display:flex;align-items:center;gap:11px;padding:8px 10px;"
+    "border-radius:7px;color:var(--text-secondary);"
+    "text-decoration:none;font-size:14.5px;cursor:pointer;"
     "transition:background var(--transition),color var(--transition);"
     "margin-bottom:1px}"
     ".sb-item:hover{background:var(--bg-page);color:var(--text-primary)}"
+    # The accent left-rail is the SINGLE selection signal (see the removed purple
+    # client-group border below) — so the active item is never ambiguous.
     ".sb-item.active{background:var(--accent-soft);color:var(--accent-text);"
-    "font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}"
-    ".sb-item.sub{padding-left:24px;font-size:15px}"
-    ".sb-item .ico{font-size:16px;line-height:1;flex-shrink:0;width:16px;"
-    "display:inline-flex;justify-content:center}"
-    ".sb-item .count{margin-left:auto;font-size:14px;color:var(--text-secondary);"
-    "padding:2px 8px;background:var(--bg-page);border-radius:10px;font-weight:500}"
-    ".sb-item.active .count{background:var(--bg-card)}"
-    ".sb-item .count.alert{color:var(--accent-red);font-weight:600}"
+    "font-weight:500;box-shadow:inset 3px 0 0 var(--accent)}"
+    ".sb-item.sub{padding-left:28px;font-size:14.5px}"
+    # Icons sit muted at rest and follow the row to navy when it's active.
+    ".sb-item .ico{font-size:15px;line-height:1;flex-shrink:0;width:17px;"
+    "color:var(--text-muted);display:inline-flex;justify-content:center}"
+    ".sb-item.active .ico{color:var(--accent)}"
+    # Counts are quiet tabular numbers, not pills — less chrome per row.
+    ".sb-item .count{margin-left:auto;font-size:12px;color:var(--text-muted);"
+    "font-weight:400;font-variant-numeric:tabular-nums}"
+    ".sb-item.active .count{color:var(--accent-text)}"
+    # The one count that must pull attention (overdue Plan items) keeps a red tint.
+    ".sb-item .count.alert{color:var(--accent-red);font-weight:600;"
+    "background:var(--red-bg);padding:1px 7px;border-radius:9px}"
     ".sb-divider{height:1px;background:var(--border);margin:var(--space-sm) 4px}"
     ".sb-footer{font-size:12px;color:var(--text-muted);padding:var(--space-sm);"
     "border-top:1px solid var(--border);margin-top:var(--space-sm);text-align:center;letter-spacing:.02em}"
     ".main-content{min-width:0}"
-    ".sb-item.sb-clients{border-left:3px solid #7F77DD}"
     # Gold "Update available" call-to-action (rendered by _updater.py).
     ".sb-item.sb-update{border-left:3px solid #B79257;background:#FBF4E6;"
     "color:#6B4F1C;font-weight:600}"
@@ -74,15 +87,12 @@ SIDEBAR_CSS = (
 SIDEBAR_CSS = SIDEBAR_CSS + ICON_CSS
 
 
-def _sb_item(href, label, key, active, icon='', sub=False, count=None, alert=False,
-             clients_item=False):
+def _sb_item(href, label, key, active, icon='', sub=False, count=None, alert=False):
     cls = 'sb-item'
     if sub:
         cls += ' sub'
     if key == active:
         cls += ' active'
-    if clients_item:
-        cls += ' sb-clients'
     cnt_html = ''
     if count is not None:
         cnt_cls = 'count alert' if alert else 'count'
@@ -108,7 +118,7 @@ def _client_group_items(active):
         ic_name = _GROUP_ICONS[i % len(_GROUP_ICONS)]
         items.append(_sb_item(
             'clients_' + slug + '.html', _group_label(g), key, active,
-            icon=icon(ic_name), count=count, clients_item=True,
+            icon=icon(ic_name), count=count,
         ))
     return items
 

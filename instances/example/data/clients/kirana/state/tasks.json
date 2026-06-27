@@ -1,0 +1,343 @@
+{
+  "schema_version": "2.0",
+  "client_id": "kirana",
+  "last_updated": "2026-06-20T00:00:00",
+  "tasks": [
+    {
+      "id": "kirana_close05",
+      "title": "May 2026 monthly close (PT)",
+      "task_type": "monthly_close",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-06-01",
+      "due_date": "2026-06-15",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Run the full PT monthly close for May: turnover -> final 0.5%, payroll PPh 21 + BPJS, unifikasi withholding, SPT Masa.",
+      "next_action": "Collect May turnover + payroll + rent invoice, then work the close checklist.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Task created (synthetic seed).",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05"
+      },
+      "assist": {
+        "hypothesis": "Monthly PT close not yet done for May; turnover, payroll and rent inputs all pending. Drives the three withholding tracks below.",
+        "confidence": "medium",
+        "updated_at": "2026-06-26",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Run the PT close",
+            "recommended": true,
+            "prompt": "For PT Kirana Wellness (Indonesia, UMKM final 0.5%, has employees + rented premises): run the May 2026 monthly close per jurisdictions/id/checklists/monthly-close-pt.md — gather gross turnover, payroll, and the rent invoice; then compute final PPh 0.5%, PPh 21 + BPJS, and unifikasi (PPh 4(2) rent + PPh 23). Surface each amount for my approval before any Coretax billing or submission."
+          }
+        ]
+      }
+    },
+    {
+      "id": "kirana_payroll05",
+      "title": "May payroll — PPh 21 + BPJS",
+      "task_type": "payroll",
+      "status": "active",
+      "priority": "high",
+      "created_at": "2026-06-01",
+      "due_date": "2026-06-10",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [
+        "kirana_close05"
+      ],
+      "labels": [],
+      "context": "6 employees. Compute PPh 21 withholding + BPJS Kesehatan & Ketenagakerjaan; report on Coretax (SPT Masa PPh 21).",
+      "next_action": "Get May gross salaries, then compute PPh 21 + both BPJS contributions.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Task created (synthetic seed).",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05",
+        "payroll_lines": [
+          {
+            "employee_id": "emp_putu",
+            "gross": 6200000,
+            "method": "ter",
+            "ptkp_category": "TK/0",
+            "ter_rate": 0.015,
+            "pph": 93000,
+            "bpjs": {
+              "kesehatan": {
+                "employee": 62000,
+                "employer": 248000
+              },
+              "ketenagakerjaan": {
+                "employee": 186000,
+                "employer": 368000
+              }
+            },
+            "net": 5859000,
+            "source": "ведомость май 2026",
+            "parity_status": "pass",
+            "parity_ref": "bukti potong 2026-05"
+          },
+          {
+            "employee_id": "emp_made",
+            "gross": 6200000,
+            "method": "ter",
+            "ptkp_category": "TK/0",
+            "ter_rate": 0.015,
+            "pph": 93000,
+            "bpjs": {
+              "kesehatan": {
+                "employee": 62000,
+                "employer": 248000
+              },
+              "ketenagakerjaan": {
+                "employee": 186000,
+                "employer": 368000
+              }
+            },
+            "net": 5859000,
+            "source": "ведомость май 2026",
+            "parity_status": "pass",
+            "parity_ref": "bukti potong 2026-05"
+          },
+          {
+            "employee_id": "emp_kadek",
+            "gross": 6000000,
+            "method": "ter",
+            "ptkp_category": "TK/0",
+            "ter_rate": 0.015,
+            "pph": 90000,
+            "bpjs": {
+              "kesehatan": {
+                "employee": 60000,
+                "employer": 240000
+              },
+              "ketenagakerjaan": {
+                "employee": 180000,
+                "employer": 356000
+              }
+            },
+            "net": 5670000,
+            "source": "ведомость май 2026",
+            "parity_status": "pass",
+            "parity_ref": "bukti potong 2026-05"
+          },
+          {
+            "employee_id": "emp_wayan",
+            "gross": 6000000,
+            "method": "ter",
+            "ptkp_category": "TK/0",
+            "ter_rate": 0.015,
+            "pph": 90000,
+            "bpjs": {
+              "kesehatan": {
+                "employee": 60000,
+                "employer": 240000
+              },
+              "ketenagakerjaan": {
+                "employee": 180000,
+                "employer": 356000
+              }
+            },
+            "net": 5670000,
+            "source": "ведомость май 2026",
+            "parity_status": "pass",
+            "parity_ref": "bukti potong 2026-05"
+          },
+          {
+            "employee_id": "emp_nyoman",
+            "gross": 5000000,
+            "method": "ter",
+            "ptkp_category": "TK/0",
+            "ter_rate": 0.015,
+            "pph": 0,
+            "bpjs": {
+              "kesehatan": {
+                "employee": 50000,
+                "employer": 200000
+              },
+              "ketenagakerjaan": {
+                "employee": 150000,
+                "employer": 297000
+              }
+            },
+            "net": 4800000,
+            "source": "ведомость май 2026",
+            "parity_status": "pass",
+            "parity_ref": "bukti potong 2026-05"
+          },
+          {
+            "employee_id": "emp_expat",
+            "gross": 20000000,
+            "method": "annualisasi",
+            "ptkp_category": "TK/0",
+            "ter_rate": null,
+            "pph": 1870000,
+            "bpjs": {
+              "kesehatan": {
+                "employee": 0,
+                "employer": 0
+              },
+              "ketenagakerjaan": {
+                "employee": 400000,
+                "employer": 800000
+              }
+            },
+            "net": 17330000,
+            "source": "ведомость май 2026",
+            "parity_status": "pending",
+            "parity_ref": null
+          }
+        ],
+        "totals": {
+          "pph": 2236000,
+          "bpjs": 5297000,
+          "net": 45188000
+        },
+        "refs": [
+          {
+            "type": "period",
+            "id": "2026-05"
+          },
+          {
+            "type": "employee",
+            "id": "emp_expat"
+          }
+        ]
+      },
+      "assist": {
+        "hypothesis": "May payroll not yet computed. 6 employees on payroll -> monthly PPh 21 + BPJS Kesehatan (EDABU) + BPJS Ketenagakerjaan. Estimated ~4.2M IDR total.",
+        "confidence": "medium",
+        "updated_at": "2026-06-26",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Compute payroll withholding",
+            "recommended": true,
+            "prompt": "For PT Kirana Wellness: compute May 2026 payroll per jurisdictions/id/checklists/payroll-pph21-bpjs.md — PPh 21 per employee + BPJS Kesehatan and BPJS Ketenagakerjaan contributions, then the SPT Masa PPh 21. Inputs needed: May gross salaries (ask the client if missing). Stop before submitting — show me the per-employee figures and totals."
+          }
+        ]
+      }
+    },
+    {
+      "id": "kirana_unifikasi05",
+      "title": "May unifikasi — PPh 4(2) rent + PPh 23",
+      "task_type": "withholding",
+      "status": "active",
+      "priority": "normal",
+      "created_at": "2026-06-01",
+      "due_date": "2026-06-15",
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [
+        "kirana_close05"
+      ],
+      "labels": [],
+      "context": "Premises rented: PPh 4(2) final on rent; any service vendors: PPh 23. File via the unified SPT Masa (unifikasi).",
+      "next_action": "Get the May rent invoice + any service-vendor invoices; compute withholding.",
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Task created (synthetic seed).",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2026-05"
+      },
+      "assist": {
+        "hypothesis": "Rent is paid monthly -> PPh 4(2) final 10% on rent; service vendors -> PPh 23. Both go on the unifikasi SPT Masa. Estimated ~1.5M IDR.",
+        "confidence": "medium",
+        "updated_at": "2026-06-26",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Compute unifikasi withholding",
+            "recommended": true,
+            "prompt": "For PT Kirana Wellness: compute May 2026 unifikasi withholding per jurisdictions/id/checklists/unifikasi-withholding.md — PPh 4(2) final on the office/salon rent and PPh 23 on any service vendors, then prepare the unified SPT Masa. Need the May rent invoice + vendor invoices. Surface amounts for approval before billing."
+          }
+        ]
+      }
+    },
+    {
+      "id": "kirana_spt_badan",
+      "title": "SPT Tahunan Badan 2025 + LKPM — confirm filed",
+      "task_type": "open_question",
+      "status": "done",
+      "priority": "normal",
+      "created_at": "2026-06-01",
+      "due_date": null,
+      "completed_at": null,
+      "assignee": "Operator",
+      "blocked_by": [],
+      "labels": [],
+      "context": "Annual corporate return + investment activity report (LKPM) for FY2025.",
+      "next_action": null,
+      "comments": [],
+      "history": [
+        {
+          "date": "2026-06-01",
+          "event": "Task created (synthetic seed).",
+          "kind": "status_change",
+          "auto": true
+        }
+      ],
+      "source": "manual",
+      "linked": {
+        "finkoper_task_id": null,
+        "anomaly_id": null,
+        "documents": []
+      },
+      "type_specific": {
+        "period": "2025"
+      },
+      "assist": {
+        "hypothesis": "Annual SPT Tahunan Badan 2025 + LKPM were filed 2026-04-22 (before the 30 Apr deadline). Closed — kept as a reference of the annual leg.",
+        "confidence": "high",
+        "updated_at": "2026-06-26",
+        "by": "mm_update:demo",
+        "actions": [
+          {
+            "label": "Review annual filing",
+            "prompt": "For PT Kirana Wellness: review the filed FY2025 SPT Tahunan Badan + LKPM against jurisdictions/id/checklists/annual-spt-badan.md and confirm nothing is outstanding for the annual leg."
+          }
+        ]
+      }
+    }
+  ]
+}

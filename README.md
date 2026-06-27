@@ -12,7 +12,7 @@
 
 ![Saldo walkthrough — overview, plan, an expanded operation, a task with its hypothesis, and the prompt hand-off to Cowork](docs/demo.gif)
 
-<sub>From the overview to the Plan, expand a batchable operation to see it fan out across clients, open a task for its hypothesis and history, then hand the generated prompt to Cowork — and back to the updated dashboard. Recorded against a fully **synthetic** example instance (Aurora, Cobalt, Harbor…). No real data.</sub>
+<sub>From the overview to the Plan, expand a batchable operation to see it fan out across clients, open a task for its hypothesis and history, then hand the generated prompt to Cowork — and back to the updated dashboard. Recorded against a fully **synthetic** example instance (Aurora, Cobalt, Harbor… plus two Indonesian clients, Melati and Kirana, for the multi-jurisdiction path). No real data.</sub>
 
 **▶ [Click through the live demo](https://vindm.github.io/saldo/)** — the same synthetic instance, rendered by the engine and published to GitHub Pages.
 
@@ -23,6 +23,7 @@ Think of it as a small operating system for a bookkeeping practice, where **the 
 - **State is the source of truth — and the AI's memory.** Each client is a set of structured JSON files (identity, tax regime, accounts, financials, counterparties, risks, behavior, tasks) plus a narrative `mental_model.md` and an append-only `history.jsonl`. This *same* state is the database, the render input, and what the assistant remembers between sessions.
 - **The dashboards are a pure render of that state.** A deterministic Python generator turns the JSON into static HTML. Nothing is stored twice; the HTML is a disposable build artifact — *you never edit it by hand.*
 - **Claude (in Cowork) is the runtime.** The assistant gathers signals from the practice's tools, updates the state, drafts the client-facing work, and regenerates the dashboards. The engine only renders; there is no server to operate.
+- **Multi-jurisdiction, one operator.** Tax content — regimes, the recurring cycles (monthly close + payroll / quarterly tax / AUSN), the authority and portal, terminology, currency — lives in a **jurisdiction pack** (`jurisdictions/<code>/`), and each client binds to one. **Locale ≠ jurisdiction:** a Russian-speaking operator can keep books for an Indonesian company — the UI stays in their language while the filings follow the client's jurisdiction. Two packs ship today: `ru` (USN / AUSN / OSNO / PSN; FTS; ENP/KBK) and `id` (Indonesia: UMKM final PPh 0.5%, PPh 21 + BPJS payroll, unifikasi withholding, SPT Masa, annual SPT Tahunan Badan). Adding a jurisdiction is pure data — no engine change.
 
 So Saldo is **a Cowork plugin that turns Claude into a specialist for a bookkeeping practice** with many client entities. It bundles the practice's domain workflows as Skills and its external systems as connectors, and leans on Cowork's approval model — Claude shows its plan and waits before it writes state or contacts a client. It lives in the same lane as Anthropic's own role plugins (finance, small-business), but it's extracted from a system I built solo and **run in daily production** for a real practice.
 
@@ -63,23 +64,30 @@ The loop is the product: **you read state as a dashboard, and you change it by t
 
 ## The surfaces
 
-- **Morning collectors** pull fresh signals from the practice's systems (practice-management tasks/chats, email, bank statements, fiscal-data/OFD, statistics portal, news) as JSON into the instance's data directory. They are *additive* — the dashboards are correct without them.
-- **Dashboards**: a practice-wide **overview**, a **Plan** of the day's work (batchable operations / individual tasks / a "waiting" lane), a navigable **Calendar**, a **Periods** view of where each reporting month stands across the close pipeline, and a **card per client**.
-- **Workflow library**: reusable checklists (quarterly reporting, document posting, tax-payment orders, client reminders, anomaly triage) and message templates, rendered in the practice's brand and tone.
+- **Morning collectors** pull fresh signals from the practice's systems — practice-management tasks/chats, email, the messengers (Telegram / WhatsApp / Max), cloud + local **documents**, bank statements, fiscal-data/OFD, the statistics portal, the company registry, and news — as JSON into the instance's data directory. They are *additive*: the dashboards are correct without them.
+- **Monitors and resolvers** then derive from state with no external calls: a `question_resolver` that auto-closes open questions a reachable source has already settled, plus `deadline` / `staleness` / `threshold` / `counterparty` monitors. A `scheduler` reconciles all of these to the timetable declared in `config/instance.yaml`, touching only Saldo-owned jobs.
+- **Dashboards**: a practice-wide **overview**, a **Plan** of the day's work (batchable operations / individual tasks / a "waiting" lane), a navigable **Calendar**, a **Periods** view of where each reporting month stands across the close pipeline, and a **card per client** — each opening on a one-line *situation brief* ("the story of the client right now"), with a per-row *hypothesis* lens on every task.
+- **Client-facing output**: a monthly one-pager rendered in the practice's brand, drawn from a dedicated client-clean field so internal working notes never leak to the client. Sending is approval-gated.
+- **Workflow library**: per-jurisdiction checklists (monthly close, payroll, withholding, tax-payment orders, quarterly/annual reporting, client reminders, anomaly triage) and message templates, rendered in the practice's brand and tone.
+- **Self-update**: when the published engine moves ahead, the dashboard surfaces a "new version available" item; one click hands Claude a guarded upgrade prompt that pauses for confirmation, applies any pending migrations, and re-runs the lint/integrity checks.
 
 ## Architecture at a glance
 
 ```
 engine/        Reusable Python: dashboard generation, state I/O, linting, integrity checks
-connectors/    Pluggable integrations behind a common interface (enable/disable in config)
-workflows/     Checklists + message templates (configurable content)
+connectors/    Pluggable collectors, monitors & skills behind a common interface (enable/disable in config)
+jurisdictions/ Per-jurisdiction packs (ru, id): regimes, pipeline, authorities, checklists — pure data
+workflows/     Cross-jurisdiction checklists + message templates (configurable content)
+migrations/    Versioned, idempotent state migrations (NNNN_slug.py) run on upgrade
 policies/      Operating instructions, safety rules, brand & tone, system map
 config/        instance.yaml — locale, brand, enabled connectors, schedule, data-dir path
 instances/     Self-contained example instance with SYNTHETIC data (for demos/screenshots)
 docs/          Architecture, usage, migration, connector spec, roadmap
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design (incl. the plan/task model), [`docs/USAGE.md`](docs/USAGE.md) for the daily flow, and [`docs/MIGRATION.md`](docs/MIGRATION.md) for moving an existing practice onto it with zero feature loss.
+A change to behaviour edits the markdown the runtime reads (`policies/`, `jurisdictions/`, `connectors/`); a change to data/state ships a versioned **migration** under `migrations/`. The upgrade path on an operator's machine is: pull the engine → `migrate.py status` → `up` (preview) → `up --apply` → `state_lint`.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design (incl. the plan/task model), [`docs/USAGE.md`](docs/USAGE.md) for the daily flow, [`jurisdictions/README.md`](jurisdictions/README.md) for authoring a jurisdiction pack, and [`docs/MIGRATION.md`](docs/MIGRATION.md) for moving an existing practice onto it with zero feature loss.
 
 ## Quick start (demo instance)
 

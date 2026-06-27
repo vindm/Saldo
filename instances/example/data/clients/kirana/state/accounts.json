@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.1",
+  "client_id": "kirana",
+  "last_updated": "2026-06-20T00:00:00+08:00",
+  "bank_accounts": [
+    {
+      "id": "main",
+      "bank_name": "Bank Mandiri",
+      "bik": null,
+      "account": "1370000000777",
+      "purpose": "primary",
+      "is_primary": true,
+      "since": "2024-03-06",
+      "closed_at": null,
+      "notes": "Synthetic IDR account (Kopra)."
+    }
+  ],
+  "foreign_accounts": [],
+  "kassas": [],
+  "acquiring_channels": [],
+  "ofd": null,
+  "bank_access": {
+    "primary_bank": "Bank Mandiri",
+    "access_level": "client_holds",
+    "lk_url": "kopra.bankmandiri.example",
+    "is_ausn_partner": false,
+    "statements_source": "client_sends",
+    "note": "Synthetic."
+  },
+  "quick_access": [
+    {
+      "service": "coretax",
+      "label": "Coretax (DJP)",
+      "url": "https://coretaxdjp.pajak.go.id/",
+      "cred_status": "missing",
+      "status": "active",
+      "note": "Login under company NPWP."
+    },
+    {
+      "service": "bank",
+      "label": "Bank Mandiri — Kopra",
+      "url": "https://kopra.bankmandiri.example/",
+      "cred_status": "client_holds",
+      "status": "active",
+      "note": "Client sends statements."
+    },
+    {
+      "service": "assistant",
+      "label": "BPJS Kesehatan (EDABU)",
+      "url": "https://edabu.bpjs-kesehatan.example/",
+      "cred_status": "after_first_billing",
+      "status": "active",
+      "note": "Payroll health insurance."
+    },
+    {
+      "service": "assistant",
+      "label": "BPJS Ketenagakerjaan",
+      "url": "https://bpjsketenagakerjaan.example/",
+      "cred_status": "missing",
+      "status": "active",
+      "note": "Payroll social security."
+    },
+    {
+      "service": "acquiring",
+      "label": "Moka POS — salon till",
+      "url": "https://moka.example/",
+      "cred_status": "unknown",
+      "status": "active",
+      "note": "Card/cash takings."
+    },
+    {
+      "service": "whatsapp",
+      "label": "WhatsApp — document exchange",
+      "url": "https://wa.me/62000000777"
+    }
+  ]
+}

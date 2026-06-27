@@ -13,8 +13,10 @@ then a thin, stable launcher that never rewrites itself mid-run, and migrate.py 
 generate.py are executed as fresh subprocesses that read the just-pulled code.
 
 Flags (for testing / advanced use):
-    --no-pull   skip git pull        --no-open   don't open the browser
-    --no-pause  don't wait for Enter at the end
+    --no-pull     skip git pull        --no-open   don't open the browser
+    --no-pause    don't wait for Enter at the end
+    --no-migrate  skip the migrate step (the runtime drives it stepwise)
+    --no-generate skip the dashboard rebuild (the runtime regenerates after)
 """
 import os
 import subprocess
@@ -133,12 +135,31 @@ def main():
             return 1
 
     # 3. Apply pending data migrations (backup + atomic + ledger handled by migrate.py).
-    ok_mig = run([py, os.path.join(ENGINE, "migrate.py"), "up", "--apply"],
-                 "Applying data migrations", "Применяю миграции данных")
+    #    --no-migrate: the runtime (connectors/migration_runtime) drives them stepwise.
+    ok_mig = True
+    if "--no-migrate" not in args:
+        say("- Applying data migrations ...", "- Применяю миграции данных ...")
+        rc = subprocess.run([py, os.path.join(ENGINE, "migrate.py"), "up", "--apply"],
+                            cwd=REPO).returncode
+        if rc == 2:
+            # exit code 2 = a pending migration needs the stepwise runtime flow, which
+            # this unattended updater cannot do (it has judgment + an approval pause).
+            # Do NOT regenerate on half-updated data - hand off to the assistant.
+            say("This update must be applied step by step. Open Saldo and say "
+                "\"обнови Saldo\" so the assistant applies it with you.",
+                "Это обновление нужно применить пошагово. Откройте Saldo и скажите "
+                "«обнови Saldo» — ассистент применит его вместе с вами.")
+            if "--no-pause" not in args:
+                try: input()
+                except EOFError: pass
+            return 2
+        ok_mig = (rc == 0)
 
     # 4. Regenerate the dashboards from state.
-    ok_gen = run([py, os.path.join(ENGINE, "generate.py")],
-                 "Rebuilding the dashboards", "Пересобираю дашборды")
+    ok_gen = True
+    if "--no-generate" not in args:
+        ok_gen = run([py, os.path.join(ENGINE, "generate.py")],
+                     "Rebuilding the dashboards", "Пересобираю дашборды")
 
     # 5. Open today's plan.
     opened = False

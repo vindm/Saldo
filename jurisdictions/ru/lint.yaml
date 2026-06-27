@@ -4,10 +4,16 @@
 regime_rules:
   USN:
     income_rate_expected: [6]      # warn if object=income and rate not in set (None allowed)
+    # Turnover-based (object=income): cash takings (OFD/kassa) must reconcile to
+    # recorded turnover before settling — the generic cash_unreconciled gate.
+    # Only fires when the client actually has cash (kassa/kkt/acquiring); a
+    # bank-only USN client is never touched (state_lint H2).
+    require_cash_reconciliation: true
   AUSN:
     rate_expected: [8, 20]         # warn if rate not in set (None allowed)
     require_partner_flag: true     # warn if accounts.bank_access.is_ausn_partner is False
     require_one_bank: true         # error if >1 active primary-purpose bank
+    require_cash_reconciliation: true  # turnover-based; same cash-completeness gate
 
 # Bank account format (RU settlement accounts are 20 digits).
 account_format:

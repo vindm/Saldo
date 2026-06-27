@@ -49,6 +49,13 @@ class Pack:
     def lint(self):
         return getattr(self, "_lint", {}) or {}
 
+    @property
+    def obligations(self):
+        """Pack-declared recurring NON-monthly obligations (single periodic filings —
+        LKPM, annual returns — whose cadence/deadlines are jurisdiction/scale driven).
+        `{}` when the pack declares none. See `obligations.yaml`."""
+        return (getattr(self, "_obligations", {}) or {}).get("obligations") or {}
+
     def checklist_for(self, task_type):
         """Resolve the checklist path for a task type, or None if the type does
         not apply in this jurisdiction (caller must surface that, never RF-fallback)."""
@@ -84,6 +91,8 @@ def load_jurisdiction(code):
     pack._authorities = _read_yaml(auth_path) if os.path.isfile(auth_path) else {}
     lint_path = os.path.join(pack_dir, "lint.yaml")
     pack._lint = _read_yaml(lint_path) if os.path.isfile(lint_path) else {}
+    obl_path = os.path.join(pack_dir, "obligations.yaml")
+    pack._obligations = _read_yaml(obl_path) if os.path.isfile(obl_path) else {}
     return pack
 
 

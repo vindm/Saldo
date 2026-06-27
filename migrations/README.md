@@ -73,6 +73,53 @@ Ship the migration **in the same change** as the engine code that needs it; per
 the project rule, an engine change that touches data is incomplete without its
 migration.
 
+## The runtime half of a migration (optional)
+
+A migration may ALSO carry a runtime half — the judgment a deterministic `up()`
+cannot do (rewrite operator prose, classify a task, generate a brief). It is part
+of the SHIPPED migration and runs AT MIGRATION TIME (stepwise during the upgrade),
+not "later, when a collector gets to it". Declare any of these optional members:
+
+```python
+def preflight(api):      # READ: read-only structural pre-scan (api.read only, no model).
+    ...                  # Returns advisory flags — the residue up() left for judgment.
+
+RUNTIME_PASS = {         # AFTERWORK: the judgment/generation the runtime does on the residue.
+    "intent": "...natural-language task; conservative rules stated...",
+    "scope": "tasks[].title",
+    "escalate": "on_anomaly",          # default; "always" forces a per-migration pause
+    "guardrails": ["preserve <field>_legacy", "never touch identifiers", ...],
+}
+EXPECT = {"preflight_max": 40, "change_kinds": ["needs_prose_rewrite"]}   # autonomy envelope
+SCENARIO = ["Open the Plan; confirm <behaviour> ..."]                     # Invariant-0 gate
+```
+
+Rules:
+- **Structure → `up()`; meaning → `RUNTIME_PASS`.** `up()` opens/normalizes the
+  slot (and does the provable shape cases); the runtime judges the rest.
+- **Terminal-leaf invariant:** a deterministic `up()` may never read a field a
+  prior `RUNTIME_PASS` wrote. Runtime outputs feed rendering/behaviour, never a
+  later migration's input — otherwise determinism is lost.
+- **Migration-time generation** (e.g. `0013` brief) only when the value is
+  derivable from state already present AND the null degrades the view; if it
+  needs external evidence a collector fetches, let it wait.
+
+Apply flow for a runtime-half migration (the batch `up --apply` refuses it, exit 2):
+
+```bash
+python3 engine/migrate.py next --json     # next not-yet-verified migration + preflight + alignment
+python3 engine/migrate.py apply <id> --apply
+# runtime does the RUNTIME_PASS writes via state_ops, then role-plays SCENARIO
+python3 engine/migrate.py record <id> --rung verified --scenario-result "pass: ..."
+python3 engine/migrate.py classify        # one read of all task-classification candidates
+```
+
+Autonomy-by-default: the operator authorises the upgrade once; migrations apply
+(incl. RUNTIME_PASS) without per-migration pauses, escalating only on a surprise
+(an `EXPECT` anomaly / a guardrail breach / a scenario fail). The runtime side is
+driven by `connectors/migration_runtime/SKILL.md`. Full contract + the shared
+task-classifier: `migrations/RUNTIME_PASS_SPEC.md`, `migrations/TASK_CLASSIFIER.md`.
+
 ## Current migrations
 
 - `0001_reg_date_note.py` — identity: `reg_date_uncertainty` → `reg_date_note`.
@@ -127,6 +174,27 @@ migration.
   situation brief shown in the client-cockpit hero); `mm_update` refreshes it
   nightly + on-change. Additive, behaviour-preserving (no summary → the hero falls
   back to the counts line). Mirrors the additive pattern of 0004 / 0011.
+- `0017_period_parity_turnover.py` — financials: add four optional slots to every
+  `periods[]` entry — `turnover_source`, `cash_reconciled`, `parity_status`,
+  `parity_ref` (all `null` where absent). Makes the month's turnover a single source
+  with recorded provenance (`cash_reconciled` = Moka POS tied to the cash report,
+  which gates the 0.5% compute) and the incumbent-parity check a structured field
+  (`parity_status = "pass"` gates closing the period) instead of free-text in `notes`.
+  Additive, behaviour-preserving (every value `null`; no engine Python reads the keys
+  yet → dashboards byte-identical), idempotent (only missing keys added). Pairs with
+  the id-pack wiring in `jurisdictions/id/checklists/monthly-close-pt.md` (Stage 1
+  turnover provenance; Stage 4 parity step) + `coretax-final-tax-payment.md`. Mirrors
+  the additive pattern of 0004 / 0011 / 0013.
+- `0018_tax_calendar_ntpn.py` — financials: add optional **`payment_ref`** (null) to every
+  `tax_calendar_<year>[]` entry — the **jurisdiction-neutral** payment-proof reference slot
+  (the local term is a gloss: ID = NTPN, RU = платёжное поручение № / ЕНС operation). Closes
+  the deadline loop: the **documents collector**, on seeing a payment receipt for a period,
+  sets the matching entry `status: paid` + `paid_at` + `payment_ref`, and the
+  `deadline_monitor` then drops the now-terminal entry automatically; the recorded reference
+  pre-fills the annual return. Additive, behaviour-preserving (every value null; no engine
+  Python reads it yet → dashboards byte-identical), idempotent, **self-healing** (renames a
+  legacy `ntpn` key → `payment_ref`), walks the year-suffixed keys generically. Mirrors 0017.
+  (Filename retains `_ntpn` for now; the field is `payment_ref`.)
 
 ## Known follow-ups needing a content decision (not yet migrations)
 

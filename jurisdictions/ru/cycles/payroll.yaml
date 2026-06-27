@@ -1,0 +1,27 @@
+# Cycle: payroll (зарплатный). Monthly cadence, own deadlines; only clients with staff.
+# Salary -> personal income tax register -> contributions -> statutory reports.
+code: payroll
+cadence: monthly
+order: 1
+title: { ru: "Зарплата", en: "Payroll" }
+stages:
+  - code: payroll_calc
+    title: { ru: "Расчёт зарплаты",            en: "Payroll calculation" }
+    task_types: [payroll_calc]
+    icon: users
+    glyph: "👥"
+  - code: ndfl
+    title: { ru: "НДФЛ — реестр / уплата",     en: "PIT register / payment" }
+    task_types: [ndfl_register]
+    icon: file-text
+    glyph: "🧾"
+  - code: contributions
+    title: { ru: "Страховые взносы",           en: "Insurance contributions" }
+    task_types: [contributions, insurance_contributions]
+    icon: landmark
+    glyph: "🏥"
+  - code: payroll_reports
+    title: { ru: "6-НДФЛ / РСВ / ЕФС-1",       en: "Payroll statutory reports" }
+    task_types: [payroll_reports]
+    icon: chart-bar
+    glyph: "📑"

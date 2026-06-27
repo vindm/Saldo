@@ -70,12 +70,12 @@ def render_guide():
 
   <div class="g-card">
     <h3>🗂 Periods</h3>
-    <p><b>Question:</b> where does each reporting month stand?</p>
-    <p>For each open reporting period (April, May, June…) it shows the 6-stage monthly pipeline progress across all clients — done / N in progress / overdue. The stages, in order:</p>
+    <p><b>Question:</b> where does each reporting period stand?</p>
+    <p>For each open period it shows the recurring cycles as a progress stepper — done ✓ / N tasks in progress / overdue (counted by task). The main <b>monthly close</b> runs in order:</p>
     <ul>
       <li>Collect source docs → Post to 1C → Month close → Month audit → Calc + notice + payment order → Sign / pay.</li>
     </ul>
-    <p>Clicking a stage chip jumps straight to that operation on the Plan.</p>
+    <p>Clients with payroll, quarterly tax, or AUSN also get their own cycle bands below. Clicking a stage jumps straight to that operation on the Plan.</p>
   </div>
 
   <div class="g-card">
@@ -128,7 +128,7 @@ def render_guide():
   <div class="g-flow">
     <div class="g-flow-title">Start of month / month-end</div>
     <ol>
-      <li>Open <b>Periods</b> → see where each month stands across the 6 stages</li>
+      <li>Open <b>Periods</b> → see where each cycle stands, stage by stage</li>
       <li>Click a lagging stage → jump to that operation on the <b>Plan</b></li>
       <li>Use the <b>Calendar</b> for the tax dates</li>
     </ol>

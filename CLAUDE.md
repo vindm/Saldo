@@ -54,6 +54,17 @@ Any change must keep these enforceable and surfaced in `config/instance.yaml →
 
 When editing files that may contain Cyrillic data (or scripts that round-trip it), prefer the repo's own `engine/safe_edit.py` discipline (backup → write temp → re-read as UTF-8 → atomic replace). Naive byte-level edits can truncate UTF-8 mid-character.
 
+## 🔴 The resolution model — who takes the next step (`auto` / `needs_operator` / `wait_external`) (landed 2026-06-27)
+
+Every active task carries a **derived edge** — who acts next — recomputed each cycle, never stored. "Ask the operator" is not a kind of work; it is one value of the edge (`policies/resolution-model.md`, indexed at `INSTRUCTIONS.md §0.6`). Reflexes:
+
+- **`auto` ≡ the Invariant-2 §5a no-approval set** — acquire / derive / advance / answer a reachable `open_question`; the runtime does it and logs provenance (`auto:true`, `source`). **A `track_close` of a work thread, and any send / pay / submit, are NEVER `auto`** — they stay the operator's (Invariant 2). The gate also requires high+objective confidence and **no open `state_lint` / anomaly on the task** (a passing *aggregate* does not clear *line-level* flags). Autonomy θ starts high (propose, not fire), lowering per action class on the trust-ledger (recent-zones + `history.jsonl`).
+- **The sweep is the proactive half.** Reactive `mm_update` only touches a task when a signal arrives *for it*; `connectors/resolution_sweep/SKILL.md` re-checks the nearest active tasks on a schedule and advances those that became doable with no fresh signal — the missing sync moment. It **generalizes `question_resolver`** (open questions are first-class, not a side channel) and never closes a work thread or sends. One program, two triggers — chat (reactive) and the sweep (proactive) — both fanning out along `refs` to every related task.
+- **The update cycle is runtime-driven end to end** (`connectors/update/SKILL.md`): pull → migrate → reconcile-schedule (register a newly-shipped daemon) → **actualize-state (run the sweep NOW, not «later over the nightly»)** → rebuild → verify → report. The operator only triggers it and gives the one «да».
+- **No schema, no migration** — the edge is derived; the sweep writes only existing fields (`status`/`next_action`/`assist`/`history`).
+
+Render shows it as a filtered *view*, not a new entity: the «🔔 Требуют вас» queue (`resolution_mode == needs_operator`) + a confidence chip; `auto` results surface in the always-on «Недавно обновили». Gate: scenario **S29** (matching aggregate ⇒ `needs_operator`).
+
 ## How to run
 
 ```bash
@@ -80,19 +91,19 @@ workflows/     The runtime's procedures: checklists + message templates the AI e
 policies/      The runtime's program: workflow/checklist selection, safety rules, brand & tone, system map. RF-specific, jurisdiction-bound (Invariant 0).
 config/        instance.example.yaml — locale, brand, enabled connectors, schedule, data.dir. Copy to instance.yaml (git-ignored).
 instances/     Self-contained example instance with SYNTHETIC data only. Real instances live outside the repo.
-docs/          ARCHITECTURE, USAGE, MIGRATION, CONNECTORS, CLIENT-PROFILES, ROADMAP, DESIGN-SYSTEM (dashboard view layer), DEPLOY-WINDOWS (operator one-click), pipeline proposal.
+docs/          ARCHITECTURE, USAGE, MIGRATION, CONNECTORS, CLIENT-PROFILES, ROADMAP, DESIGN-SYSTEM (dashboard view layer), DEPLOY-WINDOWS (operator one-click), pipeline proposal; ENTITY-LINKING-ARCHITECTURE (entity/link/card model — DECIDED, governs new entities); PAYROLL-{ROSTER-DASHBOARD,CALCULATION-REVIEW,REVIEW-COCKPIT} (id payroll design notes).
 migrations/    Versioned state migrations (NNNN_slug.py, run by engine/migrate.py); ledger lives with the data.
 tools/         update.py (operator one-click: pull+migrate+regenerate+open), port_config.py (relocate config, relative→absolute paths), windows/ (.bat + shortcut), migrate_legacy_instance.py, seed_demo_instance.py.
 requirements.txt  The single Python dependency list (PyYAML). tools/update.py installs from it.
 ```
 
-Key engine modules: `generate.py` (orchestrator), `_loaders.py` (state → render model), `_aggregator.py` (plan), `_plan_waves.py` (plan render), `_overview_v2.py` / `_client_dashboard_v2.py` (views), `_pipeline.py` + `_periods.py` (monthly close), `state_ops.py` (atomic state I/O), `state_lint.py` / `system_integrity_check.py` (gates).
+Key engine modules: `generate.py` (orchestrator), `_loaders.py` (state → render model), `_aggregator.py` (plan), `_plan_waves.py` (plan render), `_overview_v2.py` / `_client_dashboard_v2.py` (views), `_pipeline.py` + `_periods.py` (recurring cycles — monthly close + payroll/quarterly/AUSN), `state_ops.py` (atomic state I/O), `state_lint.py` / `system_integrity_check.py` (gates).
 
 ## Data-aggregation layer & self-evolving skills (2026-06-25)
 
 The runtime's inputs and upkeep are scheduled **collectors** (fetch an external channel → state) and **monitors** (derive risk from state already present), both feeding `mm_update`. Declared in `config → schedule`, reconciled to real OS jobs by `connectors/scheduler/SKILL.md`, mapped in `docs/COVERAGE-MAP.md`. **Daily order (correctness = this order, not the wall-clock):**
 
-> collectors (news, documents[cloud+local], email[multi-account], tg/whatsapp/max[by-chat], practice_management) → `question_resolver` (residue only — runs AFTER collectors so it never re-does what they closed) → monitors (deadline / staleness / threshold·weekly / counterparty·monthly) → `dashboards` (unconditional render).
+> collectors (news, documents[cloud+local], email[multi-account], tg/whatsapp/max[by-chat], practice_management) → `question_resolver` (residue only — runs AFTER collectors so it never re-does what they closed) → monitors (deadline / staleness / threshold·weekly / counterparty·monthly) → `resolution_sweep` (proactive edge re-check + actualize) → `dashboards` (unconditional render).
 
 - **Multi-account / multi-provider** fan-out + which-account-from-where: `connectors/_sources.md` (operator accounts in `config → sources`, client accounts in `quick_access`; per-account watermark, verify-before-read, `access: auto|human_gated`). Coverage + the cadence-by-cost rule: `docs/COVERAGE-MAP.md`.
 - **Atomic operator actions** (read a chat, send a message, pull/upload a file, reply to mail) sit next to the collectors with the outbound approval gate — what the operator invokes ad-hoc, not just the daemons.
@@ -107,6 +118,7 @@ The runtime's inputs and upkeep are scheduled **collectors** (fetch an external 
 - A new canonical/enum value reshaping stored data ships a migration (e.g. `0005_normalize_task_status.py`) AND a `state_lint` check — never just a code change.
 - Don't introduce a runtime server — this is a static generator by design.
 - New connector/workflow = config-driven drop-in behind the common interface (`docs/CONNECTORS.md`), not a hardcoded special case.
+- New domain entities (e.g. an employee) and their links follow `docs/ENTITY-LINKING-ARCHITECTURE.md` (decided 2026-06-26): **tasks are the work hub; an entity is a lightweight record; the link is a uniform `task.type_specific.refs:[{type,id}]` owned by the task; reverse views — an entity's tasks/history/reports and per-entity cards — are DERIVED at render, not stored.** Don't give an entity its own task-list/history store (that drifts). Lint: a generic `ref_resolves` replaces per-type link checks.
 
 ## Known gaps (as of 2026-06-20 — verify before relying)
 
@@ -114,7 +126,13 @@ Fixed 2026-06-23 (operator rollout hardening): timezone setup no longer hard-dep
 
 Fixed 2026-06-20: `.gitignore` now ships the synthetic `instances/example` data (generated `*.html`/`*.bak_*` stay ignored) and ignores `config/instance.yaml`; `docs/ROADMAP.md` reconciled to reality; `policies/INSTRUCTIONS.md` legacy path/schedule references scrubbed to the `instances/<id>/data/` layout.
 
+Landed 2026-06-26 (id-pack foreign-worker + per-employee payroll): the `id` pack now covers **foreign workers (TKA)** — `checklists/foreign-worker-tka.md` (RPTKA/KITAS, DPKK, expat salary floor, mandatory dual-kas BPJS, the 183-day residency fork → PPh 21 annualisasi vs PPh 26), `foreign-worker-risk-review.md`, glossary + a `tka_immigration` news topic; a **per-employee roster** (`state/payroll.json`, migration `0019`) with a pack-declared BPJS-coverage + permit-expiry lint (`state_lint` H3); and **per-employee payroll computation** — the runtime computes PPh 21 from gross via the statutory **TER tables** in `jurisdictions/id/ter.yaml` (PP 58/2023 + PMK 168/2023; PTKP + annual scale), records the month as one `payroll_pph21_bpjs` task carrying `type_specific.payroll_lines[]` (+`thr`), reconciled to `financials.periods[].taxes` and parity-checked against the incumbent accountant (`state_lint` H4 + `ref_resolves`). The track modal renders the lines as a **review cockpit** (header band + per-line Δ-vs-prior-month / THR / flag — review by exception; signals derived at render in `_track_attrs`). All under the entity-linking architecture; the only schema change was the additive migration `0019`. Validated on the synthetic `kirana` fixture Feb–May (April reconciled to the rupiah vs the incumbent; other months differ by the incumbent's separate-THR method). Scenarios S24–S28.
+
+Landed 2026-06-27 (resolution model / autonomy edge): every active task now has a derived `resolution_mode` (`auto`/`needs_operator`/`wait_external`) — `policies/resolution-model.md` + `INSTRUCTIONS §0.6`; a proactive `connectors/resolution_sweep/SKILL.md` (generalizes `question_resolver`, open questions first-class); the `update` cycle gained reconcile-schedule + actualize-sweep steps (runtime-driven); render gained the «Требуют вас» queue, a confidence chip, and `data-track-resolution`/`-confidence`; always-on recent zones; scenario **S29**. No migration (derived edge, existing fields). **Open tail:** `resolution_sweep` is declared in `config → schedule` (07:40) but the OS-job registration still needs a real end-to-end run on an operator machine via `scheduler` (same tail as the other daemons); a midday second pass is desirable but not yet scheduled.
+
 Still open (re-audited 2026-06-20):
+
+- **Payroll follow-ons (id):** the employee CARD is designed (entity-linking) but not yet wired live (clickable roster row → derived card); auto-ingest of the monthly ведомость by the `documents` collector (parser proven on 4 months, not yet wired); the THR-method parity residual (incumbent taxes the bonus separately) is surfaced but not reproduced to zero; a worked **PPh Badan 22%** transition and a **PPN/PKP** (e-Faktur) path remain unbuilt for the `id` pack.
 
 - **Demo config points at a dead path** — `config/instance.yaml` (git-ignored, local) currently sets `data.dir` to a stale ephemeral session path (`/sessions/.../Saldo-data-clean`). The repo's own demo won't render until `data.dir` is repointed at `../instances/example/data` (as in `instance.example.yaml`). Re-copy the example config on a fresh checkout.
 - (resolved 2026-06-22) `engine/_LINT.json` is **not** tracked — it is git-ignored (`.gitignore` line 57) and absent from `git ls-files`. The earlier "is tracked" note was stale.

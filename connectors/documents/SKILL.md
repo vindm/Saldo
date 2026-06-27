@@ -90,6 +90,28 @@ For each new document, classify by folder + filename + content, and apply via th
 | Invoice / act | `counterparties.json` (new/again) + the period's docs | a new B2B invoice |
 | Payroll register | `financials.json` / payroll + BPJS basis (ID) | monthly payroll |
 | Contract | `counterparties.json` / `real_estate.json` | a lease / service contract |
+| **Payment receipt** (proof of a tax payment, bank / portal) | `financials.json → tax_calendar_<year>[]`: close the matching entry | a tax receipt PDF → entry `paid` |
+
+### Payment-receipt capture — close a deadline with its proof (the deadline_monitor loop)
+
+A **payment receipt** carries the reference proving a tax was paid — the
+**`payment_ref`** (jurisdiction-neutral field; the local term is a gloss: ID = **NTPN**,
+RU = **платёжное поручение № / ЕНС operation**). When one lands:
+
+1. **Match** it to the `tax_calendar_<year>[]` entry for that **period (masa)** and tax — by the
+   amount + period in the receipt against the entry's `what`/`amount`/`date`.
+2. **Close it** (via `mm_update`/`state_ops`, read-modify-write): set `status: "paid"`,
+   `paid_at` = the receipt date, and **`payment_ref`** = the receipt reference (a list when the
+   date bundles several billings — e.g. ID PP55 + PPh 21 + unifikasi, one NTPN each; slot from
+   migration `0018`).
+3. The `deadline_monitor` then **drops** the now-terminal entry automatically (it skips
+   `paid`/`done`) — so a deadline it surfaced closes itself once the proof arrives, no operator
+   step. The recorded `payment_ref` also pre-fills the annual return (e.g. ID SPT Tahunan Badan —
+   all 12 masa paid).
+
+Recording an incoming receipt is a state *read-in* (mm_update §5a) — **no approval**; paying is
+the operator/client action, never the collector. If the receipt can't be matched to an entry
+confidently, surface it for confirmation — never flip an unrelated deadline.
 
 - **High & objective** (a statement's issuer, a clear total) → apply directly.
 - **Partial / needs interpretation** → apply what's certain, surface for confirmation (do not
@@ -158,7 +180,7 @@ and flag).
   bound to that Google account — **no UI**.
 - **Prefer shared access over per-account auth:** a single operator connection already sees any
   folder **shared with** it. `melati`'s Accounting folder is owned by
-  `melatispa@gmail.com` yet reachable because it is shared to the connected account — so no
+  `melatispa@example.com` yet reachable because it is shared to the connected account — so no
   switch is needed, just confirm the folderId lists. Authorize a separate connection only when a
   client's folder cannot be shared.
 - **Verify:** the connected account (connector whoami) + a successful metadata list of the

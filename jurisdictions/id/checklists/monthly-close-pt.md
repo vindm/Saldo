@@ -17,6 +17,12 @@ payroll and withholding checklists. Everything is browser-driven on **Coretax** 
 - [ ] **Bank statement** (primary account) → cross-check inflows.
 - [ ] **Expense documents** (rent invoice, supplier invoices, operational receipts).
 - [ ] **Payroll sheet** for the month (headcount, gross per employee).
+- [ ] **Record to state** (`financials.json → periods[<masa>]`): set `turnover_idr` and its
+      provenance — `turnover_source` (e.g. `"moka+cash"` / `"bank+moka+cash"`) and
+      `cash_reconciled` (`true` once the Moka takings tie to the cash report within tolerance;
+      `false`/`null` **blocks the tax compute** — turnover must be complete). This period entry
+      is the **single source** the 0.5% calc reads — never re-derive turnover from the
+      spreadsheet downstream. (Slots from migration `0017_period_parity_turnover`.)
 
 ## Stage 2 — compute each monthly tax (masa = this month)
 - [ ] **PP55 — UMKM final 0.5%.** `0.5% × gross turnover`. KAP-KJS **411128-420**.
@@ -37,7 +43,15 @@ payroll and withholding checklists. Everything is browser-driven on **Coretax** 
 ## Stage 4 — report + record (SPT Masa deadline: the **20th**)
 - [ ] File **SPT Masa** for PPh 21 and Unifikasi by the 20th (PP55 has **no** SPT Masa —
       payment only; it pre-fills the annual return).
-- [ ] Record every NTPN against the period. These feed the **SPT Tahunan Badan** (30 April).
+- [ ] Record every NTPN against the period — on the matching `financials.json →
+      tax_calendar_<year>[]` entry (`status: paid`, `paid_at`, `payment_ref` = the NTPN; the documents collector
+      does this automatically when the receipt lands). These feed the **SPT Tahunan Badan** (30 April).
+- [ ] **Parity check (while shadowing the incumbent).** Compare each computed amount
+      (PP55 / PPh 21 / unifikasi) to the incumbent's **issued billing** for the masa. Record
+      the result on the period (`financials.json → periods[<masa>]`): `parity_status = "pass"`
+      only when they match (else `"fail"` + note the delta), `parity_ref` = the incumbent
+      billing id used. A period is **not closed** until `parity_status = "pass"` — this is the
+      go-live gate, a structured field, not a free-text comment. (Slots from migration `0017`.)
 
 ## Safety
 - **Prepare only.** Computing and drafting billing is fine; **paying, submitting, or

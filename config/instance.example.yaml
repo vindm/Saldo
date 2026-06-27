@@ -99,6 +99,7 @@ schedule:
   staleness_monitor: "07:32"  # MONITOR — missing-data & reconciliation (no connectors entry)
   threshold_monitor: { at: "07:34", cadence: weekly, weekday: mon }   # MONITOR — turnover moves monthly → weekly
   counterparty_status: { at: "07:36", cadence: monthly, day: 1 }      # registry re-check of counterparties (EGRUL), monthly
+  resolution_sweep: "07:40"   # AFTER collectors + question_resolver + monitors — recompute the edge over ALL active tasks (incl. open questions); advance the reversible, surface needs_operator. policies/resolution-model.md
   dashboards: "07:45"
 
 safety:

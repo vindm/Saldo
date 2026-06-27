@@ -9,10 +9,10 @@ name: "Russian Federation"
 
 authorities: authorities.yaml
 regimes: regimes.yaml
-# pipeline / operations / lint / vocab / icons are extracted in D3 (engine view);
-# until then the engine still reads the legacy RF locations. Listed here as the
-# pack's eventual home so the manifest is the single index.
-pipeline: pipeline.yaml          # PENDING D3 (from config/pipelines/monthly_close.yaml)
+# The recurring cycles live in cycles/*.yaml (monthly_close primary + payroll /
+# tax_quarterly / ausn). A single legacy pipeline.yaml is still auto-wrapped as one
+# monthly_close cycle when cycles/ is absent. operations/lint/vocab/icons pending D3.
+cycles: cycles/                  # one file per cycle; see jurisdictions/README.md
 operations: operations.yaml      # PENDING D3 (from engine/_plan_waves._OP_KEYWORDS)
 
 # Data-collection workflow domains available in this jurisdiction (INSTRUCTIONS §1.5 step 8).

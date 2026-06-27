@@ -375,6 +375,31 @@ def state_tasks_to_mm_format(tasks_data, client_name=None):
             ident = load_client_state_identity(cid)
             if ident:
                 client_name = (ident.get('name') or {}).get('short')
+    # Entity-linking: derive each payroll line's display name/position from the client's
+    # payroll.json roster AT RENDER TIME — the stored line keeps only employee_id (no dup).
+    _emp_info = {}
+    try:
+        _cid_r = tasks_data.get('client_id')
+        if _cid_r:
+            import state_ops as _so
+            for _e in ((_so.state_read(_cid_r, 'payroll.json') or {}).get('employees') or []):
+                if isinstance(_e, dict) and _e.get('id'):
+                    _emp_info[_e['id']] = {'name': _e.get('name'), 'position': _e.get('position')}
+    except Exception:
+        _emp_info = {}
+
+    def _enrich_ts(ts):
+        if not isinstance(ts, dict) or not ts.get('payroll_lines'):
+            return ts
+        import copy as _copy
+        ts = _copy.deepcopy(ts)
+        for _ln in ts.get('payroll_lines') or []:
+            if isinstance(_ln, dict):
+                _i = _emp_info.get(_ln.get('employee_id'))
+                if _i:
+                    _ln['name'] = _i.get('name'); _ln['position'] = _i.get('position')
+        return ts
+
     out = []
     for t in tasks_data['tasks']:
         out.append({
@@ -403,7 +428,7 @@ def state_tasks_to_mm_format(tasks_data, client_name=None):
             'comments': t.get('comments', []),
             'task_type': t.get('task_type'),
             'completed_at': t.get('completed_at'),
-            'type_specific': t.get('type_specific', {}) or {},
+            'type_specific': _enrich_ts(t.get('type_specific', {}) or {}),
             # Carry the assist block (system hypothesis + actions) through to the
             # mm format. Without this it was silently dropped here, so the brief,
             # the track modal and the plan row all fell back to next_action even

@@ -54,5 +54,12 @@
     "name_full": "Melati Sari",
     "folder": "clients/melati",
     "group": "direct"
+  },
+  {
+    "id": "kirana",
+    "name_short": "PT Kirana Wellness",
+    "name_full": "PT Kirana Bali Wellness",
+    "folder": "clients/kirana",
+    "group": "direct"
   }
 ]

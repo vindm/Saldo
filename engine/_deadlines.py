@@ -116,7 +116,15 @@ def collect_deadlines(today=None):
             fin = state_ops.state_read(cid, 'financials.json') or {}
         except Exception:
             fin = {}
-        for e in (fin.get('tax_calendar_2026') or []):
+        # Read every YEAR-suffixed calendar (`tax_calendar_2025/2026/2027/…`), not just the
+        # current year — so a next-year obligation (e.g. a semi-annual LKPM due 15 Jan) and an
+        # overdue prior-year entry both surface. Restricted to `tax_calendar_<4-digit-year>` so
+        # archival keys like `tax_calendar_dropped_after_departure` are never read.
+        import re as _re
+        _cal = [e for k, v in fin.items()
+                if isinstance(v, list) and _re.fullmatch(r'tax_calendar_\d{4}', k)
+                for e in v]
+        for e in _cal:
             d = _parse_date(e.get('date'))
             if d is None:
                 continue
@@ -161,6 +169,18 @@ def collect_deadlines(today=None):
                 'days_left': (d - today).days,
                 'bucket': _bucket(d, today, is_done),
             })
+    # Collapse a tax-calendar entry and its linked task into ONE deadline.
+    # When a tax_calendar_2026[] entry carries `linked_task` (the deadline_monitor
+    # wires it to the cycle track that does the work, e.g. the June payment entry ->
+    # fp_jun_billing), the same obligation otherwise shows twice — once as the tax
+    # row, once as the task row. Keep the tax row (authoritative date/amount/status
+    # + the linked_task title) and drop the duplicate task row. No-op for clients
+    # whose tax entries have no linked_task (the field is null) -> behaviour-preserving.
+    _linked = {(r['client_id'], r['linked_task'])
+               for r in rows if r['kind'] == 'tax' and r.get('linked_task')}
+    if _linked:
+        rows = [r for r in rows
+                if not (r['kind'] == 'task' and (r['client_id'], r['linked_task']) in _linked)]
     rows.sort(key=lambda r: r['date'])
     return rows
 

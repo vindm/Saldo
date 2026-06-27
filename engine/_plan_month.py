@@ -24,7 +24,7 @@ from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS
 from _aggregator import aggregate_by_day, aggregate_tasks, get_loose_tasks
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
-from _track_attrs import build_track_data_attrs
+from _track_attrs import build_track_data_attrs, build_mm_tracks_index
 from _plan_waves import cluster_tasks, _op_title, horizon_counts, _wave_op_token
 
 
@@ -134,7 +134,7 @@ def render_plan_month():
     def _ev_wave_chip(members):
         wcls = min((_priority_class(m) for m in members), key=lambda c: _SEV.get(c, 9))
         op = _op_title(members)
-        op_short = (op[:15] + '…') if len(op) > 16 else op
+        op_short = (op[:30] + '…') if len(op) > 31 else op
         n = len({m.get('client_id') for m in members})
         names = ', '.join(sorted({_short_name(m.get('client_name', '')) for m in members}))
         tip = _esc(op + ' · ' + names)
@@ -160,7 +160,7 @@ def render_plan_month():
             cls += ' m-tax'
 
         day_tasks = by_day.get(d, []) if not is_other_month else []
-        _waves, _singles = cluster_tasks(day_tasks)
+        _waves, _singles = cluster_tasks(day_tasks, period_aware=False)
         _chips = [_ev_wave_chip(m) for m in _waves] + [_ev_chip(t) for t in _singles]
         events_html = ''.join(_chips[:3])
         if len(_chips) > 3:
@@ -209,7 +209,7 @@ def render_plan_month():
                 f'{link_html}</div>')
 
     if loose_tasks:
-        _lw, _ls = cluster_tasks(loose_tasks)
+        _lw, _ls = cluster_tasks(loose_tasks, period_aware=False)
         _parts = []
         for _m in _lw:
             _n = len({x.get('client_id') for x in _m})
@@ -348,31 +348,81 @@ def render_plan_month():
 
 # ── Full navigable calendar (replaces the Week/Month tabs) ───────────────────
 CAL_CSS = (
-    '.page-title{font-size:19px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;margin:0 0 var(--space-md)}'
-    '.cal-nav{display:flex;align-items:center;justify-content:center;gap:var(--space-md);margin:0 0 var(--space-md)}'
-    '.cal-arrow{font-size:22px;line-height:1;width:38px;height:38px;border:1px solid var(--border);'
-    'border-radius:var(--radius-btn);background:var(--bg-card);color:var(--text-primary);cursor:pointer}'
-    '.cal-arrow:hover{border-color:var(--accent-blue);color:var(--accent-blue)}'
-    '#cal-label{font-size:18px;font-weight:600;min-width:200px;text-align:center;text-transform:capitalize}'
-    '.month-grid{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:2px;overflow-x:auto;'
+    '.page-title{font-size:19px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px}'
+    '.cal-sub{font-size:15px;color:var(--text-secondary);margin:0 0 var(--space-lg);max-width:62ch}'
+    # ── month switcher ──
+    '.cal-nav{display:flex;align-items:center;justify-content:center;gap:var(--space-sm);margin:0 0 var(--space-lg)}'
+    '.cal-arrow{font-size:20px;line-height:1;width:34px;height:34px;border:1px solid var(--border);'
+    'border-radius:var(--radius-btn);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;'
+    'display:flex;align-items:center;justify-content:center;transition:all var(--transition)}'
+    '.cal-arrow:hover{border-color:var(--accent-blue);color:var(--accent-blue);background:var(--accent-soft)}'
+    '#cal-label{font-size:17px;font-weight:600;min-width:190px;text-align:center;text-transform:capitalize;color:var(--text-primary)}'
+    # ── grid shell ──
+    '.month-grid{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:1px;overflow:hidden;'
     'background:var(--border);border:1px solid var(--border);border-radius:var(--radius-card)}'
-    '.m-dow{background:var(--bg-page);font-size:14px;text-transform:uppercase;letter-spacing:.04em;'
-    'text-align:center;padding:8px 0;color:var(--text-primary);font-weight:600}'
-    '.m-dow.m-wknd{color:var(--text-secondary)}'
-    '.m-cell{background:var(--bg-card);min-height:104px;padding:7px;font-size:14px;position:relative}'
-    '.m-cell.m-other{background:var(--bg-page);opacity:.45}'
-    '.m-cell.m-today{background:#EEEDFE}.m-cell.m-wknd{background:var(--bg-page)}'
-    '.m-cell.m-wknd.m-today{background:#EEEDFE}.m-cell.m-tax{box-shadow:inset 0 0 0 2px #F09595}'
-    '.m-day{font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:5px}'
-    '.m-cell.m-today .m-day{color:#3C3489;font-weight:700}.m-cell.m-other .m-day{color:var(--text-muted)}'
-    '.m-ev{display:block;font-size:13px;padding:2px 6px;border-radius:3px;margin-bottom:2px;line-height:1.3;'
-    'text-decoration:none;overflow:hidden;white-space:normal;word-wrap:break-word;cursor:pointer}'
+    '.m-dow{background:var(--bg-card);font-size:11px;text-transform:uppercase;letter-spacing:.06em;'
+    'text-align:center;padding:9px 0;color:var(--text-muted);font-weight:600}'
+    # ── day cells ──
+    '.m-cell{background:var(--bg-card);min-height:100px;padding:6px 7px;font-size:14px;position:relative}'
+    '.m-cell.m-other{background:var(--bg-page)}'
+    '.m-cell.m-wknd{background:var(--bg-page)}'
+    '.m-cell.m-today{background:var(--accent-soft)}'
+    # tax day — calm gold dot, top-right (was an alarming full red border)
+    '.m-cell.m-tax::after{content:"";position:absolute;top:9px;right:9px;width:6px;height:6px;'
+    'border-radius:50%;background:var(--gold)}'
+    # ── day number ──
+    '.m-day{font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;'
+    'display:flex;align-items:center;height:22px;line-height:1}'
+    '.m-cell.m-wknd .m-day{color:var(--text-muted)}'
+    '.m-cell.m-other .m-day{color:var(--text-muted);opacity:.65}'
+    '.m-cell.m-today .m-day{color:#fff;background:var(--accent-blue);border-radius:50%;'
+    'width:22px;height:22px;justify-content:center;font-weight:700}'
+    # ── event chips ──
+    '.m-ev{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;'
+    'font-size:12px;padding:3px 7px;border-radius:5px;margin-bottom:3px;line-height:1.35;'
+    'text-decoration:none;white-space:normal;word-break:break-word;cursor:pointer;'
+    'border-left:2px solid transparent;transition:filter var(--transition)}'
+    '.m-ev:hover{filter:brightness(.97)}'
     '.m-ev b{font-weight:600;margin-right:3px}'
-    '.m-ev.m-red{background:#FCEBEB;color:#791F1F}.m-ev.m-amber{background:#FAEEDA;color:#633806}'
-    '.m-ev.m-blue{background:#E6F1FB;color:#0C447C}.m-ev.m-grey{background:var(--bg-page);color:var(--text-secondary)}'
+    '.m-ev.m-red{background:var(--red-bg);color:#8A2A20;border-left-color:var(--accent-red)}'
+    '.m-ev.m-amber{background:var(--yellow-bg);color:#7A5413;border-left-color:var(--accent-yellow)}'
+    '.m-ev.m-blue{background:var(--accent-soft);color:var(--accent-blue);border-left-color:var(--accent-blue)}'
+    '.m-ev.m-grey{background:var(--bg-subtle);color:var(--text-secondary);border-left-color:var(--border-strong)}'
     '.m-ev.m-wave{font-weight:600}'
-    '.m-more{font-size:13px;color:var(--text-secondary);text-align:center;font-style:italic;font-weight:500}'
+    '.m-more{font-size:12px;color:var(--text-muted);font-weight:500;padding:1px 7px;margin-top:1px}'
+    '.m-cell[data-jump-date]{cursor:pointer}'
+    '.m-cell[data-jump-date]:hover{background:var(--accent-soft)}'
+    '.m-cell.m-today[data-jump-date]:hover{background:#E1E6F4}'
     '.cal-month{display:block}'
+    # ── controls row: filters (left) + view switcher (right) on one line ──
+    '.cal-controls{display:flex;align-items:flex-start;justify-content:space-between;'
+    'gap:12px;flex-wrap:wrap;margin:0 0 var(--space-md)}'
+    '.cal-controls .mode-bar{margin:0}'
+    '.cal-controls .cal-view-switch{margin:0}'
+    # ── view switcher (Calendar | List), iOS-segmented like the mode switch ──
+    '.cal-view-switch{display:inline-flex;border:1px solid var(--border-strong);border-radius:9px;'
+    'overflow:hidden;margin:0 0 var(--space-md);vertical-align:middle}'
+    '.cv-btn{padding:8px 16px;font-size:14px;border:0;border-left:1px solid var(--border);'
+    'background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:inherit;'
+    'font-weight:500;display:inline-flex;align-items:center;gap:6px;line-height:1.4;transition:all 120ms}'
+    '.cv-btn:first-child{border-left:0}'
+    '.cv-btn:hover{color:var(--text-primary);background:var(--bg-page)}'
+    '.cv-btn.active{background:var(--accent);color:#fff;font-weight:600}'
+    '.cv-btn.active:hover{background:var(--accent-hover);color:#fff}'
+    '.cv-btn .ic{width:15px;height:15px}'
+    # ── agenda / list view — date headers wrapping the REAL Plan waves+tracks,
+    #    full page width like the Plan ──
+    '.ag-group{margin:0 0 var(--space-lg);scroll-margin-top:16px}'
+    '.ag-group.ag-past{opacity:.82}'
+    '.ag-date{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;'
+    'text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin:0 0 9px;padding:0 2px}'
+    '.ag-group.ag-today .ag-date{color:var(--accent-blue)}'
+    '.ag-today-pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;'
+    'color:#fff;background:var(--accent-blue);border-radius:20px;padding:1px 8px}'
+    '.ag-tax-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0}'
+    '.ag-group .sec-card{margin-bottom:0}'
+    '.ag-group.ag-focus .sec-card{box-shadow:0 0 0 2px var(--accent-soft-border)}'
+    '.ag-empty{padding:48px 24px;text-align:center;color:var(--text-muted);font-size:15px}'
 )
 
 _SEVMAP = {'m-red': 0, 'm-amber': 1, 'm-blue': 2, 'm-grey': 3}
@@ -398,6 +448,26 @@ def render_calendar(today=None):
         d = tk.get('due_date')
         if d is not None and hasattr(d, 'strftime'):
             by_day.setdefault(d, []).append(tk)
+
+    # The list view reuses the Plan's REAL wave + track-row components. Wire the
+    # same indexes the Plan builds (blocker titles + mental-model tracks) and point
+    # _plan_waves' row hook at the shared task-row renderer.
+    import _plan_waves as _pw
+    from _brief import ANALYSIS_CSS as _AN_CSS
+    try:
+        from _plan_today import _render_task_row, _index_blocker_titles
+        _index_blocker_titles(all_tasks)
+        try:
+            from _mental_model import load_mental_models as _lmm
+            _mm_index = build_mm_tracks_index(_lmm())
+        except Exception:
+            _mm_index = {}
+        def _plan_row(tk):
+            return _render_task_row(tk, _mm_index)
+        _pw._RENDER_ROW = _plan_row
+    except Exception:
+        def _plan_row(tk):
+            return ''
 
     def _shift(yy, mm, delta):
         idx = yy * 12 + (mm - 1) + delta
@@ -425,7 +495,8 @@ def render_calendar(today=None):
         ev_cls = _priority_class(tk)
         tooltip = _esc(tk.get('client_name', '') + ' · ' + what_raw)
         cid = tk.get('client_id') or ''
-        short_what = _esc(what_raw[:20])
+        # Full label — the CSS clamps to 2 lines with an ellipsis, so no mid-word cut.
+        short_what = _esc(what_raw)
         dl = tk.get('days_left'); due = tk.get('due_date'); badge = ''
         if dl is not None:
             if dl < 0: badge = _t('overdue {}d').format(-dl)
@@ -444,20 +515,21 @@ def render_calendar(today=None):
         return ('<div class="m-ev ' + ev_cls + ' track-card-clickable" title="' + tooltip + '"' + da + '>'
                 '<b>' + _esc(cli) + '</b> ' + short_what + '</div>')
 
-    def _ev_wave_chip(members):
+    def _ev_wave_chip(members, d):
         wcls = min((_priority_class(mm) for mm in members), key=lambda c: _SEVMAP.get(c, 9))
         op = _op_title(members)
-        op_short = (op[:15] + '…') if len(op) > 16 else op
+        op_short = (op[:30] + '…') if len(op) > 31 else op
         n = len({mm.get('client_id') for mm in members})
         names = ', '.join(sorted({_short_name(mm.get('client_name', '')) for mm in members}))
-        # A wave chip is a recurring/batched operation, not a single track — so it
-        # links to that wave on the Plan (expanded + scrolled + highlighted),
-        # exactly like the Periods page jumps to a stage's wave. The Plan groups by
-        # the same canonical op token, so #wave=<token> lands on the right wave.
-        href = 'plan_today.html#wave=' + _quote(str(_wave_op_token(members)))
-        return ('<a class="m-ev m-wave ' + wcls + '" href="' + _esca(href) + '" '
+        # Clicking a wave chip no longer leaves for the Plan — it opens the in-page
+        # List at this date and expands THIS wave (data-jump-wave = the canonical op
+        # token, which matches the list wave's data-stage).
+        tok = _wave_op_token(members)
+        return ('<div class="m-ev m-wave ' + wcls + ' cal-jump-wave" '
+                'data-jump-date="' + d.strftime('%Y-%m-%d') + '" '
+                'data-jump-wave="' + _esca(str(tok)) + '" '
                 'title="' + _esc(op + ' · ' + names) + '">'
-                '<b>' + _esc(op_short) + '</b> · ' + str(n) + '</a>')
+                '<b>' + _esc(op_short) + '</b> · ' + str(n) + '</div>')
 
     def _grid(year, month):
         first = date(year, month, 1)
@@ -470,11 +542,41 @@ def render_calendar(today=None):
             cls = 'm-cell' + (' m-other' if other else '') + (' m-today' if d == today else '')
             cls += (' m-wknd' if d.weekday() >= 5 else '') + (' m-tax' if (d.day in TAX_DAYS and not other) else '')
             dts = by_day.get(d, []) if not other else []
-            w, s = cluster_tasks(dts)
-            chips = [_ev_wave_chip(mm) for mm in w] + [_ev_chip(x, month) for x in s]
+            w, s = cluster_tasks(dts, period_aware=False)
+            chips = [_ev_wave_chip(mm, d) for mm in w] + [_ev_chip(x, month) for x in s]
             ev = ''.join(chips[:3]) + (('<div class="m-more">+ ' + str(len(chips) - 3) + '</div>') if len(chips) > 3 else '')
-            cells.append('<div class="' + cls + '"><div class="m-day">' + str(d.day) + '</div>' + ev + '</div>')
+            # A day with tasks is itself clickable → opens the List scrolled to it.
+            jattr = (' data-jump-date="' + d.strftime('%Y-%m-%d') + '"') if (dts and not other) else ''
+            cells.append('<div class="' + cls + '"' + jattr + '><div class="m-day">' + str(d.day) + '</div>' + ev + '</div>')
         return '<section class="month-grid">' + dow + ''.join(cells) + '</section>'
+
+    def _agenda():
+        """Upcoming list — only days that actually have tasks, grouped by day,
+        chronological. Past/overdue days float to the top (earliest) and are muted;
+        today is pilled. Within each day we render the REAL Plan components: full
+        expandable waves (readiness bar + «🔍 Review») and the shared track rows."""
+        days = sorted(by_day.keys())
+        groups = []
+        for d in days:
+            w, s = cluster_tasks(by_day.get(d, []), period_aware=False)
+            items = []
+            for members in sorted(w, key=lambda m: (_pw._min_dl(m) if _pw._min_dl(m) is not None else 10**9)):
+                items.append('<div class="plan-item ' + _pw._urg_cls(_pw._min_dl(members)) + '">'
+                             + _pw._render_wave(members, _esc, 'cal') + '</div>')
+            for x in sorted(s, key=lambda x: (x.get('days_left') if x.get('days_left') is not None else 10**9)):
+                items.append('<div class="plan-item plan-single ' + _pw._urg_cls(x.get('days_left')) + '">'
+                             + _plan_row(x) + '</div>')
+            if not items:
+                continue
+            gcls = 'ag-group' + (' ag-today' if d == today else (' ag-past' if d < today else ''))
+            dot = '<span class="ag-tax-dot"></span>' if (d.day in TAX_DAYS) else ''
+            pill = ('<span class="ag-today-pill">' + _esc(t('Today')) + '</span>') if d == today else ''
+            hdr = '<div class="ag-date">' + dot + _esc(_format_date_ru(d)) + pill + '</div>'
+            groups.append('<div class="' + gcls + '" data-date="' + d.strftime('%Y-%m-%d') + '">' + hdr
+                          + '<section class="sec-card">' + ''.join(items) + '</section></div>')
+        if not groups:
+            return '<div class="ag-empty">' + _esc(t('No upcoming tasks')) + '</div>'
+        return ''.join(groups)
 
     cur_ym = '%d-%02d' % (today.year, today.month)
     month_divs = []
@@ -484,15 +586,54 @@ def render_calendar(today=None):
         style = '' if ymk == cur_ym else ' style="display:none"'
         month_divs.append('<div class="cal-month" data-ym="' + ymk + '" data-label="' + lbl + '"' + style + '>' + _grid(yy, mm) + '</div>')
 
-    nav = ('<div class="cal-nav"><button type="button" class="cal-arrow" id="cal-prev">‹</button>'
+    nav = ('<div class="cal-nav" id="cal-nav"><button type="button" class="cal-arrow" id="cal-prev">‹</button>'
            '<span id="cal-label"></span>'
            '<button type="button" class="cal-arrow" id="cal-next">›</button></div>')
+    _SVG_CAL = ('<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+                'stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/>'
+                '<path d="M3 10h18M8 2v4M16 2v4"/></svg>')
+    _SVG_LIST = ('<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+                 'stroke-linecap="round" stroke-linejoin="round">'
+                 '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>')
+    view_switch = ('<div class="cal-view-switch">'
+                   '<button type="button" class="cv-btn" data-view="calendar">' + _SVG_CAL + t('Calendar') + '</button>'
+                   '<button type="button" class="cv-btn" data-view="list">' + _SVG_LIST + t('List') + '</button>'
+                   '</div>')
     cal_js = ('<script>(function(){var M=[].slice.call(document.querySelectorAll(".cal-month"));if(!M.length)return;'
               'var i=M.findIndex(function(x){return x.dataset.ym==="' + cur_ym + '";});if(i<0)i=0;'
               'function show(k){k=Math.max(0,Math.min(M.length-1,k));M.forEach(function(x,j){x.style.display=j===k?"":"none";});'
               'var L=document.getElementById("cal-label");if(L)L.textContent=M[k].dataset.label;i=k;}'
               'var p=document.getElementById("cal-prev"),n=document.getElementById("cal-next");'
               'if(p)p.addEventListener("click",function(){show(i-1);});if(n)n.addEventListener("click",function(){show(i+1);});show(i);})();</script>')
+    # ── view switcher (Calendar | List), persisted; hides month nav in list mode ──
+    cal_view_js = ('<script>(function(){var KEY="cowork_cal_view";'
+                   'var saved;try{saved=localStorage.getItem(KEY)}catch(e){}if(saved!=="list")saved="calendar";'
+                   'var months=document.getElementById("cal-months"),agenda=document.getElementById("cal-agenda"),'
+                   'nav=document.getElementById("cal-nav");'
+                   'function apply(v){var list=(v==="list");'
+                   'if(months)months.style.display=list?"none":"";'
+                   'if(agenda)agenda.style.display=list?"":"none";'
+                   'if(nav)nav.style.display=list?"none":"";'
+                   'document.querySelectorAll(".cv-btn").forEach(function(b){'
+                   'b.classList.toggle("active",b.getAttribute("data-view")===v)});'
+                   'try{localStorage.setItem(KEY,v)}catch(e){}}'
+                   # Calendar → List: switch view, scroll to the day, expand the wave
+                   'function gotoList(dateStr,waveTok){apply("list");setTimeout(function(){'
+                   'var grp=dateStr?document.querySelector("#cal-agenda .ag-group[data-date=\\""+dateStr+"\\"]"):null;'
+                   'if(!grp)return;'
+                   'if(waveTok){[].forEach.call(grp.querySelectorAll(".wave"),function(w){'
+                   'if((w.getAttribute("data-stage")||"")===waveTok){w.classList.remove("collapsed");w.classList.add("wave-focus");}});}'
+                   'grp.scrollIntoView({behavior:"smooth",block:"start"});'
+                   'grp.classList.add("ag-focus");setTimeout(function(){grp.classList.remove("ag-focus")},1600);'
+                   '},70);}'
+                   'document.addEventListener("click",function(e){'
+                   'var b=e.target.closest(".cv-btn");if(b){apply(b.getAttribute("data-view"));return;}'
+                   'if(e.target.closest(".track-card-clickable"))return;'
+                   'var wv=e.target.closest(".cal-jump-wave");'
+                   'if(wv){e.preventDefault();gotoList(wv.getAttribute("data-jump-date"),wv.getAttribute("data-jump-wave"));return;}'
+                   'var cell=e.target.closest(".m-cell[data-jump-date]");'
+                   'if(cell){gotoList(cell.getAttribute("data-jump-date"),null);return;}'
+                   '});apply(saved);})();</script>')
 
     head = render_header()
     title = t('Calendar')
@@ -501,15 +642,19 @@ def render_calendar(today=None):
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
         '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS
-        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + TRACK_MODAL_CSS + MODE_SWITCH_CSS + CAL_CSS + '</style>'
+        + SIDEBAR_CSS + PROMPT_MODAL_CSS  + TRACK_MODAL_CSS + MODE_SWITCH_CSS
+        + _pw.WAVES_CSS + _AN_CSS + CAL_CSS + '</style>'
         '</head><body><div class="layout-shell">'
         + render_sidebar(active='calendar')
         + '<main class="main-content">' + head
         + '<h1 class="page-title">' + title + '</h1>'
-        + MODE_SWITCH_HTML + nav
+        + '<div class="cal-sub">' + t('All deadlines and tasks, day by day.') + '</div>'
+        + '<div class="cal-controls">' + MODE_SWITCH_HTML + view_switch + '</div>' + nav
         + '<div id="cal-months">' + ''.join(month_divs) + '</div>'
+        + '<div id="cal-agenda" style="display:none">' + _agenda() + '</div>'
         + '</main></div>'
         + PROMPT_MODAL_HTML  + TRACK_MODAL_HTML
-        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS  + TRACK_MODAL_JS + MODE_SWITCH_JS + cal_js
+        + NEW_JS_FRAGMENT + PROMPT_MODAL_JS  + TRACK_MODAL_JS + MODE_SWITCH_JS
+        + _pw.WAVES_JS + cal_js + cal_view_js
         + '</body></html>'
     )

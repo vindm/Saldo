@@ -34,6 +34,15 @@ _UNKNOWN_MARKERS = _vocab.get('unknown_markers')
 from datetime import date as _date
 TODAY = _date.today()
 
+# Strong, unambiguous operation phrases in a task TITLE -> the task_type they imply.
+# Used by the op_type_mismatch check (R9). CURATED on purpose — NOT every keyword
+# from _plan_waves._OP_KEYWORDS — because an incidental token in a title (e.g. «ЛК
+# АУСН» inside an access request) must NOT be read as that operation. Add a row only
+# when the phrase reliably names the operation regardless of context.
+_OP_TITLE_SIGNALS = [
+    (re.compile(r'оплат\w*\s+услуг', re.I), 'service_payment', 'service-fee control (оплата услуг)'),
+]
+
 def _inn_valid(s):
     """Checksum of a Russian INN (10 or 12 digits). None if not all digits."""
     s = str(s)
@@ -265,6 +274,228 @@ def lint_client(cid, _xclient=None):
             if len(banks) > 1:
                 _v(viols, 'error', cid, 'ausn_one_bank', f'AUSN requires ONE bank, active current accounts in: {sorted(banks)}')
 
+    # H2. Cash-reconciliation gate — pack-declared, jurisdiction-agnostic
+    # (`cash_reconciled` / `turnover_source` slots from migration 0017).
+    # A turnover-based tax's base must be COMPLETE before the period is settled: where
+    # the month's turnover includes cash takings, that cash must be reconciled to the
+    # recorded turnover (POS/Moka vs the cash report, or OFD kassa vs declared). The
+    # regime OPTS IN via its pack (`require_cash_reconciliation`, same mechanism as
+    # `require_one_bank`), so RU USN(income)/AUSN and ID UMKM-final share ONE gate while
+    # a non-turnover or no-cash client is never touched. Fires only when: (a) the regime
+    # opts in, (b) the period is OPEN (archived history is settled, not re-litigated),
+    # (c) turnover is recorded, (d) cash is actually in play — the period's
+    # turnover_source names it OR the client has a kassa/OFD/acquiring channel, and
+    # (e) cash_reconciled is not true. The staleness_monitor pushes the same flag.
+    if _rule.get('require_cash_reconciliation'):
+        _acc = states.get('accounts') or {}
+        _has_cash_channel = bool(_acc.get('kassas') or _acc.get('kkt_mode')
+                                 or _acc.get('acquiring_channels'))
+        _TERMINAL_PERIOD = {'archive', 'archived', 'closed', 'paid', 'done'}
+        for p in ((states.get('financials') or {}).get('periods') or []):
+            if p.get('period_type') != 'month':
+                continue
+            if str(p.get('status', '')).strip().lower() in _TERMINAL_PERIOD:
+                continue
+            _tov = next((p.get(k) for k in
+                         ('income_usn', 'turnover_idr', 'income_ausn', 'turnover')
+                         if p.get(k) is not None), None)
+            if _tov is None:
+                continue
+            _src = str(p.get('turnover_source') or '').lower()
+            _src_cash = ('cash' in _src) or ('касса' in _src) or ('moka' in _src)
+            if (_src_cash or _has_cash_channel) and p.get('cash_reconciled') is not True:
+                _v(viols, 'warn', cid, 'cash_unreconciled',
+                   f'period {p.get("period")}: turnover-tax base not confirmed complete — cash '
+                   f'takings not reconciled (cash_reconciled={p.get("cash_reconciled")!r}). '
+                   f'Reconcile takings to recorded turnover before settling the period.')
+
+    # H3. PAYROLL ROSTER + BPJS COVERAGE — pack-declared (jurisdictions/<code>/lint.yaml →
+    # payroll), jurisdiction-agnostic engine. Fires only where the pack opts in AND the client
+    # runs payroll (regime.has_employees). Reads the per-employee roster (state/payroll.json,
+    # slot from migration 0019). Makes first-class what an aggregate payroll cannot see — a
+    # worker missing from a BPJS billing (a UU 24/2011 violation), and a foreign worker whose
+    # residency / PPh method / permit are unverified.
+    try:
+        import _jurisdiction as _J
+        _pay_rule = (_J.load_jurisdiction(reg.get('jurisdiction')).lint or {}).get('payroll') or {}
+    except Exception:
+        _pay_rule = {}
+    if _pay_rule and reg.get('has_employees') is True:
+        _roster = (states.get('payroll') or {}).get('employees')
+        _kasses = _pay_rule.get('bpjs_kasses') or []
+        _fw = _pay_rule.get('foreign_worker') or {}
+        _warn_days = _fw.get('permit_expiry_warn_days')
+        if _pay_rule.get('require_employee_roster') and not _roster:
+            _v(viols, 'info', cid, 'payroll_roster_empty',
+               'regime.has_employees=true but no employee roster yet (state/payroll.json '
+               'employees[] empty) — populate it so BPJS / permit coverage can be checked.')
+        for emp in (_roster or []):
+            if not isinstance(emp, dict):
+                continue
+            _eid = emp.get('id') or emp.get('name') or '?'
+            _bpjs = emp.get('bpjs') or {}
+            # An explicit "missing" on any mandatory kas IS the live risk — surface it.
+            for k in _kasses:
+                if str(_bpjs.get(k)).lower() == 'missing':
+                    _v(viols, 'warn', cid, 'bpjs_coverage_gap',
+                       f'employee {_eid}: BPJS {k}=missing — register before billing '
+                       f'(an uncovered worker is a UU 24/2011 violation).')
+            if emp.get('foreign_national') is True:
+                # A KITAS-holder must be in BOTH kasses; an unrecorded status is unverified.
+                if _fw.get('require_both_kasses'):
+                    for k in _kasses:
+                        if _bpjs.get(k) in (None, ''):
+                            _v(viols, 'warn', cid, 'tka_bpjs_unverified',
+                               f'employee {_eid}: foreign worker, BPJS {k} status not recorded '
+                               f'— a KITAS-holder must be in both kasses; verify coverage.')
+                # A non-ID-resident is taxed PPh 26 (20% flat), not PPh 21.
+                if emp.get('tax_residency') == 'non_id' and emp.get('pph_method') not in ('pph26', None):
+                    _v(viols, 'warn', cid, 'pph_method_residency',
+                       f'employee {_eid}: tax_residency=non_id but pph_method='
+                       f'{emp.get("pph_method")!r} — a non-resident is taxed PPh 26 (20% flat), '
+                       f'not PPh 21.')
+                # Permit (RPTKA/KITAS) expiry window — plan the renewal before it lapses.
+                _permit = emp.get('permit') or {}
+                if _warn_days:
+                    for pk in ('kitas_expires', 'rptka_expires'):
+                        _pd = _parse_d(_permit.get(pk))
+                        if _pd is None:
+                            continue
+                        _days = (_pd - TODAY).days
+                        if _days < 0:
+                            _v(viols, 'error', cid, 'permit_expired',
+                               f'employee {_eid}: {pk} EXPIRED ({_permit.get(pk)}).')
+                        elif _days <= _warn_days:
+                            _v(viols, 'warn', cid, 'permit_expiring',
+                               f'employee {_eid}: {pk} in {_days}d ({_permit.get(pk)}) — plan '
+                               f'RPTKA/KITAS renewal; close any BPJS gap before it.')
+
+    # H4. OBLIGATION CADENCE — pack-declared recurring obligations (jurisdictions/<code>/
+    # obligations.yaml). Where an obligation's cadence depends on business scale (LKPM: an
+    # Usaha Kecil files per SEMESTER, medium/large per QUARTER — BKPM 5/2025 §285), check that
+    # the client's calendar entries fall in the scale-correct months. Catches the exact drift
+    # that put a quarterly LKPM (a phantom Q3) on an Usaha Kecil. Pack-declared + jurisdiction-
+    # agnostic: runs only where the pack declares an applicable, scale-driven obligation.
+    try:
+        import _jurisdiction as _Jb
+        _obls = _Jb.load_jurisdiction(reg.get('jurisdiction')).obligations
+    except Exception:
+        _obls = {}
+    if _obls:
+        _TERM_CAL = {'paid', 'done', 'submitted', 'completed', 'cancelled'}
+        _ident = states.get('identity') or {}
+        _scale_raw = str(_ident.get('skala_usaha') or '').lower()
+        _scale = ('kecil' if 'kecil' in _scale_raw else
+                  'menengah' if 'menengah' in _scale_raw else
+                  'besar' if 'besar' in _scale_raw else None)
+        _fin = states.get('financials') or {}
+        _entries = [e for k, v in _fin.items()
+                    if isinstance(v, list) and re.fullmatch(r'tax_calendar_\d{4}', k)
+                    for e in v if isinstance(e, dict)]
+        for _code, _obl in _obls.items():
+            _cbs = (_obl or {}).get('cadence_by_scale')
+            if not _cbs:
+                continue  # fixed-cadence (annual etc.) obligations aren't scale-checked here
+            if _obl.get('applies_when') == 'penanaman_modal_registered' \
+                    and not _ident.get('penanaman_modal'):
+                continue
+            if _scale is None or _scale not in _cbs:
+                continue  # scale unknown / not covered -> can't judge, stay silent
+            _months = set((_cbs[_scale] or {}).get('deadline_months') or [])
+            if not _months:
+                continue
+            _tok = str(_obl.get('match') or _code).upper()
+            _every = (_cbs[_scale] or {}).get('every')
+            for e in _entries:
+                if _tok not in str(e.get('what') or '').upper():
+                    continue
+                if str(e.get('status', '')).strip().lower() in _TERM_CAL:
+                    continue  # a filed past entry is history — don't relitigate its cadence
+                _ed = _parse_d(e.get('date'))
+                if _ed and _ed.month not in _months:
+                    _v(viols, 'warn', cid, 'obligation_cadence_mismatch',
+                       f'{_code.upper()} entry {e.get("date")} falls in month {_ed.month}, but a '
+                       f'{_scale} client files {_every} (deadline months {sorted(_months)}) — '
+                       f'wrong cadence? (scale-driven obligation, jurisdictions/<code>/obligations.yaml)')
+
+    # H5. DELIVERY vs DERIVED CADENCE — the bookkeeping cadence the regime REQUIRES is derived
+    # (engine/_cadence.py, docs/CADENCE.md); the rate at which the client actually delivers source
+    # documents (behavior.json -> bank_statement_frequency) must not be LOOSER than it, or the
+    # period cannot be posted in time. Flags e.g. a payroll (monthly-floor) client who only sends
+    # statements quarterly. Silent when either side is unknown (on_request / undetermined regime).
+    if _obls:
+        try:
+            import _cadence as _Cad
+            _deliv = _Cad.delivery_cadence((states.get('behavior') or {}).get('bank_statement_frequency'))
+            if _deliv:
+                _cad_state = {'regime': reg,
+                              'payroll': states.get('payroll') or {},
+                              'financials': states.get('financials') or {}}
+                _req = _Cad.resolve_bookkeeping_cadence(_obls, _cad_state, TODAY.strftime('%Y-%m'))
+                if _Cad.is_delivery_looser(_deliv, _req):
+                    _v(viols, 'warn', cid, 'delivery_looser_than_cadence',
+                       f'source docs arrive {_deliv} but the regime requires {_req} bookkeeping — '
+                       f'cannot post {_req} on {_deliv} statements '
+                       f'(behavior.json bank_statement_frequency; see docs/CADENCE.md)')
+        except Exception:
+            pass
+
+    # H4. PAYROLL RUN — per-employee lines carried on a payroll task (type_specific.payroll_lines,
+    # see docs/PAYROLL-CALCULATION-REVIEW-PROPOSAL.md). The engine checks CONSISTENCY, not the math:
+    # the breakdown must reconcile to the period aggregate the rest of the engine renders, every
+    # line must point at a real roster employee, and the line must agree with that employee's
+    # coverage/residency (mirrors H3). Correctness of each figure is the parity review's job.
+    _emp_by_id = {e.get('id'): e for e in ((states.get('payroll') or {}).get('employees') or [])
+                  if isinstance(e, dict)}
+    _periods_by_id = {p.get('period'): p for p in ((states.get('financials') or {}).get('periods') or [])
+                      if isinstance(p, dict)}
+    for _t in tasks:
+        _ts = _t.get('type_specific') or {}
+        _lines = _ts.get('payroll_lines')
+        if not isinstance(_lines, list) or not _lines:
+            continue
+        _tid = _t.get('id')
+        _sum_pph = 0
+        for _ln in _lines:
+            if not isinstance(_ln, dict):
+                continue
+            _sum_pph += (_ln.get('pph') or 0)
+            _eid = _ln.get('employee_id')
+            _emp = _emp_by_id.get(_eid)
+            if _emp is None:
+                _v(viols, 'warn', cid, 'payroll_line_emp',
+                   f'{_tid}: payroll line references unknown employee_id {_eid!r}')
+                continue
+            # coverage tie-in: a kas marked "missing" must carry no posted contribution
+            _lb = _ln.get('bpjs') or {}
+            _eb = _emp.get('bpjs') or {}
+            for _k in ('kesehatan', 'ketenagakerjaan'):
+                if str(_eb.get(_k)).lower() == 'missing':
+                    _kc = _lb.get(_k) or {}
+                    if (_kc.get('employee') or 0) or (_kc.get('employer') or 0):
+                        _v(viols, 'warn', cid, 'payroll_coverage',
+                           f'{_tid}: {_eid} BPJS {_k}=missing on roster but a contribution is posted '
+                           f'in the run — register the worker or drop the line.')
+            # method tie-in: a non-resident must be PPh 26, not TER/annualisasi
+            if _emp.get('tax_residency') == 'non_id' and _ln.get('method') not in (None, 'pph26'):
+                _v(viols, 'warn', cid, 'payroll_method',
+                   f'{_tid}: {_eid} is non-resident but line method={_ln.get("method")!r} — '
+                   f'a non-resident is taxed PPh 26 (20% flat).')
+        # totals self-consistency
+        _tot = _ts.get('totals') or {}
+        if _tot.get('pph') is not None and _tot.get('pph') != _sum_pph:
+            _v(viols, 'warn', cid, 'payroll_totals',
+               f'{_tid}: totals.pph={_tot.get("pph")} != sum(lines.pph)={_sum_pph}')
+        # reconciliation to the period aggregate the engine renders
+        _masa = _ts.get('period')
+        _per = _periods_by_id.get(_masa)
+        if _per is not None:
+            _agg = (_per.get('taxes') or {}).get('pph21')
+            if _agg is not None and _agg != _sum_pph:
+                _v(viols, 'warn', cid, 'payroll_reconcile',
+                   f'{_tid}: payroll PPh sum {_sum_pph} != financials period {_masa} taxes.pph21 '
+                   f'{_agg} — the per-employee breakdown must reconcile to the period total.')
+
     # I. INN — checksum
     if inn and _inn_valid(inn) is False:
         _v(viols, 'error', cid, 'inn_csum', f'identity: INN fails its checksum: {inn}')
@@ -316,6 +547,28 @@ def lint_client(cid, _xclient=None):
         if _sd is not None:
             _v(viols, 'info', cid, 'stale_track', f'{t2.get("id")} no movement for {_sd} days ({t2.get("priority","normal")}) — nudge or postpone')
 
+    # R9: type<->title mismatch (classification drift guard). The title is human
+    # prose, NOT the classifier — task_type is the source of truth. But when a title
+    # reliably names an operation (see _OP_TITLE_SIGNALS) while task_type says
+    # something else, the type is probably wrong: flag it (INFO) so the operator /
+    # runtime re-types it. Curated signals only, so an incidental title token can't
+    # raise a false positive. Terminal tasks are skipped.
+    # Inquiry/annotation types are NOT operations — a question whose text mentions an
+    # operation («из какой выручки оплатить услуги») is still a question, not that
+    # operation. Skip them (mirrors migration 0014's type gate) so they don't false-flag.
+    _NOT_AN_OPERATION = ('open_question', 'regime_question', 'note')
+    for t2 in tasks:
+        if normalize_status(t2.get('status') or '') in ('done', 'archived', 'cancelled'):
+            continue
+        _tt = (t2.get('task_type') or '').strip()
+        if _tt in _NOT_AN_OPERATION:
+            continue
+        _ttl = (t2.get('title') or t2.get('what') or '')
+        for _rx, _exp, _lbl in _OP_TITLE_SIGNALS:
+            if _rx.search(_ttl) and _tt != _exp:
+                _v(viols, 'info', cid, 'op_type_mismatch',
+                   f'{t2.get("id")}: title reads as {_lbl} but task_type is "{_tt or "—"}" (expected "{_exp}")')
+
     # NOTE (JSON-first, 2026-06-19): the old "Analysis & recommendations narrative
     # freshness" lint used to PARSE the ```analysis JSON block out of mental_model.md.
     # That block is gone — the dashboard's analysis zone is now derived from
@@ -327,6 +580,26 @@ def lint_client(cid, _xclient=None):
         for b in (t2.get('blocked_by') or []):
             if b not in ids:
                 _v(viols, 'warn', cid, 'blocked_ref', f'{t2.get("id")}: blocked_by on a non-existent task {b}')
+
+    # K2. ref_resolves — every task type_specific.refs[].id must resolve to an existing entity of
+    # its type (docs/ENTITY-LINKING-ARCHITECTURE.md). One generic check covers every entity type;
+    # a type we don't resolve yet is skipped (never a false error). Generalizes risk_link.
+    _entity_ids = {
+        'employee':     {e.get('id') for e in ((states.get('payroll') or {}).get('employees') or []) if isinstance(e, dict)},
+        'period':       {p.get('period') for p in ((states.get('financials') or {}).get('periods') or []) if isinstance(p, dict)},
+        'counterparty': {c.get('id') for c in ((states.get('counterparties') or {}).get('counterparties') or []) if isinstance(c, dict)},
+        'risk':         {r.get('id') for r in risks if isinstance(r, dict)},
+        'account':      {a.get('id') for a in accts if isinstance(a, dict)},
+        'task':         set(ids.keys()),
+    }
+    for t2 in tasks:
+        for _ref in ((t2.get('type_specific') or {}).get('refs') or []):
+            if not isinstance(_ref, dict):
+                continue
+            _rt, _ri = _ref.get('type'), _ref.get('id')
+            if _rt in _entity_ids and _ri not in _entity_ids[_rt]:
+                _v(viols, 'warn', cid, 'ref_resolves',
+                   f'{t2.get("id")}: ref {{type:{_rt}, id:{_ri}}} does not resolve to an existing {_rt}')
 
     # L. risk severity
     for r in risks:

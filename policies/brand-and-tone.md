@@ -6,6 +6,7 @@
 - Any document for a client: explanatory/analytical note, letter, instruction, reply in a Finkoper task chat, reminder, invoice/act.
 - Any message sent externally on behalf of the operator (Telegram, email, messengers).
 - Do NOT apply to internal files (state, dashboards, logs, checklists) — those use their own technical format.
+- The **monthly client one-pager** is already produced by the engine (`engine/_owner_report.py`), pre-branded — generate it, don't author it from scratch. Its layout/design rules live in `docs/DESIGN-SYSTEM.md → Client one-pager`; the §4 send procedure (set `regime.client_facing`, approval-gate the send) is in `policies/INSTRUCTIONS.md`.
 
 ## Where the assets live (brand kit folder)
 - `Letterhead_template.docx` — empty branded letterhead: copy it, then fill in (the header, footers, and signature are inserted automatically).

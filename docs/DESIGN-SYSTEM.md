@@ -5,6 +5,12 @@ view**. This is the developer/view layer (per Invariant 0, touch Python only whe
 the rendered view must change). It is distinct from `policies/brand-and-tone.md`,
 which governs **client-facing** output (the Russian reports/messages a client sees).
 
+One client-facing artifact is *also* an engine-rendered view: the monthly
+one-pager (`engine/_owner_report.py`). It is the dev/view layer like the
+dashboards, but wears the **client brand** (navy/gold) rather than the indigo
+chrome — its rules are in **Client one-pager (owner report)** below; brand
+identity and tone come from `policies/brand-and-tone.md`.
+
 ## North-star & principles
 
 The reference points are Linear and similar modern product dashboards: calm,
@@ -64,6 +70,23 @@ miss work:
 - **Shadows:** `--shadow-card` (resting surface), `--shadow-pop` (lifted / indigo).
 - **Motion:** see **Motion** below. **Type:** system sans; sizes via `--fs-*`.
 
+### Vertical rhythm — list spacing (proximity)
+
+A list reads as one list only when its items sit **closer to each other than
+to whatever surrounds the list**. So the gap **between** list items must be
+**≤** the gap **before/after** the whole list, and the tightest gap of all is
+**within** an item (a card header to its own body). The hierarchy is always:
+
+> `within-item  <  between-items  ≤  before/after-list  <  between-sections`
+
+Never let the inter-item gap exceed the gap around the list — that makes an
+item look attached to the section heading above it instead of to its own list
+(this bit the Periods page: 26px between periods vs 12px from the cycle head).
+
+Worked example — Periods (`_periods.py`), period cards within a cycle:
+header→card **8px** < between periods **16px** ≤ cycle-head→first-period
+**20px** < between cycles **32px** < between jurisdictions **36px**.
+
 ## Motion
 
 - **Token:** `--transition` = `150ms ease` — the value **already includes the
@@ -85,6 +108,21 @@ miss work:
 
 ## Component patterns (established conventions — reuse, don't reinvent)
 
+- **The sidebar's only left-edge bar is the active-item accent rail** (`_sidebar.py`
+  `.sb-item.active` → `box-shadow:inset 3px 0 0 var(--accent)`). Selection has a
+  *single* signal: accent-soft fill + the rail. Do **not** give a category of nav
+  rows (e.g. client groups) a permanent decorative `border-left` — a standing bar
+  on un-selected items competes with the rail and makes the real selected state
+  easy to miss (failure-mode #1). The old purple client-group border was removed
+  for exactly this reason (2026-06-26). The one sanctioned exception is the gold
+  `.sb-update` "update available" CTA, where the bar *encodes* a transient state.
+  Spacing is deliberately generous, not dense (the 248px column, 28/20 padding and
+  a stacked left-aligned brand block were tuned to the `design-mockup-s-tier.html`
+  reference, 2026-06-26): nav type is 14.5px on an 8px row rhythm, inactive rows
+  are the calmer `--text-secondary` with `--text-muted` icons, both going `--accent`
+  (navy) when selected; the "Clients" caption is a quiet 10.5px wide-tracked
+  micro-label (`--text-muted`), not a peer of the nav items; counts are plain
+  tabular numbers, with a red tint reserved for the overdue Plan count.
 - **Filter-active banner** (`_mode_switch.py`): whenever a filter hides rows, show
   a high-visibility banner stating shown-vs-hidden counts plus a one-click reset;
   the selected segment is filled `--accent`. Rule: *a filter must never silently
@@ -110,6 +148,19 @@ miss work:
   class* (`.wave-focus` → `outline`), never an inline style. Wire user actions
   (collapse, collapse-all) to clear it and strip the deep-link hash via
   `history.replaceState`, so it doesn't reappear on reload.
+- **Periods view = a per-cycle progress stepper, counted by task** (`_periods.py`).
+  Each jurisdiction renders one band per recurring cycle (`_pipeline.cycles()`): the
+  primary cycle (monthly close) is first and **headerless**, other cycles get a slim
+  gold-bar header (`.pp-cycle-head`), jurisdictions a navy-bar header
+  (`.pp-juris-head`). Within a band, each reporting period is a card whose stages are
+  a horizontal **stepper** (`.pp-step`) — one node per stage: done = green ✓, active =
+  navy circle with the open count, overdue = red, not-yet-started = a faint outline
+  circle with a muted label (**never a "—" cell** — empty stages must recede, not
+  compete). The connector fills green through completed stages; a status line
+  («Сейчас: <stage>» / «Завершено ✓», red when overdue) summarises the period.
+  **Counts are by TASK, not by distinct client** — matching the Plan's wave counts;
+  the cohort pill uses `_plural_tasks` (RU-declined: 1 задача / 2 задачи / 5 задач).
+  The page must read as "where does each cycle stand", at a glance.
 - **Counts shown side by side must share one definition.** If two numbers sit near
   each other they must use the same window — e.g. the Plan sidebar badge and the
   "{N} in the next 7 days" summary both use `horizon_counts(...)['near']`.
@@ -125,11 +176,20 @@ miss work:
 - **A summary count sits on the right of its section header**, not inline after the
   title (`section-title`/`an-head` are `flex; justify-content:space-between`; the
   count is a *sibling* of the title span, never nested inside it).
-- **The overview header metrics use the same KPI-band treatment as the client header
-  KPIs** (`.aw-stats` ≡ `.kpi-band`): transparent — **no card/island**, no border —
-  label-over-value, navy `--accent` value, vertical `--border` dividers between
-  tiles. Semantic value colours (red overdue / amber due-today / green closed) are
-  kept as signal. One metric look across overview and client pages.
+- **Every page header renders its count-summary through the ONE shared KPI band**
+  (`_analytics_widgets.render_kpi_band`, CSS `KPI_BAND_CSS` / `.aw-stats` ≡
+  `.kpi-band`): transparent — **no card/island**, no border — label-over-value, navy
+  `--accent` value, vertical `--border` dividers between tiles; semantic value
+  colours (red / amber / green) kept as signal. This is the look on the overview,
+  the **Plan** (`в работе / ближайшие 7 дней / дальше`), the **clients-group** pages
+  (`срочные / скоро / в норме`) and the **client cockpit** alike — one metric look
+  across the whole product. Never fork a parallel summary renderer: the old inline
+  `.plan-summary` and `.cd-summary` dot-strings were retired into the band on
+  2026-06-26 (three visual languages for the same job → one). Tiles differ per page
+  only in *which* metrics they carry; the component, type scale and colours do not.
+  **Numbers shared across pages share their definition AND their label** — e.g. the
+  leading «В работе» tile = `aggregate_tasks(TODAY)['all']` on both the overview and
+  the Plan (same count, same word), per the side-by-side-counts rule above.
 - **A list row has one action — open its card — with one deliberate exception: the
   dependency chip.** The whole `.track-card-clickable` row opens the track modal; do
   **not** add per-row controls that merely duplicate that (a hover "→" to the client
@@ -250,6 +310,50 @@ entities are ASCII, so they pass the sanitizer untouched and the browser decodes
 A literal `\U0001F512` in Python vanishes from the output (this bit the plan dep chip +
 track-modal on 2026-06-25). SVG icons (`_icons.py`) are the preferred path; the entity
 trick is only for the few semantic glyphs we keep (lock / open-lock).
+
+## Client one-pager (owner report)
+
+The monthly statement the operator opens from a client card, prints to PDF and
+sends. **Single source: `engine/_owner_report.py` (`_CSS` + `_PAGE`)** — never
+hand-edit a generated `report_*.html` (Invariant 3). Client-facing, so it carries
+the navy/gold brand, NOT the indigo dashboard accent; brand + tone per
+`policies/brand-and-tone.md`.
+
+Aesthetic — a **financial statement**, not a dashboard: calm, airy, rhythmic.
+The bar to clear is "a serious professional practice", and the explicit failure
+mode is "boxy / cramped".
+
+- **Statement rows, not card grids, for the tax breakdown.** Each line is a
+  hairline-separated row (label + plain-language note on the left, amount
+  right-aligned). This holds an even cadence for one line or six, and avoids the
+  lonely half-width card a 2-col grid leaves on an odd count.
+- **Generous, consistent vertical rhythm** — wide sheet margins, a clear
+  client-name block with a divider, fixed gaps between sections. Whitespace does
+  the work; don't fill it.
+- **Serif tabular figures for money** (`.num`) so columns align; one display
+  serif (Georgia) for headings/figures over a clean system sans body.
+- **Flat fills, one sparing accent.** Solid navy for the total band / current
+  trend bar / print button (no gradients — they read cheap and print poorly).
+  Gold is a single thin accent (the top rule, the currency glyph), never a
+  field of colour.
+- **The trend chart lives in the hero**, beside the figure — compact, ≥2 months
+  or it's omitted. Not a separate full-width section.
+
+**Empty / sparse states must be graceful — this is load-bearing, not polish.**
+A just-onboarded client legitimately has no turnover and no tax lines yet.
+
+- No turnover on file → a quiet italic caption (`t('No turnover recorded yet')`),
+  **never a lone "—"** (which reads as a broken render).
+- No tax lines → the honest note "no payment was due", **never "paid ✓ / 0"**.
+- Turnover source order (first non-null wins): `turnover_idr` → `income_usn` →
+  `income_ausn` → `ausn_monthly[latest].income_base`. Add a jurisdiction's income
+  field here when its packs land, so its clients show a figure rather than the
+  empty state.
+
+**Verify on real shape, both data dirs.** Regenerate the example *and*
+`saldo-migrated_data` (the proving ground) and eyeball the hardest cases: a
+no-data АУСН client (empty state), a multi-line ID client with a trend
+(face-protocol). Under `ru`, confirm no English leaks (every label via `t()`).
 
 ## How to evolve it
 

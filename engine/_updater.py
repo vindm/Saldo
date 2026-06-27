@@ -29,11 +29,12 @@ _FETCH_TIMEOUT = 8                            # seconds; never hang a render on 
 # The fixed trigger phrase the button copies. Stable so it reliably matches the
 # update workflow. Russian — the operator-facing surface is RU (locale boundary).
 UPDATE_PROMPT_RU = (
-    "Обнови систему Saldo по workflow connectors/update/SKILL.md. "
-    "Сначала проверь новую версию движка и сделай резервную копию, "
+    "Проверь обновления Saldo по workflow connectors/update/SKILL.md. "
+    "Если есть новая версия — сделай резервную копию, скачай её, "
     "затем покажи мне, что именно изменится (новые версии, миграции данных), "
-    "и ТОЛЬКО после моего «да» применяй обновление, миграцию и пересборку "
-    "дашборда. После — проверь, что всё работает, и отчитайся."
+    "и ТОЛЬКО после моего «да» применяй обновление и миграции, пересобери "
+    "дашборд, проверь, что всё работает, и отчитайся. Если миграция требует "
+    "пошагового применения — веди её по одной."
 )
 
 # Computed once per process (generate renders ~20 pages → one git check, not 20).

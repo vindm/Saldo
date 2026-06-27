@@ -23,5 +23,9 @@
     "contracts_edo": null
   },
   "accounting_system": "1C",
-  "business_description": "Fabricated example client on USN. No real data."
+  "business_description": "Fabricated example client on USN. No real data.",
+  "client_facing": {
+    "summary": "Sole proprietor on the simplified regime (USN, income minus expenses, 15%), metal fabrication, since 2021.",
+    "turnover_scope": "by the main settlement account"
+  }
 }

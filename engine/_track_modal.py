@@ -90,27 +90,74 @@ _TS_RU_LOC = {
 def _ts_ru_loc_json():
     return json.dumps(_TS_RU_LOC, ensure_ascii=False) if LOCALE == 'ru' else '{}'
 
-# type_specific keys that are internal plumbing — never shown in the modal.
+# type_specific keys the generic Details rail skips — internal plumbing, or rendered
+# by a dedicated modal section (payroll_lines/totals).
 INTERNAL_TS_KEYS = ['no_auto_resolve', 'id_slug_note', 'exclude', 'feeds',
-                    'resolved_value', 'resolves_when']
+                    'resolved_value', 'resolves_when',
+                    # the entity-linking reference list (structural, read by derivations):
+                    'refs',
+                    # rendered by a DEDICATED modal section, not the generic KV rail:
+                    'payroll_lines', 'totals', 'review', '_summary']
 
 def _ts_internal_json():
     return json.dumps(INTERNAL_TS_KEYS)
 
+def _pay_l10n_json():
+    # Locale-correct labels for the payroll-run table (injected like TS_RU_LOC).
+    return json.dumps({
+        'emp': t('Employee'), 'gross': t('Gross'), 'net': t('Net'),
+        'check': t('Check'), 'total': t('Total'), 'reconciled': t('reconciled'),
+        'review': t('to review'), 'mismatch': t('mismatch'), 'allOk': t('all reconciled'),
+        'newL': t('new'), 'thr': t('incl. THR'), 'lines': t('lines'), 'changes': t('changes'),
+        'okL': t('parity-ok'), 'socgap': t('social-gap'),
+    }, ensure_ascii=False)
+
 TRACK_MODAL_CSS = """
+.tm-pay-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:4px}
+.tm-pay-table th{text-align:left;color:var(--muted,#6b7280);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:7px 9px;border-bottom:1px solid var(--line,#e8eaf0)}
+.tm-pay-table th.num,.tm-pay-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tm-pay-table td{padding:9px 9px;border-bottom:1px solid var(--line,#e8eaf0)}
+.tm-pay-table tbody tr.warn td:first-child{box-shadow:inset 3px 0 0 var(--accent-yellow)}
+.tm-pay-pill{font-size:11.5px;padding:2px 8px;border-radius:9px;white-space:nowrap}
+.tm-pay-ok{background:var(--green-bg);color:var(--accent-green)}
+.tm-pay-bad{background:var(--red-bg);color:var(--accent-red)}
+.tm-pay-warn{background:var(--yellow-bg);color:var(--accent-yellow)}
+.tm-pay-name{font-weight:600;font-size:14px}
+.tm-pay-delta{font-size:12.5px;color:var(--muted,#8A909C);font-weight:500;margin-left:7px}
+.tm-pay-kasrow{display:inline-flex;gap:10px;flex-wrap:wrap}
+.tm-pay-kas{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text-secondary,#565B66)}
+.tm-pay-kas i{width:7px;height:7px;border-radius:50%;background:var(--accent-green,#3E8E5E)}
+.tm-pay-kas.off{color:var(--muted,#8A909C)}
+.tm-pay-kas.off i{background:var(--border-strong,#D8DCE2)}
+.tm-band-gap{color:var(--accent-yellow,#A8782B);font-weight:600}
+.tm-band-flag{display:inline-flex;align-items:center;gap:5px;color:var(--accent-red,#C24A3D);font-weight:600}
+.tm-band-flag i{width:6px;height:6px;border-radius:50%;background:var(--accent-red,#C24A3D)}
+.tm-pay-sub{font-size:12px;color:var(--muted,#6b7280);margin-top:2px;display:flex;align-items:center;gap:5px}
+.tm-pay-tag{font-size:10.5px;padding:1px 6px;border-radius:8px;background:var(--accent-soft,#eef0fb);color:var(--accent-text,#1F4E79);margin-left:4px}
+.tm-pay-foot td{font-weight:700;border-top:2px solid var(--line,#e8eaf0);border-bottom:0;font-variant-numeric:tabular-nums;font-size:14px}
+.tm-pay-recon{font-size:13px;margin-top:8px}
+.tm-pay-band{display:flex;flex-wrap:wrap;gap:7px;align-items:center;background:#fafbff;border:1px solid var(--line,#e8eaf0);border-radius:8px;padding:9px 12px;margin-bottom:11px;font-size:13px;color:var(--muted,#6b7280)}
+.tm-band-i b{color:var(--accent-text,#1F4E79)}
+.tm-band-sep{width:1px;height:14px;background:var(--line,#e8eaf0)}
+.tm-pay-neutral{background:#eef0f3;color:var(--muted,#6b7280)}
+.tm-pay-sub2{font-size:11.5px;color:var(--muted,#6b7280);margin-top:1px}
 .track-modal{position:fixed;inset:0;background:rgba(18,18,28,0.34);z-index:9999;
   display:none;align-items:center;justify-content:center;padding:var(--space-lg);
   -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .track-modal.open{display:flex;animation:tm-fade 140ms ease}
 @keyframes tm-fade{from{opacity:0}to{opacity:1}}
 .track-modal-box{background:var(--bg-card);border-radius:16px;border:1px solid var(--border);
-  max-width:1080px;width:100%;max-height:90vh;overflow-y:auto;
+  max-width:780px;width:100%;max-height:90vh;overflow-y:auto;
   box-shadow:0 24px 64px -16px rgba(16,16,26,0.30),0 4px 12px rgba(16,16,26,0.06);
   padding:38px 44px 0;position:relative;animation:tm-rise 160ms cubic-bezier(.2,.7,.3,1)}
+/* payroll-run tracks carry a wide multi-column table — give the box room */
+.track-modal-box.tm-wide{max-width:1040px}
 @keyframes tm-rise{from{transform:translateY(8px);opacity:.6}to{transform:translateY(0);opacity:1}}
 
 /* Two-column: solving content on the left, properties rail on the right (Linear) */
-.tm-grid{display:grid;grid-template-columns:minmax(0,1fr) 256px;gap:52px;align-items:stretch}
+.tm-grid{display:block}
+.tm-section.tm-section-secondary{margin:28px 0 0;padding-top:22px;border-top:1px solid var(--border)}
+.tm-section.tm-section-secondary .tm-section-label{color:var(--text-muted);margin-bottom:14px}
 .tm-main{min-width:0}
 .tm-aside{border-left:1px solid var(--border);padding-left:32px;padding-bottom:30px;min-width:0}
 .tm-aside-h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;
@@ -152,7 +199,7 @@ TRACK_MODAL_CSS = """
 .tm-bc-badge.bc-green{background:var(--green-bg);color:#3B5E2A}
 .tm-bc-badge.bc-grey{background:var(--bg-page);color:var(--text-secondary)}
 
-.tm-title{font-size:23px;font-weight:600;margin:2px 0 20px;color:var(--text-primary);
+.tm-title{font-size:23px;font-weight:600;margin:2px 0 14px;color:var(--text-primary);
   padding-right:40px;line-height:1.28;letter-spacing:-0.02em}
 .tm-section{margin:22px 0;padding:0}
 .tm-section-label{font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em;
@@ -179,7 +226,7 @@ TRACK_MODAL_CSS = """
 /* The button system itself (.tm-btn + size/colour modifiers) is defined ONCE
    in _css.py. Do not redefine it here — only modal-scoped tweaks belong below. */
 .tm-actions-secondary .tm-btn{opacity:0.9}
-.tm-meta-row{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.tm-meta-row{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 24px}
 .tm-meta-chip{font-size:12.5px;padding:4px 11px;border-radius:7px;background:var(--bg-page);
   color:var(--text-secondary);font-weight:500;border:1px solid var(--border);
   display:inline-flex;align-items:center;gap:5px;line-height:1.3}
@@ -206,10 +253,10 @@ TRACK_MODAL_CSS = """
 .tm-dep-link .dep-id{font-size:14px;color:var(--text-muted);font-family:var(--font-mono,monospace);
   margin-left:8px}
 
-.tm-typespecific-grid{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:14px;
-  line-height:1.6}
+.tm-typespecific-grid{display:grid;grid-template-columns:minmax(140px,max-content) 1fr;
+  gap:11px 28px;font-size:13px;line-height:1.45}
 .tm-typespecific-key{color:var(--text-muted);font-weight:500}
-.tm-typespecific-val{color:var(--text-primary)}
+.tm-typespecific-val{color:var(--text-secondary)}
 .tm-tscontent-item{margin-bottom:10px}
 .tm-tscontent-k{font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}
 .tm-tscontent-v{font-size:15px;line-height:1.55;color:var(--text-primary);white-space:pre-wrap}
@@ -274,6 +321,7 @@ _TRACK_MODAL_HTML_TEMPLATE = """
     <div class="tm-grid">
       <div class="tm-main">
         <h2 class="tm-title" id="tm-title"></h2>
+        <div class="tm-meta-row" id="tm-meta-row" style="display:none"></div>
         <div class="tm-section" id="tm-context-section" style="display:none">
           <div class="tm-section-label">__CONTEXT__</div>
           <div class="tm-section-body" id="tm-context-body"></div>
@@ -294,6 +342,10 @@ _TRACK_MODAL_HTML_TEMPLATE = """
           <div class="tm-section-label">__NEXT_ACTION__</div>
           <div class="tm-next-action" id="tm-next-body"></div>
         </div>
+        <div class="tm-section" id="tm-payroll-section" style="display:none">
+          <div class="tm-section-label">__PAYROLL_RUN__</div>
+          <div class="tm-section-body" id="tm-payroll-body"></div>
+        </div>
         <div class="tm-section" id="tm-tscontent-section" style="display:none">
           <div class="tm-section-label">__DETAILS_CONTENT__</div>
           <div class="tm-section-body" id="tm-tscontent-body"></div>
@@ -310,6 +362,10 @@ _TRACK_MODAL_HTML_TEMPLATE = """
           <div class="tm-section-label">__REPLY_DRAFT__</div>
           <div class="tm-reply-draft" id="tm-reply-body"></div>
         </div>
+        <div class="tm-section tm-section-secondary" id="tm-typespecific-section" style="display:none">
+          <div class="tm-section-label">__DETAILS__</div>
+          <div class="tm-section-body" id="tm-typespecific-body"></div>
+        </div>
         <div class="tm-actions">
           <div class="tm-actions-assist" id="tm-assist-btns"></div>
           <div class="tm-actions-generic">
@@ -318,14 +374,6 @@ _TRACK_MODAL_HTML_TEMPLATE = """
         </div>
         <div class="tm-action-status" id="tm-action-status"></div>
       </div>
-      <aside class="tm-aside">
-        <div class="tm-aside-h">__PROPERTIES__</div>
-        <div class="tm-meta-row" id="tm-meta-row" style="display:none"></div>
-        <div class="tm-section" id="tm-typespecific-section" style="display:none">
-          <div class="tm-section-label">__DETAILS__</div>
-          <div class="tm-section-body" id="tm-typespecific-body"></div>
-        </div>
-      </aside>
     </div>
 
   </div>
@@ -343,6 +391,7 @@ TRACK_MODAL_HTML = (
     .replace('__BLOCKS__', t('🔓 Blocks'))
     .replace('__DETAILS__', t('📑 Details'))
     .replace('__DETAILS_CONTENT__', t('📋 Particulars'))
+    .replace('__PAYROLL_RUN__', t('👥 Payroll run'))
     .replace('__COMMENTS__', t('💬 Comments'))
     .replace('__REPLY_DRAFT__', t('💬 Draft reply to client'))
     .replace('__BREAK_DOWN__', t('🔍 Break down'))
@@ -456,8 +505,9 @@ TRACK_MODAL_JS = r"""
     // Breadcrumb: client link only (track's parent)
     var clientName = currentTrack.clientName;
     if(!clientName){
-      // fallback: client name from the page h1
-      var h1 = document.querySelector('.client-head h1');
+      // fallback: client name from the page header (client's own dashboard —
+      // cards there carry client_id but no client_name)
+      var h1 = document.querySelector('.client-topbar h1') || document.querySelector('h1');
       if(h1){
         var clone = h1.cloneNode(true);
         // strip child spans (h-dot, badge) — keep clean text
@@ -572,6 +622,18 @@ TRACK_MODAL_JS = r"""
     if(currentTrack.taskType && currentTrack.taskType !== '·'){
       metaChips.push('<span class="tm-meta-chip">' + esc(currentTrack.taskType) + '</span>');
     }
+    // Period — surfaced as a header chip (moved out of the Details rail)
+    try {
+      var _tsP = JSON.parse(currentTrack.typeSpecificJson || '{}');
+      if(_tsP.period){
+        var _pv = String(_tsP.period), _pl = _pv;
+        var _pm = /^(\d{4})-(\d{2})$/.exec(_pv);
+        var _MO = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+        if(_pm){ var _mi = parseInt(_pm[2],10); if(_mi>=1 && _mi<=12) _pl = _MO[_mi-1] + ' ' + _pm[1]; }
+        else { var _pq = /^(\d{4})-Q([1-4])$/i.exec(_pv); if(_pq) _pl = 'Q' + _pq[2] + ' ' + _pq[1]; }
+        metaChips.push('<span class="tm-meta-chip">' + esc(_pl) + '</span>');
+      }
+    } catch(e){}
     if(currentTrack.due){
       // THE shared due badge (.due-badge) — same chip as the hero and the plan
       var _d = String(currentTrack.due).toLowerCase(), dueCls = 'far';
@@ -633,6 +695,61 @@ TRACK_MODAL_JS = r"""
     try {
       var ts = JSON.parse(currentTrack.typeSpecificJson);
       var keys = Object.keys(ts || {});
+        // Payroll run — render type_specific.payroll_lines as a table (entity-linking: the
+        // per-employee calc rides the payroll task). Labels are locale-injected via PL.
+        (function(){
+          var elPaySec = document.getElementById('tm-payroll-section');
+          var elPayBody = document.getElementById('tm-payroll-body');
+          if(!elPaySec || !elPayBody) return;
+          var _box = elPaySec.closest('.track-modal-box');
+          if(_box) _box.classList.remove('tm-wide');
+          var pl = ts.payroll_lines;
+          if(!Array.isArray(pl) || !pl.length){ elPaySec.style.display='none'; return; }
+          var PL = __PAY_L10N_JSON__;
+          function n(v){ return (v==null?0:v).toLocaleString('ru-RU'); }
+          // BPJS coverage — calm dot + label, no per-row yellow (the aggregate gap
+          // lives once in the band). Posted = green dot, absent = muted dot.
+          function kas(lbl, kc){
+            var posted = kc && ((kc.employee||0)||(kc.employer||0));
+            return '<span class="tm-pay-kas'+(posted?'':' off')+'"><i></i>'+lbl+'</span>';
+          }
+          // header band (review cockpit roll-up)
+          var sm = ts._summary, band='';
+          if(sm){
+            var bp=['<span class="tm-band-i"><b>'+sm.n+'</b> '+PL.lines+'</span>',
+                    '<span class="tm-band-sep"></span><span class="tm-band-i">\u03A3 PPh <b>'+n(sm.sum_pph)+'</b></span>'];
+            if(sm.period_pph!=null) bp.push('<span class="tm-band-sep"></span><span class="tm-band-i">Предшественник <b>'+n(sm.period_pph)+'</b></span>');
+            if(sm.gap) bp.push('<span class="tm-band-sep"></span><span class="tm-band-gap">\u2212'+n(Math.abs(sm.gap))+(sm.thr?' \u00B7 THR':'')+'</span>');
+            if(sm.bpjs_gap) bp.push('<span class="tm-band-sep"></span><span class="tm-band-flag"><i></i>'+PL.socgap+'</span>');
+            band='<div class="tm-pay-band">'+bp.join('')+'</div>';
+          }
+          var sumPph=0, sumNet=0;
+          var rows = pl.map(function(l){
+            sumPph += (l.pph||0); sumNet += (l.net||0);
+            var rv=l._review||{}, b=(l.bpjs||{});
+            var dch='';
+            if(rv.is_new) dch=' <span class="tm-pay-delta">'+PL.newL+'</span>';
+            else if(rv.delta){ dch=' <span class="tm-pay-delta">'+(rv.delta>0?'+':'\u2212')+n(Math.abs(rv.delta))+'</span>'; }
+            var thrsub = l.thr ? '<div class="tm-pay-sub2">'+PL.thr+' '+n(l.thr)+'</div>' : '';
+            var flagged = rv.flag;
+            var sv = flagged ? '<span class="tm-pay-pill tm-pay-warn">'+PL.review+'</span>' : '';
+            return '<tr><td>'+
+              '<div class="tm-pay-name">'+esc(l.name||l.employee_id||'?')+dch+'</div>'+
+              '<div class="tm-pay-sub">'+(l.position?esc(l.position):'')+
+              (l.method?'<span class="tm-pay-tag">'+esc(l.method)+'</span>':'')+'</div></td>'+
+              '<td class="num">'+n(l.gross)+thrsub+'</td><td class="num">'+n(l.pph)+'</td>'+
+              '<td><span class="tm-pay-kasrow">'+kas('Kes',b.kesehatan)+kas('Ket',b.ketenagakerjaan)+'</span></td>'+
+              '<td class="num">'+n(l.net)+'</td><td>'+sv+'</td></tr>';
+          }).join('');
+          var tot = ts.totals||{};
+          var foot = '<tr class="tm-pay-foot"><td>'+PL.total+' ('+pl.length+')</td><td></td><td class="num">'+
+            n(tot.pph!=null?tot.pph:sumPph)+'</td><td></td><td class="num">'+n(tot.net!=null?tot.net:sumNet)+'</td><td></td></tr>';
+          elPayBody.innerHTML = band+'<table class="tm-pay-table"><thead><tr><th>'+PL.emp+'</th><th class="num">'+PL.gross+'</th>'+
+            '<th class="num">PPh</th><th>BPJS</th><th class="num">'+PL.net+'</th><th>'+PL.check+'</th></tr></thead><tbody>'+
+            rows+'</tbody><tfoot>'+foot+'</tfoot></table>';
+          if(_box) _box.classList.add('tm-wide');
+          elPaySec.style.display='';
+        })();
       if(keys.length){
         var TS_RU = {
           amount: 'Amount', amount_estimated: 'Amount (estimate)', kbk: 'KBK',
@@ -679,13 +796,31 @@ TRACK_MODAL_JS = r"""
           }
           return false;
         }
+        // Humanize machine values for the Properties block: period strings
+        // (YYYY-MM / YYYY-Qn) render as readable RU; a small curated gloss covers
+        // the common machine enums; anything unknown falls back to the raw value.
+        var _MONTHS_RU=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+        var _TS_VAL={
+          'monthly_in_correction_window_01_07':'ежемесячно · окно корректировки 01–07',
+          'ausn_critical':'АУСН · критично'
+        };
+        function _periodHuman(s){
+          var m=/^(\d{4})-(\d{2})$/.exec(s);
+          if(m){ var mo=parseInt(m[2],10); if(mo>=1&&mo<=12) return _MONTHS_RU[mo-1]+' '+m[1]; }
+          var q=/^(\d{4})-Q([1-4])$/i.exec(s);
+          if(q) return 'Q'+q[2]+' '+q[1];
+          return null;
+        }
         function _tsFmt(v){
           if(Array.isArray(v)) return v.join(', ');
           if(typeof v === 'number') return v.toLocaleString('ru-RU');
-          return String(v);
+          var s=String(v);
+          if(_TS_VAL[s]) return _TS_VAL[s];
+          var ph=_periodHuman(s); if(ph) return ph;
+          return s;
         }
         var propRows = [], contentRows = [];
-        keys.filter(function(k){return ts[k] !== null && ts[k] !== '' && TS_INTERNAL.indexOf(k) < 0;}).forEach(function(k){
+        keys.filter(function(k){return ts[k] !== null && ts[k] !== '' && TS_INTERNAL.indexOf(k) < 0 && ['payroll_lines','totals','review','period'].indexOf(k) < 0;}).forEach(function(k){
           var label = TS_RU_LOC[k] || TS_RU[k] || k.replace(/_/g,' ');
           var val = ts[k];
           if(_tsIsContent(val)){
@@ -825,6 +960,7 @@ TRACK_MODAL_JS = (
     .replace('__AUTO__', t('auto'))
     .replace('__TS_RU_LOC_JSON__', _ts_ru_loc_json())
     .replace('__TS_INTERNAL_JSON__', _ts_internal_json())
+    .replace('__PAY_L10N_JSON__', _pay_l10n_json())
     # Context labels — pure facts, no instruction verbs (the runtime's standing
     # procedure lives in policies/INSTRUCTIONS.md, not in the copied prompt).
     .replace('__DISC_PRE__', _loc('Task: "', 'Задача: «'))

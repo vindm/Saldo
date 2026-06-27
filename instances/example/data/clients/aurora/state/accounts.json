@@ -30,25 +30,56 @@
   "quick_access": [
     {
       "service": "bank",
-      "label": "Example Bank",
-      "icon": "building-bank",
-      "url": "https://bank.example/login",
-      "login": null,
+      "label": "Internet bank — T-Bank Business",
+      "cred_status": "connected",
+      "url": "https://www.tbank.ru/business/",
+      "login": "aurora-buh",
       "password": null,
-      "cred_status": "na",
-      "status": "active",
       "note": "Sample."
     },
     {
       "service": "fns",
-      "label": "Tax office portal",
-      "icon": "building-estate",
-      "url": "https://tax.example/lk",
+      "label": "FNS taxpayer cabinet (ИП)",
+      "cred_status": "connected",
+      "url": "https://lkip2.nalog.ru/",
       "login": null,
       "password": null,
-      "cred_status": "na",
-      "status": "active",
       "note": "Sample."
+    },
+    {
+      "service": "ofd",
+      "label": "OFD — fiscal data operator",
+      "cred_status": "missing",
+      "url": "https://ofd.ru/"
+    },
+    {
+      "service": "prodamus",
+      "label": "Acquiring — Prodamus",
+      "cred_status": "unknown",
+      "url": "https://prodamus.ru/"
+    },
+    {
+      "service": "1c",
+      "label": "1C:Fresh accounting base",
+      "cred_status": "connected",
+      "url": "https://1cfresh.com/"
+    },
+    {
+      "service": "finkoper",
+      "label": "Finkoper — practice workspace",
+      "cred_status": "connected",
+      "url": "https://finkoper.com/"
+    },
+    {
+      "service": "rosstat",
+      "label": "Rosstat reporting portal",
+      "cred_status": "missing",
+      "url": "https://websbor.gks.ru/"
+    },
+    {
+      "service": "tg",
+      "label": "Telegram — document exchange",
+      "url": "https://t.me/aurora_bakery_docs"
     }
   ]
 }

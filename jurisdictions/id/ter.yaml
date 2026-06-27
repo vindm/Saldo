@@ -1,0 +1,190 @@
+# ID jurisdiction — PPh 21 computation data (TER + PTKP + annual scale).
+#
+# Pack DATA the runtime reads to compute monthly PPh 21 from gross — there is NO Python
+# calculator; the runtime applies these tables per `checklists/payroll-pph21-bpjs.md §E`.
+#
+# Provenance: PP 58/2023 + PMK 168/2023 (TER effective from 2024-01-01); Pasal 17 UU PPh
+# (HPP) progressive scale. **Statutory — verify against the PMK 168/2023 lampiran on the
+# date of use before relying** (rates/thresholds change; the checklist mandates this).
+# Currency IDR. All `up_to` bounds are INCLUSIVE monthly gross; `null` = no upper bound.
+
+# ── PTKP (annual non-taxable income) by status, and the status → TER-category map ────────
+ptkp:
+  # base 54,000,000 (self) + 4,500,000 if married + 4,500,000 per dependent (max 3)
+  amounts:
+    "TK/0": 54000000
+    "TK/1": 58500000
+    "TK/2": 63000000
+    "TK/3": 67500000
+    "K/0":  58500000
+    "K/1":  63000000
+    "K/2":  67500000
+    "K/3":  72000000
+  # which monthly-TER table applies to each PTKP status
+  ter_category:
+    "TK/0": A
+    "TK/1": A
+    "K/0":  A
+    "TK/2": B
+    "TK/3": B
+    "K/1":  B
+    "K/2":  B
+    "K/3":  C
+
+# ── Monthly TER (Tarif Efektif Rata-rata) — applied to gross for Masa Jan–Nov ────────────
+# Pick the first bracket whose `up_to` >= gross; `rate` is a decimal fraction of gross.
+ter_monthly:
+  A:   # PTKP TK/0, TK/1, K/0 — 44 brackets, 0% up to 5,400,000
+    - { up_to: 5400000,    rate: 0 }
+    - { up_to: 5650000,    rate: 0.0025 }
+    - { up_to: 5950000,    rate: 0.005 }
+    - { up_to: 6300000,    rate: 0.0075 }
+    - { up_to: 6750000,    rate: 0.01 }
+    - { up_to: 7500000,    rate: 0.0125 }
+    - { up_to: 8550000,    rate: 0.015 }
+    - { up_to: 9650000,    rate: 0.0175 }
+    - { up_to: 10050000,   rate: 0.02 }
+    - { up_to: 10350000,   rate: 0.0225 }
+    - { up_to: 10700000,   rate: 0.025 }
+    - { up_to: 11050000,   rate: 0.03 }
+    - { up_to: 11600000,   rate: 0.035 }
+    - { up_to: 12500000,   rate: 0.04 }
+    - { up_to: 13750000,   rate: 0.05 }
+    - { up_to: 15100000,   rate: 0.06 }
+    - { up_to: 16950000,   rate: 0.07 }
+    - { up_to: 19750000,   rate: 0.08 }
+    - { up_to: 24150000,   rate: 0.09 }
+    - { up_to: 26450000,   rate: 0.10 }
+    - { up_to: 28000000,   rate: 0.11 }
+    - { up_to: 30050000,   rate: 0.12 }
+    - { up_to: 32400000,   rate: 0.13 }
+    - { up_to: 35400000,   rate: 0.14 }
+    - { up_to: 39100000,   rate: 0.15 }
+    - { up_to: 43850000,   rate: 0.16 }
+    - { up_to: 47800000,   rate: 0.17 }
+    - { up_to: 51400000,   rate: 0.18 }
+    - { up_to: 56300000,   rate: 0.19 }
+    - { up_to: 62200000,   rate: 0.20 }
+    - { up_to: 68600000,   rate: 0.21 }
+    - { up_to: 77500000,   rate: 0.22 }
+    - { up_to: 89000000,   rate: 0.23 }
+    - { up_to: 103000000,  rate: 0.24 }
+    - { up_to: 125000000,  rate: 0.25 }
+    - { up_to: 157000000,  rate: 0.26 }
+    - { up_to: 206000000,  rate: 0.27 }
+    - { up_to: 337000000,  rate: 0.28 }
+    - { up_to: 454000000,  rate: 0.29 }
+    - { up_to: 550000000,  rate: 0.30 }
+    - { up_to: 695000000,  rate: 0.31 }
+    - { up_to: 910000000,  rate: 0.32 }
+    - { up_to: 1400000000, rate: 0.33 }
+    - { up_to: null,       rate: 0.34 }
+  B:   # PTKP TK/2, TK/3, K/1, K/2 — 0% up to 6,200,000
+    - { up_to: 6200000,    rate: 0 }
+    - { up_to: 6500000,    rate: 0.0025 }
+    - { up_to: 6850000,    rate: 0.005 }
+    - { up_to: 7300000,    rate: 0.0075 }
+    - { up_to: 9200000,    rate: 0.01 }
+    - { up_to: 10750000,   rate: 0.015 }
+    - { up_to: 11250000,   rate: 0.02 }
+    - { up_to: 11600000,   rate: 0.025 }
+    - { up_to: 12600000,   rate: 0.03 }
+    - { up_to: 13600000,   rate: 0.04 }
+    - { up_to: 14950000,   rate: 0.05 }
+    - { up_to: 16400000,   rate: 0.06 }
+    - { up_to: 18450000,   rate: 0.07 }
+    - { up_to: 21850000,   rate: 0.08 }
+    - { up_to: 26000000,   rate: 0.09 }
+    - { up_to: 27700000,   rate: 0.10 }
+    - { up_to: 29350000,   rate: 0.11 }
+    - { up_to: 31450000,   rate: 0.12 }
+    - { up_to: 33950000,   rate: 0.13 }
+    - { up_to: 37100000,   rate: 0.14 }
+    - { up_to: 41100000,   rate: 0.15 }
+    - { up_to: 45800000,   rate: 0.16 }
+    - { up_to: 49500000,   rate: 0.17 }
+    - { up_to: 53800000,   rate: 0.18 }
+    - { up_to: 58500000,   rate: 0.19 }
+    - { up_to: 64000000,   rate: 0.20 }
+    - { up_to: 71000000,   rate: 0.21 }
+    - { up_to: 80000000,   rate: 0.22 }
+    - { up_to: 93000000,   rate: 0.23 }
+    - { up_to: 109000000,  rate: 0.24 }
+    - { up_to: 129000000,  rate: 0.25 }
+    - { up_to: 163000000,  rate: 0.26 }
+    - { up_to: 211000000,  rate: 0.27 }
+    - { up_to: 374000000,  rate: 0.28 }
+    - { up_to: 459000000,  rate: 0.29 }
+    - { up_to: 555000000,  rate: 0.30 }
+    - { up_to: 704000000,  rate: 0.31 }
+    - { up_to: 957000000,  rate: 0.32 }
+    - { up_to: 1405000000, rate: 0.33 }
+    - { up_to: null,       rate: 0.34 }
+  C:   # PTKP K/3 — 0% up to 6,600,000.
+    # NOTE: the secondary source had a non-monotonic row at 9.8–10.95M (printed 2%/1.75%);
+    # encoded monotonically as 1.5% pending PMK 168/2023 lampiran verification. No current
+    # the kirana sample roster is K/3, so this table is low-exposure — verify before use.
+    - { up_to: 6600000,    rate: 0 }
+    - { up_to: 6950000,    rate: 0.0025 }
+    - { up_to: 7350000,    rate: 0.005 }
+    - { up_to: 7800000,    rate: 0.0075 }
+    - { up_to: 8850000,    rate: 0.01 }
+    - { up_to: 9800000,    rate: 0.0125 }
+    - { up_to: 10950000,   rate: 0.015 }   # source-ambiguous band — verify (PMK 168)
+    - { up_to: 11200000,   rate: 0.0175 }
+    - { up_to: 12050000,   rate: 0.02 }
+    - { up_to: 12950000,   rate: 0.03 }
+    - { up_to: 14150000,   rate: 0.04 }
+    - { up_to: 15550000,   rate: 0.05 }
+    - { up_to: 17050000,   rate: 0.06 }
+    - { up_to: 19500000,   rate: 0.07 }
+    - { up_to: 22700000,   rate: 0.08 }
+    - { up_to: 26600000,   rate: 0.09 }
+    - { up_to: 28100000,   rate: 0.10 }
+    - { up_to: 30100000,   rate: 0.11 }
+    - { up_to: 32600000,   rate: 0.12 }
+    - { up_to: 35400000,   rate: 0.13 }
+    - { up_to: 38900000,   rate: 0.14 }
+    - { up_to: 43000000,   rate: 0.15 }
+    - { up_to: 47400000,   rate: 0.16 }
+    - { up_to: 51200000,   rate: 0.17 }
+    - { up_to: 55800000,   rate: 0.18 }
+    - { up_to: 60400000,   rate: 0.19 }
+    - { up_to: 66700000,   rate: 0.20 }
+    - { up_to: 74500000,   rate: 0.21 }
+    - { up_to: 83200000,   rate: 0.22 }
+    - { up_to: 95600000,   rate: 0.23 }
+    - { up_to: 110000000,  rate: 0.24 }
+    - { up_to: 134000000,  rate: 0.25 }
+    - { up_to: 169000000,  rate: 0.26 }
+    - { up_to: 221000000,  rate: 0.27 }
+    - { up_to: 390000000,  rate: 0.28 }
+    - { up_to: 463000000,  rate: 0.29 }
+    - { up_to: 561000000,  rate: 0.30 }
+    - { up_to: 709000000,  rate: 0.31 }
+    - { up_to: 965000000,  rate: 0.32 }
+    - { up_to: 1419000000, rate: 0.33 }
+    - { up_to: null,       rate: 0.34 }
+
+# ── Daily TER — for non-permanent daily/weekly/piece workers ─────────────────────────────
+ter_daily:
+  - { up_to: 450000,  rate: 0 }
+  - { up_to: 2500000, rate: 0.005 }
+
+# ── December / final-masa annual true-up — Pasal 17 (1)(a) UU PPh (HPP) progressive ──────
+# Masa Desember: PPh21_year = Pasal17(PKP); PKP = annual_gross − biaya_jabatan − annual PTKP;
+# December withholding = PPh21_year − sum(Jan..Nov monthly TER).
+annual_scale:
+  biaya_jabatan:            # deductible "occupational cost"
+    rate: 0.05
+    annual_cap: 6000000     # 500,000 / month
+  brackets:                 # progressive on annual PKP
+    - { up_to: 60000000,   rate: 0.05 }
+    - { up_to: 250000000,  rate: 0.15 }
+    - { up_to: 500000000,  rate: 0.25 }
+    - { up_to: 5000000000, rate: 0.30 }
+    - { up_to: null,       rate: 0.35 }
+
+# Non-resident (tax_residency=non_id): NOT TER — flat PPh 26 20% of gross, no PTKP.
+pph26:
+  rate: 0.20
