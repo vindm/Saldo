@@ -85,6 +85,24 @@ the one work item the sweep may close (per `question_resolver`). A question whos
 person holds is `needs_operator`/`needs_client` (surfaced or batched), never fetched. The sweep
 checks and advances questions on the same cycle as every other task — they are not a side channel.
 
+**The `track_close` gate does NOT apply to open questions.** «A daemon never closes a track» is the
+rule for **work threads** (payments, filings, client-promised work). An **answered `open_question`
+is the explicit exception** — closing it is acquisition hygiene, not a work-thread close. Never cite
+the `track_close` / §D prohibition as the reason an open question stayed open: if its answer is
+reachable, the sweep answers it and closes it. An open question that hangs «because the safety rule
+forbids closing tracks» is a **reasoning bug**, not correct behaviour.
+
+**`no_auto_resolve` is a re-evaluatable HINT, not a permanent lock.** It marks a question whose
+answer was, at authoring time, external/narrative with no single state field to watch — so the
+resolver should not waste a pass guessing. But situations change: a `no_auto_resolve` question can
+become **objectively resolvable** — its hypothesis/`next_action` now names a concrete state check
+(«есть ли счёт X в `accounts.json`», «deprecated card → moot»). **Every sweep re-evaluates the
+flag:** if the question is now answerable from reachable state, **clear the stale `no_auto_resolve`,
+acquire the answer, and close** (the allowed open-question auto-close). Honor the flag only while the
+answer genuinely stays person-held/narrative. A stale `no_auto_resolve` hiding a resolvable question
+is exactly the failure this prevents — the runtime must not rationalise it as «structurally cannot
+close».
+
 ## Recompute triggers — on-signal AND a sweep
 
 The edge is recomputed (a) **inline on every state update** (mm_update, when a signal is folded
@@ -100,7 +118,7 @@ in — the existing path), and (b) by a periodic **sweep** over the nearest acti
 surface in the overview **«🔄 Недавно обновили»** (and an answered-question close in
 **«✅ Недавно закрыли»**, both now always-on). `needs_operator` tasks are just the normal tracks
 on the Plan — the filter `resolution_mode == needs_operator` **is** the "unblock queue", and
-`assist.confidence` shows as a chip on the row. The **execution log = the existing recent-zones
+`assist.confidence` is an **internal routing signal only** — it is NOT rendered on the operator surface (a self-confidence score answers no question Mom has; the row carries `assist.hypothesis`/`next_action` instead). The **execution log = the existing recent-zones
 + `history.jsonl`**; the trust-ledger is the **provenance marker** (`auto` / `source` / `by`) on
 entries that already exist. Nothing new is drawn.
 

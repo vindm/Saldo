@@ -786,23 +786,12 @@ def _build_modal_attrs(tr):
     return _re.sub(r'\s*data-track-type="[^"]*"', '', attrs)
 
 
-def _confidence_chip(tr):
-    """Muted assist.confidence chip (высокая/средняя/низкая) for a track row."""
-    a = tr.get('assist') or (tr.get('_full_track') or {}).get('assist') or {}
-    c = (a.get('confidence') or '').lower()
-    if c not in ('high', 'medium', 'low'):
-        return ''
-    lab = {'high': tp('high', 'высокая'), 'medium': tp('medium', 'средняя'),
-           'low': tp('low', 'низкая')}[c]
-    return ' <span class="conf-chip conf-' + c + '">' + _esc(lab) + '</span>'
-
-
 def _track_event_row(tr):
     """A track rendered as the shared event row (clickable -> track modal)."""
     cn = tr.get('client_name') or ''
     cn_short = cn.replace('SP ', '') if cn else ''
     title = _esc(_translate_tech_terms(tr.get('title', '') or tr.get('track_id', '')))
-    head = (('<span class="ev-cl">' + _esc(cn_short) + ' · </span>' if cn_short else '') + title + _confidence_chip(tr))
+    head = (('<span class="ev-cl">' + _esc(cn_short) + ' · </span>' if cn_short else '') + title)
     last = _track_last_event(tr)
     detail = _esc(_translate_tech_terms((last.get('event') or '').strip())) if last else ''
     when = ''
@@ -1163,7 +1152,7 @@ def render_overview_v2():
         '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUuNSIgZmlsbD0iIzFGNEU3OSIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjEyLjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0I3OTI1NyIgc3Ryb2tlLXdpZHRoPSIxLjMiLz48dGV4dCB4PSIxNiIgeT0iMTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJjZW50cmFsIiBmb250LWZhbWlseT0iQXJpYWwsSGVsdmV0aWNhLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNmZmZmZmYiPtCY0JI8L3RleHQ+PC9zdmc+">'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
-        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '.conf-chip{display:inline-block;font-size:10px;line-height:1.5;padding:0 6px;border-radius:8px;margin-left:6px;vertical-align:middle;font-weight:600;border:1px solid transparent}.conf-high{background:#e6f4ea;color:#1e7e34;border-color:#bfe3cb}.conf-medium{background:#fdf3e0;color:#946700;border-color:#f0d9a8}.conf-low{background:#f1eff3;color:#6b6470;border-color:#ddd6e0}' + '</style>'
+        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS  + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active='dashboard')

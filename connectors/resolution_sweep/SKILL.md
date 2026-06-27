@@ -84,6 +84,15 @@ focused open-question pass, and the later `resolution_sweep` re-checks the resid
 all other tasks, so a question whose source landed midday is still answered. Same gate, same
 provenance, same anti-spam attempt log.
 
+**Re-evaluate `no_auto_resolve` every pass — it is a hint, not a lock.** A question flagged
+`no_auto_resolve` is normally skipped (its answer was external/narrative). But check each pass
+whether it has become **objectively resolvable** — its hypothesis/`next_action` now points at a
+concrete state check (e.g. «есть ли счёт X в `accounts.json`», a deprecated card → moot). If so,
+**clear the stale flag, do the read, and close** (the allowed open-question auto-close) — do NOT
+leave it hanging and do NOT invent a `track_close` reason: the `track_close`/§D prohibition is for
+**work threads only**, never for an answered open question. Honor the flag only while the answer
+genuinely stays person-held.
+
 ## The Clean gate (the April lesson) — an aggregate does not clear line flags
 
 A passing **total** (payroll PPh parity to the rupiah) does **not** make the close `auto` — and

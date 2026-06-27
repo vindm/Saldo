@@ -29,6 +29,12 @@ only what genuinely needs a person.
   the resolver *after* them means it works **only the residue still open** — it never re-does a
   collector's job and never re-checks an already-solved question. (Running it before the
   collectors, as in the old `03:00` slot, did exactly that double work.)
+- **A `no_auto_resolve` question is a re-evaluatable hint, not a permanent skip.** Normally pass it
+  over (the answer was external/narrative). But re-check each run whether it became objectively
+  resolvable (its hypothesis/`next_action` now names a state check, e.g. «счёт в `accounts.json`»):
+  if so, **clear the stale flag and resolve it** (5a). Never leave a now-answerable question hanging,
+  and never justify it with the `track_close` gate — that gate is for work threads, an answered
+  open question is the allowed close.
 - **Process only `status: active` open questions** whose last attempt isn't already today's
   (the per-question attempt log — see below — makes a same-day re-run a no-op).
 - On demand: the operator says "разбери открытые вопросы / try to close the open questions".
