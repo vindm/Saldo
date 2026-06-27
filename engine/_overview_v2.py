@@ -851,7 +851,7 @@ def collect_recent_track_zones(mm, days=3, closed_days=2, max_show=12):
     return updated_html, closed_html
 
 
-def collect_needs_operator_zone(mm, max_show=20):
+def collect_needs_operator_zone(mm, max_show=20, embedded=False):
     """The unblock queue: active tracks whose edge is `needs_operator`
     (policies/resolution-model.md, render approximation in _track_attrs._resolution_render).
     A filtered VIEW of existing tasks — no new entity. Sorted by due then priority."""
@@ -875,6 +875,27 @@ def collect_needs_operator_zone(mm, max_show=20):
     rows.sort(key=_key)
     body = [_track_event_row(tr) for tr in rows[:max_show]]
     title = tp('🔔 Needs you', '🔔 Требуют вас')
+    if embedded:
+        # Folded into the «Сводка» widget as its single actionable sub-list (one
+        # authoritative "what to do" under the narrative — replaces the deadline
+        # Top-5). Mirrors the brief-top5 sub-block; reuses ev-list + show-more.
+        head = ('<div class="brief-top5-head"><span>' + title
+                + '</span><span class="count">' + str(len(rows)) + '</span></div>')
+        if not body:
+            return ('<div class="brief-top5">' + head
+                    + '<div class="aw-body brief-text">'
+                    + tp('Nothing needs you right now', 'Сейчас ничего не требует вас')
+                    + '</div></div>')
+        show = 5
+        visible = ''.join(body[:show]); hidden = body[show:]
+        more = ''
+        if hidden:
+            more = ('<div class="ev-hidden" style="display:none">' + ''.join(hidden) + '</div>'
+                    '<button type="button" class="ev-more" '
+                    'onclick="var m=this.previousElementSibling;m.style.display=\'block\';this.style.display=\'none\'">'
+                    + tp('show {} more', 'показать ещё {}').format(len(hidden)) + ' ↓</button>')
+        return ('<div class="brief-top5">' + head
+                + '<div class="ev-list">' + visible + more + '</div></div>')
     return (render_event_section(title, body, count=len(rows))
             or render_empty_section(title, tp('Nothing needs you right now',
                                               'Сейчас ничего не требует вас')))
@@ -1058,7 +1079,7 @@ def render_overview_v2():
     # recently CLOSED tracks, grouped by day. Includes changes from daemons AND the
     # operator (daemon-touched tracks float to the top in the morning).
     updated_zone, closed_zone = collect_recent_track_zones(mm)
-    needs_zone = collect_needs_operator_zone(mm)
+    needs_embedded = collect_needs_operator_zone(mm, embedded=True)
     recent_link = ''
     if updated_zone or closed_zone:
         recent_link = (
@@ -1132,7 +1153,7 @@ def render_overview_v2():
     summary_block = (
         '<div class="aw-widget" style="margin-bottom:var(--space-lg)">'
         '<div class="aw-head">' + tp('🧭 Today summary', '🧭 Сводка на сегодня') + '</div>'
-        + _summary_lead + _w['top5'] +
+        + _summary_lead + needs_embedded +
         '</div>'
     )
     title = t("Bookkeeping — ") + _format_date_ru(TODAY)
@@ -1149,7 +1170,6 @@ def render_overview_v2():
         + '<main class="main-content">'
         + head + _w['stats']
         + summary_block
-        + needs_zone
         + questions_zone
         + updated_zone + closed_zone + recent_link
         + _w['activity']
